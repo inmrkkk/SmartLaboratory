@@ -299,8 +299,17 @@ export default function Dashboard() {
 
         // Calculate statistics
         const pendingCount = requests.filter(req => req.status === 'pending').length;
-        // Count items that are actually released (physically borrowed), not just approved
-        const borrowedCount = requests.filter(req => req.status === 'released' || req.status === 'in_progress').length;
+        const getQuantity = (req) => {
+          if (!req) return 1;
+          return Number(req.quantityReleased ?? req.approvedQuantity ?? req.quantity) || 1;
+        };
+        // Count items that are actually released (physically borrowed)
+        const borrowedCount = requests.reduce((sum, req) => {
+          if (req.status === 'released') {
+            return sum + getQuantity(req);
+          }
+          return sum;
+        }, 0);
 
         const overdueCount = requests.filter(req => {
           if (req.dateToReturn && (req.status === 'approved' || req.status === 'released' || req.status === 'in_progress')) {
@@ -340,7 +349,8 @@ export default function Dashboard() {
           // Count requests that were actually borrowed (released, in_progress, or returned)
           if (req.status === 'released' || req.status === 'in_progress' || req.status === 'returned') {
             const itemName = req.itemName || 'Unknown Item';
-            itemData[itemName] = (itemData[itemName] || 0) + 1;
+            const quantity = getQuantity(req);
+            itemData[itemName] = (itemData[itemName] || 0) + quantity;
           }
         });
 
@@ -352,38 +362,51 @@ export default function Dashboard() {
         setBorrowingData(chartData);
         // eslint-disable-next-line react-hooks/exhaustive-deps
 
-        // Calculate adviser vs student borrowing statistics
+        // Calculate adviser vs student borrowing statistics (released items only)
         let adviserBorrowings = 0;
         let studentBorrowings = 0;
         
-        // Helper function to get user role from userId
-        const getUserRoleFromRequest = (userId) => {
-          if (!userId) return null;
-          const user = users.find(u => u.id === userId || u.userId === userId);
-          return user?.role || null;
+        // Helper function to determine borrower role with fallbacks
+        const getBorrowerRole = (request) => {
+          if (!request) return null;
+
+          if (request.userId) {
+            const user = users.find(u => u.id === request.userId || u.userId === request.userId);
+            if (user?.role) return user.role.toLowerCase();
+          }
+
+          const adviserName = request.adviserName?.toLowerCase();
+          const instructorKeywords = ['instructor', 'adviser', 'advisor', 'prof', 'professor', 'teacher', 'sir ', "ma'am", 'maam', 'mr.', 'ms.', 'mrs.'];
+          if (adviserName && instructorKeywords.some(keyword => adviserName.includes(keyword))) {
+            return 'instructor';
+          }
+
+          if (request.roleHint) return request.roleHint.toLowerCase();
+          if (request.borrowerType) return request.borrowerType.toLowerCase();
+
+          return null;
         };
+
+        const facultyRoles = ['admin', 'laboratory_manager', 'instructor', 'adviser', 'advisor', 'faculty', 'teacher'];
         
         requests.forEach(req => {
-          if (['in_progress', 'approved', 'released'].includes(req.status)) {
-            // Use userId to look up the actual user role from the users database
-            const userRole = getUserRoleFromRequest(req.userId);
-            
+          if (req.status === 'released') {
+            const borrowerRole = getBorrowerRole(req);
+            const quantity = getQuantity(req);
             let isFaculty = false;
-            
-            if (userRole) {
-              // Check if role indicates faculty (admin or laboratory_manager are considered faculty)
-              if (userRole === 'admin' || userRole === 'laboratory_manager') {
+
+            if (borrowerRole) {
+              if (facultyRoles.includes(borrowerRole)) {
                 isFaculty = true;
-              } else if (userRole === 'student') {
+              } else if (borrowerRole === 'student') {
                 isFaculty = false;
               }
             }
-            // If no role found, default to student (false)
-            
+
             if (isFaculty) {
-              adviserBorrowings++;
+              adviserBorrowings += quantity;
             } else {
-              studentBorrowings++;
+              studentBorrowings += quantity;
             }
           }
         });
@@ -753,7 +776,7 @@ export default function Dashboard() {
               </div>
               <div className="stat-card-large info">
                 <div className="stat-number">{dashboardStats.borrowedItems}</div>
-                <div className="stat-label">Total Items Borrowed</div>
+                <div className="stat-label">Currently Items Borrowed</div>
                 <div className="stat-icon">📦</div>
               </div>
             </div>
@@ -771,7 +794,7 @@ export default function Dashboard() {
               </div>
               <div className="stat-card-small info">
                 <div className="stat-number">{dashboardStats.borrowedEquipment.toLocaleString()}</div>
-                <div className="stat-label">Currently Borrowed</div>
+                <div className="stat-label">Total Items Borrowed</div>
                 <div className="stat-subtext" style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
                   {dashboardStats.totalEquipment > 0 
                     ? `${Math.round((dashboardStats.borrowedEquipment / dashboardStats.totalEquipment) * 100)}% of total`

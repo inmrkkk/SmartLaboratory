@@ -225,6 +225,30 @@ export default function HistoryPage() {
     }
   };
 
+  const getRequestedQuantity = (entry) => {
+    if (!entry) return 'N/A';
+    return (
+      entry.quantity ??
+      entry.details?.originalRequest?.quantity ??
+      entry.returnDetails?.requestedQuantity ??
+      'N/A'
+    );
+  };
+
+  const getReturnedQuantity = (entry) => {
+    if (!entry) return 'N/A';
+    if (entry.returnDetails?.returnedQuantity !== undefined && entry.returnDetails?.returnedQuantity !== null) {
+      return entry.returnDetails.returnedQuantity;
+    }
+    if (entry.returnQuantity !== undefined && entry.returnQuantity !== null) {
+      return entry.returnQuantity;
+    }
+    if ((entry.status || '').toLowerCase() === 'returned') {
+      return entry.quantity ?? 'N/A';
+    }
+    return 'Not returned yet';
+  };
+
   const handleViewDetails = (entry) => {
     setSelectedEntry(entry);
     setShowDetailsModal(true);
@@ -252,7 +276,6 @@ export default function HistoryPage() {
     // If we have userId, look up the user's role from the users database
     if (userId) {
       const userRole = getUserRole(userId);
-      
       // Check if role indicates faculty (admin or laboratory_manager are considered faculty)
       if (userRole === 'admin' || userRole === 'laboratory_manager') {
         return true; // Faculty
@@ -500,6 +523,14 @@ export default function HistoryPage() {
                     <div className="detail-item">
                       <div className="detail-label">Instructor Name:</div>
                       <div className="detail-value highlight-text">{selectedEntry.adviserName || "Unknown"}</div>
+                    </div>
+                    <div className="detail-item">
+                      <div className="detail-label">Requested Quantity:</div>
+                      <div className="detail-value">{getRequestedQuantity(selectedEntry)}</div>
+                    </div>
+                    <div className="detail-item">
+                      <div className="detail-label">Returned Quantity:</div>
+                      <div className="detail-value">{getReturnedQuantity(selectedEntry)}</div>
                     </div>
                     <div className="detail-item">
                       <div className="detail-label">Status:</div>

@@ -46,6 +46,7 @@ export default function RequestFormsPage() {
     condition: "good",
     delayReason: "",
     notes: "",
+    returnedQuantity: "1",
   });
 
   const statuses = [
@@ -468,6 +469,10 @@ export default function RequestFormsPage() {
         const equipmentId = requestData.itemId || equipment.id;
         const categoryId = requestData.categoryId || equipment.categoryId;
         const requestedQuantity = parseInt(requestData.quantity) || 1;
+        const returnedQuantityValue =
+          returnDetails && newStatus === "returned"
+            ? parseInt(returnDetails.returnedQuantity) || requestedQuantity
+            : requestedQuantity;
 
         const equipmentRef = ref(
           database,
@@ -483,36 +488,47 @@ export default function RequestFormsPage() {
           const totalQuantity = parseInt(currentEquipment.quantity) || 0;
 
           let newBorrowed = currentBorrowed;
+          let updatedQuantity = totalQuantity;
 
-          // Handle quantity_borrowed updates based on status change
-          if (newStatus === "approved" && requestData.status !== "approved") {
-            // Increment on approval (only if not already approved)
-            newBorrowed = currentBorrowed + requestedQuantity;
+          const countedStatuses = ["released"];
+          const wasCounted = countedStatuses.includes(requestData.status);
+          const willBeCounted = countedStatuses.includes(newStatus);
 
-            // Check available quantity before approval
+          // Handle quantity_borrowed updates based on status changes that affect released items
+          if (willBeCounted && !wasCounted) {
+            // Increment when items are actually released
             const availableQuantity = totalQuantity - currentBorrowed;
             if (availableQuantity < requestedQuantity) {
               alert(
-                `Cannot approve: Only ${availableQuantity} available, but ${requestedQuantity} requested.`
+                `Cannot release: Only ${availableQuantity} available, but ${requestedQuantity} requested.`
               );
               return;
             }
-          } else if (
-            newStatus === "rejected" &&
-            requestData.status === "approved"
-          ) {
-            // Decrement on rejection (only if was previously approved)
+            newBorrowed = currentBorrowed + requestedQuantity;
+          } else if (!willBeCounted && wasCounted) {
+            // Decrement when items leave the released state (returned/rejected/etc.)
             newBorrowed = Math.max(0, currentBorrowed - requestedQuantity);
-          } else if (newStatus === "returned") {
-            // Decrement on return
-            newBorrowed = Math.max(0, currentBorrowed - requestedQuantity);
+
+            if (newStatus === "returned") {
+              // If items were not fully returned, reflect the loss in total quantity
+              const shortage = Math.max(0, requestedQuantity - returnedQuantityValue);
+              if (shortage > 0) {
+                updatedQuantity = Math.max(0, totalQuantity - shortage);
+              }
+            }
           }
 
           // Update quantity_borrowed if it changed
+          const equipmentUpdates = {};
           if (newBorrowed !== currentBorrowed) {
-            await update(equipmentRef, {
-              quantity_borrowed: newBorrowed,
-            });
+            equipmentUpdates.quantity_borrowed = newBorrowed;
+          }
+          if (updatedQuantity !== totalQuantity) {
+            equipmentUpdates.quantity = updatedQuantity;
+          }
+
+          if (Object.keys(equipmentUpdates).length > 0) {
+            await update(equipmentRef, equipmentUpdates);
           }
         }
       }
@@ -946,6 +962,7 @@ export default function RequestFormsPage() {
       condition: "good",
       delayReason: "",
       notes: "",
+      returnedQuantity: String(request.quantity || 1),
     });
     setShowReturnModal(true);
   };
@@ -957,6 +974,7 @@ export default function RequestFormsPage() {
       condition: "good",
       delayReason: "",
       notes: "",
+      returnedQuantity: "1",
     });
   };
 
@@ -977,7 +995,15 @@ export default function RequestFormsPage() {
             lab.labName === request.laboratory || lab.labId === request.labId
         );
 
+    const borrowedQuantity = parseInt(request.quantity, 10) || 1;
+    const returnedQuantity = parseInt(returnDetails?.returnedQuantity, 10);
+    const hasInsufficientReturn =
+      Number.isFinite(returnedQuantity) && returnedQuantity < borrowedQuantity;
+
     const conditionText = (() => {
+      if (hasInsufficientReturn) {
+        return "Item borrowed are Insufficient";
+      }
       switch (returnDetails?.condition) {
         case "good":
           return "Returned in good condition";
@@ -1058,10 +1084,32 @@ export default function RequestFormsPage() {
     if (!selectedRequest) return;
 
     try {
+      const requestedQuantity = parseInt(selectedRequest.quantity, 10) || 1;
+      const parsedReturnedQuantity = parseInt(
+        returnFormData.returnedQuantity,
+        10
+      );
+      let adjustedReturnedQuantity = Number.isFinite(parsedReturnedQuantity)
+        ? parsedReturnedQuantity
+        : requestedQuantity;
+
+      adjustedReturnedQuantity = Math.max(
+        1,
+        Math.min(requestedQuantity, adjustedReturnedQuantity)
+      );
+
+      if (adjustedReturnedQuantity !== parsedReturnedQuantity) {
+        setReturnFormData((prev) => ({
+          ...prev,
+          returnedQuantity: String(adjustedReturnedQuantity),
+        }));
+      }
+
       const returnDetails = {
         condition: returnFormData.condition,
         delayReason: returnFormData.delayReason,
         notes: returnFormData.notes,
+        returnedQuantity: adjustedReturnedQuantity,
         processedBy: "Admin", // You can get actual admin name from auth
       };
 
@@ -1542,15 +1590,17 @@ export default function RequestFormsPage() {
                                 ↩️ Back to Approved
                               </button>
                             )}
-                            <button
-                              className="action-btn icon-btn delete-btn"
-                              onClick={() =>
-                                handleDeleteRequest(request.id)
-                              }
-                              title="Delete"
-                            >
-                              🗑️
-                            </button>
+                            {request.status === "rejected" && (
+                              <button
+                                className="action-btn icon-btn delete-btn"
+                                onClick={() =>
+                                  handleDeleteRequest(request.id)
+                                }
+                                title="Delete"
+                              >
+                                🗑️
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1716,13 +1766,15 @@ export default function RequestFormsPage() {
                                 <img src={returnIcon} alt="View" style={{ width: '20px', height: '20px' }} />
                               </button>
                             )}
-                            <button
-                              className="action-btn icon-btn delete-btn"
-                              onClick={() => handleDeleteRequest(request.id)}
-                              title="Delete"
-                            >
-                              <img src={deleteIcon} alt="View" style={{ width: '20px', height: '20px' }} />
-                            </button>
+                            {request.status === "rejected" && (
+                              <button
+                                className="action-btn icon-btn delete-btn"
+                                onClick={() => handleDeleteRequest(request.id)}
+                                title="Delete"
+                              >
+                                <img src={deleteIcon} alt="View" style={{ width: '20px', height: '20px' }} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -2201,6 +2253,28 @@ export default function RequestFormsPage() {
                     Borrower: {getBorrowerName(selectedRequest.userId)}
                   </label>
                   <label>Instructor: {selectedRequest.adviserName}</label>
+                  <label>
+                    Borrowed Quantity: {selectedRequest.quantity || 1}
+                  </label>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="returnedQuantity">Returned Quantity:</label>
+                  <input
+                    id="returnedQuantity"
+                    type="number"
+                    min="1"
+                    max={selectedRequest.quantity || 1}
+                    value={returnFormData.returnedQuantity}
+                    onChange={(e) =>
+                      setReturnFormData((prev) => ({
+                        ...prev,
+                        returnedQuantity: e.target.value,
+                      }))
+                    }
+                    className="form-input"
+                  />
+                  <small>Confirm how many units were returned.</small>
                 </div>
 
                 <div className="form-group">
