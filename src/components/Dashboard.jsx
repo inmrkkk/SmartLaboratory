@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [laboratories, setLaboratories] = useState([]);
   const [users, setUsers] = useState([]);
   const [borrowingTimeFilter, setBorrowingTimeFilter] = useState('all'); // 'all', 'week', 'month'
+  const [totalItemsBorrowedFromHistory, setTotalItemsBorrowedFromHistory] = useState(0);
 
   const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
 
@@ -549,6 +550,32 @@ export default function Dashboard() {
     fetchMaintenanceData();
   }, []);
 
+  useEffect(() => {
+    const historyRef = ref(database, 'history');
+    const unsubscribe = onValue(historyRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const historyData = snapshot.val();
+        const releasedItems = Object.values(historyData).filter(
+          (entry) => entry.status === "Released"
+        );
+        const totalBorrowed = releasedItems.reduce(
+          (sum, entry) =>
+            sum +
+            Number(
+              entry.quantityReleased ||
+                entry.approvedQuantity ||
+                entry.quantity ||
+                1
+            ),
+          0
+        );
+        setTotalItemsBorrowedFromHistory(totalBorrowed);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Helper function to get borrower name from userId
   const getBorrowerName = useCallback((userId) => {
     if (!userId) return "Unknown";
@@ -834,13 +861,8 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="stat-card-small info">
-                <div className="stat-number">{dashboardStats.borrowedEquipment.toLocaleString()}</div>
+                <div className="stat-number">{totalItemsBorrowedFromHistory.toLocaleString()}</div>
                 <div className="stat-label">Total Items Borrowed</div>
-                <div className="stat-subtext" style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                  {dashboardStats.totalEquipment > 0 
-                    ? `${Math.round((dashboardStats.borrowedEquipment / dashboardStats.totalEquipment) * 100)}% of total`
-                    : 'No equipment'}
-                </div>
               </div>
               <div className="stat-card-small">
                 <div className="stat-number">{dashboardStats.totalEquipment.toLocaleString()}</div>
