@@ -9,6 +9,7 @@ export default function NotificationModal({ isOpen, onClose }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, unread, read
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !isLaboratoryManager()) return;
@@ -61,6 +62,31 @@ export default function NotificationModal({ isOpen, onClose }) {
       });
     } catch (error) {
       console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const clearNotifications = async () => {
+    if (isClearing) return;
+    try {
+      setIsClearing(true);
+      const assignedLabIds = getAssignedLaboratoryIds() || [];
+      const updates = {};
+
+      notifications.forEach(notification => {
+        const isForUser = notification.recipientUserId === user.uid;
+        const isForAssignedLab = notification.labId && Array.isArray(assignedLabIds) && assignedLabIds.includes(notification.labId);
+        if (isForUser || isForAssignedLab) {
+          updates[`notifications/${notification.id}`] = null;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await update(ref(database), updates);
+      }
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -148,6 +174,16 @@ export default function NotificationModal({ isOpen, onClose }) {
                 title="Mark all as read"
               >
                 Mark All Read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                className="clear-all-btn"
+                onClick={clearNotifications}
+                disabled={isClearing}
+                title="Clear all notifications"
+              >
+                {isClearing ? 'Clearing…' : 'Clear All'}
               </button>
             )}
             <button 

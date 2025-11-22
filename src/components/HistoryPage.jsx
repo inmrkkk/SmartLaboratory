@@ -450,34 +450,66 @@ export default function HistoryPage() {
             {/* Pagination */}
             <div className="pagination-container">
               <div className="pagination-info">
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredHistory.length)} of {filteredHistory.length} entries
+                Showing <strong>{filteredHistory.length === 0 ? 0 : indexOfFirstItem + 1}</strong> to <strong>{Math.min(indexOfLastItem, filteredHistory.length)}</strong> of <strong>{filteredHistory.length}</strong> entries
               </div>
-              
+
               <div className="pagination-controls">
+                <button
+                  onClick={() => paginate(1)}
+                  disabled={currentPage === 1}
+                  className="pagination-arrow"
+                  aria-label="First page"
+                >
+                  «
+                </button>
                 <button
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="pagination-button"
+                  className="pagination-arrow"
+                  aria-label="Previous page"
                 >
-                  Previous
+                  ‹
                 </button>
-                
-                {[...Array(totalPages)].map((_, index) => (
-                  <button
-                    key={index + 1}
-                    onClick={() => paginate(index + 1)}
-                    className={`pagination-button ${currentPage === index + 1 ? 'active' : ''}`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-                
+
+                <div className="pagination-pages">
+                  {(() => {
+                    const pages = [];
+                    if (totalPages === 0) return pages;
+                    let start = Math.max(1, currentPage - 1);
+                    let end = Math.min(totalPages, start + 2);
+                    if (end - start < 2) {
+                      start = Math.max(1, end - 2);
+                    }
+                    for (let page = start; page <= end; page += 1) {
+                      pages.push(
+                        <button
+                          key={page}
+                          onClick={() => paginate(page)}
+                          className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+                    return pages;
+                  })()}
+                </div>
+
                 <button
                   onClick={() => paginate(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="pagination-button"
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="pagination-arrow"
+                  aria-label="Next page"
                 >
-                  Next
+                  ›
+                </button>
+                <button
+                  onClick={() => paginate(totalPages || 1)}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="pagination-arrow"
+                  aria-label="Last page"
+                >
+                  »
                 </button>
               </div>
             </div>

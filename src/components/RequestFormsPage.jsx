@@ -393,6 +393,8 @@ export default function RequestFormsPage() {
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+  const showingStart = totalItems === 0 ? 0 : startIndex + 1;
+  const showingEnd = totalItems === 0 ? 0 : endIndex;
 
   useEffect(() => {
     // Reset to first page when filters/search/sort change
@@ -410,6 +412,33 @@ export default function RequestFormsPage() {
   const goToPage = (page) => {
     const target = Math.max(1, Math.min(page, totalPages));
     setCurrentPage(target);
+  };
+
+  const renderPaginationPages = () => {
+    const pages = [];
+    if (totalPages === 0) return pages;
+
+    let start = Math.max(1, safeCurrentPage - 1);
+    let end = Math.min(totalPages, start + 2);
+
+    if (end - start < 2) {
+      start = Math.max(1, end - 2);
+    }
+
+    for (let page = start; page <= end; page += 1) {
+      pages.push(
+        <button
+          key={page}
+          onClick={() => goToPage(page)}
+          className={`request-pagination-page${safeCurrentPage === page ? " active" : ""}`}
+          aria-label={`Go to page ${page}`}
+        >
+          {page}
+        </button>
+      );
+    }
+
+    return pages;
   };
 
   const handleStatusUpdate = async (
@@ -1365,7 +1394,7 @@ export default function RequestFormsPage() {
                                   </span>
                                 </div>
                                 {group.requests[0]?.status === "pending" && (
-                                  <div style={{ display: "flex", gap: "8px" }}>
+                                  <div style={{ display: "flex", gap: "6px"  }}>
                                     <button
                                       className="action-btn approve-btn"
                                       onClick={() =>
@@ -1379,7 +1408,7 @@ export default function RequestFormsPage() {
                                         fontSize: "12px",
                                       }}
                                     >
-                                      ✅ Approve Batch
+                                     <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
                                     </button>
                                     <button
                                       className="action-btn reject-btn"
@@ -1394,7 +1423,7 @@ export default function RequestFormsPage() {
                                         fontSize: "12px",
                                       }}
                                     >
-                                      ❌ Reject Batch
+                                      <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
                                     </button>
                                   </div>
                                 )}
@@ -1495,7 +1524,8 @@ export default function RequestFormsPage() {
                                   onClick={() => handleViewDetails(request)}
                                   title="View Details"
                                 >
-                                  👁️ View
+                                  <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+                                  
                                 </button>
                                 {request.status === "pending" && (
                                   <>
@@ -1509,7 +1539,8 @@ export default function RequestFormsPage() {
                                       }
                                       title="Approve"
                                     >
-                                      ✅
+                                      <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
+                                    
                                     </button>
                                     <button
                                       className="action-btn icon-btn reject-btn"
@@ -1521,7 +1552,7 @@ export default function RequestFormsPage() {
                                       }
                                       title="Reject"
                                     >
-                                      ❌
+                                      <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
                                     </button>
                                   </>
                                 )}
@@ -1533,7 +1564,7 @@ export default function RequestFormsPage() {
                                     }
                                     title="Release Item"
                                   >
-                                    🚀 Release
+                                    <img src={releaseIcon} alt="Release" style={{ width: '18px', height: '18px' }} />
                                   </button>
                                 )}
                                 {(request.status === "released" ||
@@ -1543,18 +1574,19 @@ export default function RequestFormsPage() {
                                     onClick={() => openReturnModal(request)}
                                     title="Process Return"
                                   >
-                                    📦
+                                    <img src={returnIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
                                   </button>
                                 )}
                             {request.status === "rejected" && (
                               <button
-                                className="action-btn icon-btn approve-btn"
-                                onClick={() =>
-                                  handleStatusUpdate(request.id, "approved")
-                                }
-                                title="Back to Approved"
+                              className="action-btn icon-btn approve-btn"
+                              onClick={() =>
+                                handleStatusUpdate(request.id, "approved")
+                              }
+                              title="Back to Approved"
                               >
-                                ↩️ Back to Approved
+                                {/* ↩️ Back to Approved */}
+                              <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
                               </button>
                             )}
                             {request.status === "rejected" && (
@@ -1565,7 +1597,7 @@ export default function RequestFormsPage() {
                                 }
                                 title="Delete"
                               >
-                                🗑️
+                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
                               </button>
                             )}
                           </div>
@@ -1750,57 +1782,68 @@ export default function RequestFormsPage() {
             </table>
 
             {/* Pagination Controls */}
-            <div
-              className="pagination-controls"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: "12px",
-                gap: "12px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div className="pagination-info">
-                Showing {totalItems === 0 ? 0 : startIndex + 1}-{endIndex} of{" "}
-                {totalItems}
-              </div>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                <button
-                  className="action-button"
-                  onClick={() => goToPage(safeCurrentPage - 1)}
-                  disabled={safeCurrentPage <= 1}
-                  title="Previous page"
-                >
-                  ← Prev
-                </button>
-                <span>
-                  Page {safeCurrentPage} of {totalPages}
-                </span>
-                <button
-                  className="action-button"
-                  onClick={() => goToPage(safeCurrentPage + 1)}
-                  disabled={safeCurrentPage >= totalPages}
-                  title="Next page"
-                >
-                  Next →
-                </button>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="filter-select"
-                  title="Rows per page"
-                >
-                  <option value={5}>5 / page</option>
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                </select>
+            <div className="request-pagination">
+              <div className="request-pagination-card">
+                <div className="request-pagination-info">
+                  Showing <strong>{showingStart}</strong> to <strong>{showingEnd}</strong> of <strong>{totalItems}</strong> requests
+                </div>
+                <div className="request-pagination-controls">
+                  <div className="request-pagination-size">
+                    <span>Rows</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      aria-label="Rows per page"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                  <div className="request-pagination-buttons">
+                    <button
+                      className="request-pagination-arrow"
+                      onClick={() => goToPage(1)}
+                      disabled={safeCurrentPage === 1 || totalItems === 0}
+                      aria-label="First page"
+                    >
+                      «
+                    </button>
+                    <button
+                      className="request-pagination-arrow"
+                      onClick={() => goToPage(safeCurrentPage - 1)}
+                      disabled={safeCurrentPage === 1 || totalItems === 0}
+                      aria-label="Previous page"
+                    >
+                      ‹
+                    </button>
+                    {totalItems > 0 && (
+                      <div className="request-pagination-pages">
+                        {renderPaginationPages()}
+                      </div>
+                    )}
+                    <button
+                      className="request-pagination-arrow"
+                      onClick={() => goToPage(safeCurrentPage + 1)}
+                      disabled={safeCurrentPage === totalPages || totalItems === 0}
+                      aria-label="Next page"
+                    >
+                      ›
+                    </button>
+                    <button
+                      className="request-pagination-arrow"
+                      onClick={() => goToPage(totalPages)}
+                      disabled={safeCurrentPage === totalPages || totalItems === 0}
+                      aria-label="Last page"
+                    >
+                      »
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

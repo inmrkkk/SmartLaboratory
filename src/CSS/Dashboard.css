@@ -63,6 +63,9 @@
 
 .notification-bell-container {
   margin-left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .notification-bell {
@@ -106,6 +109,27 @@
 
 .notification-bell:active {
   transform: scale(0.95);
+}
+
+.notification-clear-button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.notification-clear-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.notification-clear-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .dashboard-welcome::before {

@@ -8,7 +8,7 @@ import EquipmentMaintenance from "./equipment/EquipmentMaintenance";
 import "../CSS/Equipment.css";
 import "../CSS/HistoryPage.css";
 
-export default function EquipmentPage() {
+export default function EquipmentPage({ onMaintenanceComplete }) {
   const { isAdmin, getAssignedLaboratoryIds, assignedLaboratories, isLaboratoryManager } = useAuth();
   const [categories, setCategories] = useState([]);
   const [laboratories, setLaboratories] = useState([]);
@@ -1423,6 +1423,7 @@ export default function EquipmentPage() {
           categories={categories}
           equipments={equipments}
           selectedCategory={selectedCategory}
+          onMaintenanceComplete={onMaintenanceComplete}
         />
       )}
 

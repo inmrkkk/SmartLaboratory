@@ -45,43 +45,67 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .notification-filter {
-  padding: 8px 12px;
+  padding: 6px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 999px;
   background: white;
-  font-size: 14px;
+  font-size: 13px;
   color: #374151;
+  height: 36px;
+}
+
+.mark-all-read-btn,
+.clear-all-btn {
+  padding: 0 18px;
+  height: 36px;
+  border-radius: 999px;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mark-all-read-btn {
-  padding: 8px 16px;
   background: #3b82f6;
   color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .mark-all-read-btn:hover {
   background: #2563eb;
 }
 
+.clear-all-btn {
+  background: #111827;
+  color: white;
+}
+
+.clear-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clear-all-btn:hover:not(:disabled) {
+  background: #0b1220;
+}
+
 .close-btn {
-  padding: 8px;
+  padding: 0;
   background: #ef4444;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 999px;
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.2s;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;

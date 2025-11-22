@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ref, push, onValue, remove, update } from "firebase/database";
 import { database } from "../../firebase";
 
-export default function EquipmentMaintenance({ categories, equipments, selectedCategory }) {
+export default function EquipmentMaintenance({ categories, equipments, selectedCategory, onMaintenanceComplete }) {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [scheduledMaintenance, setScheduledMaintenance] = useState([]);
   const [showAddMaintenanceForm, setShowAddMaintenanceForm] = useState(false);
@@ -142,6 +142,11 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
         }
         
         alert("Maintenance record added successfully!");
+        
+        // Notify parent component that maintenance is complete
+        if (onMaintenanceComplete) {
+          onMaintenanceComplete();
+        }
       }
       
       resetMaintenanceForm();

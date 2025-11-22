@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [laboratories, setLaboratories] = useState([]);
   const [users, setUsers] = useState([]);
   const [borrowingTimeFilter, setBorrowingTimeFilter] = useState('all'); // 'all', 'week', 'month'
+  const [historyTopBorrowed, setHistoryTopBorrowed] = useState([]);
   const [totalItemsBorrowedFromHistory, setTotalItemsBorrowedFromHistory] = useState(0);
 
   const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
@@ -513,7 +514,7 @@ export default function Dashboard() {
           let totalScheduledToday = 0;
 
           const today = new Date();
-          const todayString = today.toISOString().split('T')[0];
+          today.setHours(0, 0, 0, 0);
 
           Object.keys(categoriesData).forEach((categoryId) => {
             const category = categoriesData[categoryId] || {};
@@ -521,11 +522,23 @@ export default function Dashboard() {
             const maintenanceRecords = category.maintenance_records || {};
 
             const completedForToday = Object.values(maintenanceRecords).filter(record => {
-              return record.datePerformed === todayString && record.status === 'Completed';
+              if (!record.datePerformed) return false;
+              const completedDate = new Date(record.datePerformed);
+              const userTimezoneOffset = completedDate.getTimezoneOffset() * 60000;
+              const localCompletedDate = new Date(completedDate.getTime() + userTimezoneOffset);
+              localCompletedDate.setHours(0, 0, 0, 0);
+              return localCompletedDate.getTime() === today.getTime() && record.status === 'Completed';
             });
 
             Object.values(scheduledMaintenance).forEach((schedule) => {
-              if (schedule.scheduledDate === todayString) {
+              if (!schedule.scheduledDate) return;
+
+              const scheduledDate = new Date(schedule.scheduledDate);
+              const userTimezoneOffset = scheduledDate.getTimezoneOffset() * 60000;
+              const localScheduledDate = new Date(scheduledDate.getTime() + userTimezoneOffset);
+              localScheduledDate.setHours(0, 0, 0, 0);
+
+              if (localScheduledDate.getTime() === today.getTime()) {
                 const isCompleted = completedForToday.some(record =>
                   record.equipmentId === schedule.equipmentId &&
                   record.description === schedule.description &&
@@ -570,11 +583,86 @@ export default function Dashboard() {
           0
         );
         setTotalItemsBorrowedFromHistory(totalBorrowed);
+
+        const matchesLaboratoryAccess = (entry) => {
+          if (isAdmin()) return true;
+          return equipmentBelongsToAssignedLabs({
+            labRecordId: entry.labRecordId,
+            labId: entry.labId,
+            laboratoryId: entry.labId,
+            laboratory: entry.laboratory,
+            assignedLabId: entry.labRecordId,
+            categoryId: entry.categoryId,
+            id: entry.itemId,
+            name: entry.equipmentName || entry.itemName,
+            itemName: entry.equipmentName || entry.itemName,
+            title: entry.equipmentName || entry.itemName
+          });
+        };
+
+        const getHistoryEntryQuantity = (entry) => {
+          const candidates = [
+            entry.quantityReleased,
+            entry.approvedQuantity,
+            entry.quantity,
+            entry.details?.originalRequest?.approvedQuantity,
+            entry.details?.originalRequest?.quantity,
+            entry.returnDetails?.requestedQuantity
+          ];
+          for (const value of candidates) {
+            const numericValue = Number(value);
+            if (!Number.isNaN(numericValue) && numericValue > 0) return numericValue;
+          }
+          return 1;
+        };
+
+        const getHistoryEntryName = (entry) =>
+          entry?.equipmentName || entry?.itemName || entry?.details?.originalRequest?.itemName || 'Unknown Item';
+
+        const matchesTimeFilter = (entry) => {
+          if (borrowingTimeFilter === 'all') return true;
+          const dateString = entry.releasedDate || entry.timestamp || entry.returnDate || entry.createdAt;
+          if (!dateString) return false;
+          const entryDate = new Date(dateString);
+          if (Number.isNaN(entryDate.getTime())) return false;
+          const now = new Date();
+          if (borrowingTimeFilter === 'week') {
+            const weekAgo = new Date(now);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return entryDate >= weekAgo;
+          }
+          if (borrowingTimeFilter === 'month') {
+            const monthAgo = new Date(now);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            return entryDate >= monthAgo;
+          }
+          return true;
+        };
+
+        const filteredEntries = releasedItems
+          .filter(matchesLaboratoryAccess)
+          .filter(matchesTimeFilter);
+
+        const aggregatedData = filteredEntries.reduce((acc, entry) => {
+          const name = getHistoryEntryName(entry);
+          const quantity = getHistoryEntryQuantity(entry);
+          acc[name] = (acc[name] || 0) + quantity;
+          return acc;
+        }, {});
+
+        const historyTop = Object.entries(aggregatedData)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+
+        setHistoryTopBorrowed(historyTop);
+      } else {
+        setTotalItemsBorrowedFromHistory(0);
+        setHistoryTopBorrowed([]);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [borrowingTimeFilter, equipmentBelongsToAssignedLabs, isAdmin]);
 
   // Helper function to get borrower name from userId
   const getBorrowerName = useCallback((userId) => {
@@ -718,6 +806,13 @@ export default function Dashboard() {
 
     loadRecentActivity();
   }, [isAdmin, isLaboratoryManager, getAssignedLaboratoryIds, laboratories, getBorrowerName, users]);
+
+  const handleMaintenanceComplete = () => {
+    setDashboardStats(prev => ({
+      ...prev,
+      needMaintenance: Math.max(0, prev.needMaintenance - 1)
+    }));
+  };
 
   const handleSectionChange = (section) => {
     setActiveSection(section);
@@ -908,21 +1003,32 @@ export default function Dashboard() {
                 </div>
                 <div className="chart-container">
                   <div className="bar-chart">
-                    {borrowingData.slice(0, 5).map((item, index) => (
-                      <div key={item.name} className="bar-item">
-                        <div className="bar-label">{item.name}</div>
-                        <div className="bar-container">
-                          <div 
-                            className="bar-fill" 
-                            style={{
-                              width: `${(item.value / Math.max(...borrowingData.map(d => d.value))) * 100}%`,
-                              backgroundColor: `hsl(${200 + index * 30}, 70%, 50%)`
-                            }}
-                          ></div>
-                          <span className="bar-value">{item.value}</span>
+                    {(() => {
+                      const topBorrowedItems = historyTopBorrowed.slice(0, 5);
+                      if (!topBorrowedItems.length) {
+                        return (
+                          <div className="bar-item empty">
+                            <div className="bar-label">No released history yet</div>
+                          </div>
+                        );
+                      }
+                      const maxBorrowingValue = Math.max(...topBorrowedItems.map((d) => d.value));
+                      return topBorrowedItems.map((item, index) => (
+                        <div key={item.name} className="bar-item">
+                          <div className="bar-label">{item.name}</div>
+                          <div className="bar-container">
+                            <div
+                              className="bar-fill"
+                              style={{
+                                width: `${(item.value / (maxBorrowingValue || 1)) * 100}%`,
+                                backgroundColor: `hsl(${200 + index * 30}, 70%, 50%)`
+                              }}
+                            ></div>
+                            <span className="bar-value">{item.value}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1064,7 +1170,7 @@ export default function Dashboard() {
         );
       
       case "equipments":
-        return isLaboratoryManager() ? <EquipmentPage /> : null;
+        return isLaboratoryManager() ? <EquipmentPage onMaintenanceComplete={handleMaintenanceComplete} /> : null;
       
       case "laboratories":
         return <LaboratoryManagement />;
