@@ -10,12 +10,18 @@ export default function Analytics() {
   const [analyticsData, setAnalyticsData] = useState({
     equipmentStats: {},
     borrowingTrends: [],
-    userActivity: {},
+    userActivity: {
+      totalActiveUsers: 0,
+      topUsers: [],
+      others: {
+        uniqueBorrowers: 0,
+        totalBorrowCount: 0
+      }
+    },
     maintenanceStats: {},
     categoryBreakdown: [],
     monthlyData: [],
     monthlyTrends: [],
-    peakHours: {},
     utilizationRates: {},
     diagnosticAnalytics: {
       equipmentDamage: {},
@@ -164,7 +170,7 @@ export default function Analytics() {
     const borrowingTrends = calculateBorrowingTrends(borrowRequests, periodDays);
 
     // User Activity
-    const userActivity = calculateUserActivity(borrowRequests, periodDays);
+    const userActivity = calculateUserActivity(history, periodDays);
 
     // Maintenance Statistics
     const maintenanceStats = calculateMaintenanceStats(equipment, history, periodDays);
@@ -174,9 +180,6 @@ export default function Analytics() {
 
     // Monthly Data
     const { monthlyTotals, monthlyTrends } = calculateMonthlyData(borrowRequests, history, periodDays);
-
-    // Peak Hours Analysis
-    const peakHours = calculatePeakHours(history, periodDays);
 
     // Utilization Rates
     const utilizationRates = calculateUtilizationRates(equipment, history, periodDays);
@@ -192,7 +195,6 @@ export default function Analytics() {
       categoryBreakdown,
       monthlyData: monthlyTotals,
       monthlyTrends,
-      peakHours,
       utilizationRates,
       diagnosticAnalytics
     };
@@ -225,24 +227,45 @@ export default function Analytics() {
     return trends;
   };
 
-  const calculateUserActivity = (borrowRequests, periodDays) => {
-    const requests = Object.values(borrowRequests);
-    const userCounts = {};
-    
-    requests.forEach(req => {
-      if (req.requestedAt && new Date(req.requestedAt) >= new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000)) {
-        const user = req.adviserName || req.userEmail || 'Unknown';
-        userCounts[user] = (userCounts[user] || 0) + 1;
+  const calculateUserActivity = (history, periodDays) => {
+    const historyEntries = Object.values(history || {});
+    const borrowerCounts = {};
+    const cutoffDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+
+    historyEntries.forEach(entry => {
+      const status = (entry.status || '').toLowerCase();
+      if (status !== 'released') return;
+
+      const dateSource = entry.releasedDate || entry.timestamp;
+      if (dateSource) {
+        const entryDate = new Date(dateSource);
+        if (isNaN(entryDate) || entryDate < cutoffDate) return;
       }
+
+      const borrowerName =
+        (entry.borrower && entry.borrower.trim()) ||
+        (entry.borrowerName && entry.borrowerName.trim()) ||
+        (entry.details?.originalRequest?.borrowerName && entry.details.originalRequest.borrowerName.trim()) ||
+        (entry.details?.originalRequest?.userName && entry.details.originalRequest.userName.trim()) ||
+        (entry.adviserName && entry.adviserName.trim()) ||
+        (entry.userEmail && entry.userEmail.trim()) ||
+        'Unknown';
+
+      borrowerCounts[borrowerName] = (borrowerCounts[borrowerName] || 0) + 1;
     });
 
-    const sortedUsers = Object.entries(userCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 10);
+    const sortedBorrowers = Object.entries(borrowerCounts).sort(([, a], [, b]) => b - a);
+    const topUsers = sortedBorrowers.slice(0, 10).map(([user, count]) => ({ user, count }));
+    const remainingBorrowers = sortedBorrowers.slice(10);
+    const others = {
+      uniqueBorrowers: remainingBorrowers.length,
+      totalBorrowCount: remainingBorrowers.reduce((sum, [, count]) => sum + count, 0)
+    };
 
     return {
-      totalActiveUsers: Object.keys(userCounts).length,
-      topUsers: sortedUsers.map(([user, count]) => ({ user, count }))
+      totalActiveUsers: Object.keys(borrowerCounts).length,
+      topUsers,
+      others
     };
   };
 
@@ -338,22 +361,6 @@ export default function Analytics() {
       monthlyTotals: totalsArray,
       monthlyTrends: trendsArray
     };
-  };
-
-  const calculatePeakHours = (history, periodDays) => {
-    const historyValues = Object.values(history);
-    const hourlyData = {};
-    
-    historyValues.forEach(h => {
-      if (h.timestamp) {
-        const hour = new Date(h.timestamp).getHours();
-        hourlyData[hour] = (hourlyData[hour] || 0) + 1;
-      }
-    });
-
-    return Object.entries(hourlyData)
-      .map(([hour, count]) => ({ hour: parseInt(hour), count }))
-      .sort((a, b) => a.hour - b.hour);
   };
 
   const calculateUtilizationRates = (equipment, history, periodDays) => {
@@ -633,10 +640,6 @@ export default function Analytics() {
     });
   };
 
-  const formatHour = (hour) => {
-    return `${hour}:00`;
-  };
-
   const baseMonthlyTrendData = Array.isArray(analyticsData.monthlyTrends) && analyticsData.monthlyTrends.length > 0
     ? analyticsData.monthlyTrends
     : Array.isArray(analyticsData.monthlyData) ? analyticsData.monthlyData.map((item, index) => ({
@@ -840,38 +843,34 @@ export default function Analytics() {
         {activeTab === "users" && (
           <div className="users-tab">
             <div className="chart-card">
-              <h3>Top Active Users</h3>
-              <div className="user-list">
+              <h3>Top Active Borrowers</h3>
+              <div className="user-list top-users">
                 {analyticsData.userActivity.topUsers.map((user, index) => (
                   <div key={user.user} className="user-item">
                     <div className="user-rank">#{index + 1}</div>
                     <div className="user-info">
                       <div className="user-name">{user.user}</div>
-                      <div className="user-activity">{user.count} requests</div>
+                      <div className="user-activity">{user.count} borrows</div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div className="chart-card">
-              <h3>Peak Activity Hours</h3>
-              <div className="hourly-chart">
-                {analyticsData.peakHours.map(hour => (
-                  <div key={hour.hour} className="hour-bar">
-                    <div className="hour-label">{formatHour(hour.hour)}</div>
-                    <div className="hour-bar-container">
-                      <div 
-                        className="hour-bar-fill"
-                        style={{
-                          height: `${(hour.count / Math.max(...analyticsData.peakHours.map(h => h.count))) * 100}%`
-                        }}
-                      ></div>
+              {analyticsData.userActivity.others?.totalBorrowCount > 0 && (
+                <div className="user-list others-row">
+                  <div className="user-item others">
+                    <div className="user-rank">+</div>
+                    <div className="user-info">
+                      <div className="user-name">
+                        Others ({analyticsData.userActivity.others.uniqueBorrowers})
+                      </div>
+                      <div className="user-activity">
+                        {analyticsData.userActivity.others.totalBorrowCount} total borrows
+                      </div>
                     </div>
-                    <div className="hour-count">{hour.count}</div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
