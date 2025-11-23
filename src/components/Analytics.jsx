@@ -56,6 +56,36 @@ export default function Analytics() {
   const [activeTab, setActiveTab] = useState("users");
   const [showReviewSection, setShowReviewSection] = useState(false);
 
+  const chartPalette = {
+    primary: "#4da1ff",
+    secondary: "#a78bfa",
+    accent: "#f7b23b",
+    neutral: "#94a3b8"
+  };
+
+  const chartTooltipStyles = {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
+    boxShadow: "0 20px 45px rgba(15, 23, 42, 0.15)",
+    padding: "12px 16px"
+  };
+
+  const chartAxisTick = {
+    fill: "#475569",
+    fontSize: 12,
+    fontWeight: 600
+  };
+
+  const chartGridStroke = "#e2e8f0";
+  const chartTooltipLabelStyle = { color: "#0f172a", fontWeight: 600 };
+  const chartTooltipItemStyle = { color: "#0f172a", fontWeight: 500 };
+  const sharedTooltipProps = {
+    contentStyle: chartTooltipStyles,
+    itemStyle: chartTooltipItemStyle,
+    labelStyle: chartTooltipLabelStyle
+  };
+
   useEffect(() => {
     loadAnalyticsData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1124,11 +1154,11 @@ export default function Analytics() {
                         .filter(([type, count]) => count > 0)
                         .map(([type, count]) => ({ name: type, value: count }));
                       const COLORS = {
-                        'Cracked': '#ef4444',
-                        'Broken': '#dc2626',
-                        'Chipped': '#f59e0b',
-                        'Scratched': '#eab308',
-                        'Other': '#6b7280'
+                        'Cracked': chartPalette.primary,
+                        'Broken': '#5b21b6',
+                        'Chipped': chartPalette.accent,
+                        'Scratched': '#60a5fa',
+                        'Other': chartPalette.neutral
                       };
                       const total = damageData.reduce((sum, item) => sum + item.value, 0);
                       
@@ -1154,7 +1184,7 @@ export default function Analytics() {
                                   <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#6b7280'} />
                                 ))}
                               </Pie>
-                              <Tooltip />
+                              <Tooltip {...sharedTooltipProps} />
                               <Legend 
                                 wrapperStyle={{ paddingTop: '20px' }}
                                 layout="horizontal"
@@ -1246,11 +1276,11 @@ export default function Analytics() {
                         <div className="chart-container">
                           <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={lostData}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="name" />
-                              <YAxis />
-                              <Tooltip />
-                              <Bar dataKey="value" fill="#f59e0b" />
+                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                              <XAxis dataKey="name" tick={chartAxisTick} />
+                              <YAxis tick={chartAxisTick} />
+                              <Tooltip {...sharedTooltipProps} />
+                              <Bar dataKey="value" fill={chartPalette.accent} radius={[10, 10, 4, 4]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1309,13 +1339,13 @@ export default function Analytics() {
                         <div className="chart-container">
                           <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={formattedData}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="dateLabel" />
-                              <YAxis />
-                              <Tooltip />
+                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                              <XAxis dataKey="dateLabel" tick={chartAxisTick} />
+                              <YAxis tick={chartAxisTick} />
+                              <Tooltip {...sharedTooltipProps} />
                               <Legend />
-                              <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} name="Late Returns" />
-                              <Line type="monotone" dataKey="avgDaysLate" stroke="#8b5cf6" strokeWidth={2} name="Avg Days Late" />
+                              <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={3} name="Late Returns" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                              <Line type="monotone" dataKey="avgDaysLate" stroke={chartPalette.secondary} strokeWidth={3} name="Avg Days Late" strokeDasharray="6 6" />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
