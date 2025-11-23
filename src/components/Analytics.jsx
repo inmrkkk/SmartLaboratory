@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ref } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import "../CSS/Analytics.css";
 
 export default function Analytics() {
@@ -24,15 +25,36 @@ export default function Analytics() {
     monthlyTrends: [],
     utilizationRates: {},
     diagnosticAnalytics: {
-      equipmentDamage: {},
-      lostItems: {},
-      lateReturns: {},
+      equipmentDamage: {
+        damageByType: {
+          'Cracked': 0,
+          'Broken': 0,
+          'Chipped': 0,
+          'Scratched': 0,
+          'Other': 0
+        }
+      },
+      lostItems: {
+        causes: {
+          'Forgotten / Misplaced': 0,
+          'Stolen': 0,
+          'Unknown': 0
+        }
+      },
+      lateReturns: {
+        reasons: {
+          'Forgotten / Misplaced': 0,
+          'Extended Use': 0,
+          'Unknown': 0
+        }
+      },
       approvalBottlenecks: {}
     }
   });
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("30"); // days
   const [activeTab, setActiveTab] = useState("users");
+  const [showReviewSection, setShowReviewSection] = useState(false);
 
   useEffect(() => {
     loadAnalyticsData();
@@ -373,6 +395,110 @@ export default function Analytics() {
     };
   };
 
+  // Keyword Matching Functions
+  const categorizeDamage = (text) => {
+    if (!text || text.trim().length === 0) return 'Other';
+    const lowerText = text.toLowerCase().trim();
+    
+    // Skip generic damage descriptions that don't help with categorization
+    if (lowerText === 'damaged' || lowerText === 'returned damaged' || 
+        lowerText === 'item damaged' || lowerText === 'damage') {
+      return 'Other';
+    }
+    
+    // Check for Cracked (check first as it's more specific)
+    if (lowerText.includes('cracked') || lowerText.includes('fissure') || 
+        lowerText.includes('crack') || lowerText.includes('fracture') ||
+        lowerText.includes('fractured') || lowerText.includes('split') ||
+        lowerText.includes('splintered') || lowerText.includes('cracking')) {
+      return 'Cracked';
+    }
+    
+    // Check for Broken
+    if (lowerText.includes('shattered') || lowerText.includes('pieces') ||
+        lowerText.includes('broken') || lowerText.includes('broke') ||
+        lowerText.includes('smashed') || lowerText.includes('destroyed') ||
+        lowerText.includes('shatter') || lowerText.includes('busted') ||
+        lowerText.includes('snapped') || lowerText.includes('torn apart') ||
+        lowerText.includes('not working') || lowerText.includes('malfunction') ||
+        lowerText.includes('doesn\'t work') || lowerText.includes('won\'t work')) {
+      return 'Broken';
+    }
+    
+    // Check for Chipped
+    if (lowerText.includes('chipped') || lowerText.includes('chip') ||
+        lowerText.includes('chunk') || lowerText.includes('piece missing') ||
+        lowerText.includes('chipped off') || lowerText.includes('piece broke off') ||
+        lowerText.includes('piece fell off') || lowerText.includes('missing piece')) {
+      return 'Chipped';
+    }
+    
+    // Check for Scratched
+    if (lowerText.includes('scratched') || lowerText.includes('scratch') ||
+        lowerText.includes('scrape') || lowerText.includes('abrasion') ||
+        lowerText.includes('surface damage') || lowerText.includes('scraped') ||
+        lowerText.includes('gouge') || lowerText.includes('gouged') ||
+        lowerText.includes('surface wear') || lowerText.includes('worn') ||
+        lowerText.includes('faded') || lowerText.includes('discolored')) {
+      return 'Scratched';
+    }
+    
+    return 'Other';
+  };
+
+  const categorizeLostItem = (text) => {
+    if (!text) return 'Unknown';
+    const lowerText = text.toLowerCase();
+    
+    // Check for Stolen (check first as it's more specific)
+    if (lowerText.includes('stolen') || lowerText.includes('theft') ||
+        lowerText.includes('robbed') || lowerText.includes('taken') ||
+        lowerText.includes('stole') || lowerText.includes('theft') ||
+        lowerText.includes('burglary') || lowerText.includes('stolen from')) {
+      return 'Stolen';
+    }
+    
+    // Check for Forgotten / Misplaced
+    if (lowerText.includes('forgot') || lowerText.includes('forgotten') ||
+        lowerText.includes('misplaced') || lowerText.includes('lost') ||
+        lowerText.includes('cannot find') || lowerText.includes('can\'t find') ||
+        lowerText.includes('can not find') || lowerText.includes('missing') ||
+        lowerText.includes('don\'t know where') || lowerText.includes('don\'t remember') ||
+        lowerText.includes('left behind') || lowerText.includes('left somewhere')) {
+      return 'Forgotten / Misplaced';
+    }
+    
+    return 'Unknown';
+  };
+
+  const categorizeLateReturn = (text) => {
+    if (!text) return 'Unknown';
+    const lowerText = text.toLowerCase();
+    
+    // Check for Forgotten / Misplaced
+    if (lowerText.includes('forgot') || lowerText.includes('forgotten') ||
+        lowerText.includes('misplaced') || lowerText.includes('lost') ||
+        lowerText.includes('cannot find') || lowerText.includes('can\'t find') ||
+        lowerText.includes('can not find') || lowerText.includes('don\'t remember') ||
+        lowerText.includes('didn\'t remember') || lowerText.includes('forgot to return')) {
+      return 'Forgotten / Misplaced';
+    }
+    
+    // Check for Extended Use
+    if (lowerText.includes('still using') || lowerText.includes('still in use') ||
+        lowerText.includes('needed') || lowerText.includes('extended') ||
+        lowerText.includes('continue') || lowerText.includes('ongoing') ||
+        lowerText.includes('requires more time') || lowerText.includes('need more time') ||
+        lowerText.includes('still need') || lowerText.includes('still needed') ||
+        lowerText.includes('using it') || lowerText.includes('in use') ||
+        lowerText.includes('requires additional') || lowerText.includes('need additional') ||
+        lowerText.includes('more time needed') || lowerText.includes('extend')) {
+      return 'Extended Use';
+    }
+    
+    return 'Unknown';
+  };
+
   // Diagnostic Analytics Functions
   const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
     const periodDaysMs = periodDays * 24 * 60 * 60 * 1000;
@@ -393,14 +519,68 @@ export default function Analytics() {
       damageByEquipment: {},
       damageByCategory: {},
       damageByBorrower: {},
+      damageByType: {
+        'Cracked': 0,
+        'Broken': 0,
+        'Chipped': 0,
+        'Scratched': 0,
+        'Other': 0
+      },
       mostDamagedEquipment: [],
-      damageTrends: []
+      recentReports: [],
+      uncategorizedCount: 0,
+      otherItemsDetails: [] // Store details of items categorized as "Other"
     };
 
     damageEntries.forEach(entry => {
       const equipmentName = entry.equipmentName || 'Unknown';
       const categoryName = entry.categoryName || 'Unknown';
       const borrower = entry.borrower || entry.adviserName || 'Unknown';
+      
+      // Get damage description from conditionNotes (primary) or notes (fallback)
+      // Don't use entry.condition as it's just "Returned damaged" and not descriptive
+      const conditionNotes = entry.returnDetails?.conditionNotes || '';
+      const notes = entry.returnDetails?.notes || '';
+      const damageText = (conditionNotes || notes).trim().toLowerCase();
+      
+      // Debug: Log the extracted text for troubleshooting
+      if (damageText) {
+        console.log('Damage entry:', {
+          equipment: equipmentName,
+          conditionNotes: conditionNotes,
+          notes: notes,
+          extractedText: damageText
+        });
+      }
+      
+      // Categorize damage type - only if we have descriptive text
+      let damageType = 'Other';
+      if (damageText && damageText.length > 0) {
+        damageType = categorizeDamage(damageText);
+        // If still categorized as Other, store details for review
+        if (damageType === 'Other') {
+          equipmentDamageAnalysis.otherItemsDetails.push({
+            equipmentName,
+            categoryName,
+            borrower,
+            description: conditionNotes || notes || 'No description provided',
+            timestamp: entry.timestamp
+          });
+        }
+      } else {
+        // If no descriptive text, mark as uncategorized
+        equipmentDamageAnalysis.uncategorizedCount += 1;
+        equipmentDamageAnalysis.otherItemsDetails.push({
+          equipmentName,
+          categoryName,
+          borrower,
+          description: 'No description provided',
+          timestamp: entry.timestamp
+        });
+      }
+      
+      equipmentDamageAnalysis.damageByType[damageType] = 
+        (equipmentDamageAnalysis.damageByType[damageType] || 0) + 1;
 
       equipmentDamageAnalysis.damageByEquipment[equipmentName] = 
         (equipmentDamageAnalysis.damageByEquipment[equipmentName] || 0) + 1;
@@ -408,11 +588,27 @@ export default function Analytics() {
         (equipmentDamageAnalysis.damageByCategory[categoryName] || 0) + 1;
       equipmentDamageAnalysis.damageByBorrower[borrower] = 
         (equipmentDamageAnalysis.damageByBorrower[borrower] || 0) + 1;
+
+      // Store recent reports
+      equipmentDamageAnalysis.recentReports.push({
+        equipmentName,
+        categoryName,
+        borrower,
+        damageType,
+        timestamp: entry.timestamp,
+        notes: entry.returnDetails?.conditionNotes || entry.returnDetails?.notes || '',
+        date: entry.returnDate || entry.timestamp
+      });
     });
+
+    // Sort recent reports by date (newest first) and take top 5
+    equipmentDamageAnalysis.recentReports = equipmentDamageAnalysis.recentReports
+      .sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date))
+      .slice(0, 5);
 
     equipmentDamageAnalysis.mostDamagedEquipment = Object.entries(equipmentDamageAnalysis.damageByEquipment)
       .sort(([,a], [,b]) => b - a)
-      .slice(0, 10)
+      .slice(0, 5)
       .map(([equipment, count]) => ({ equipment, count }));
 
     // 2. Lost/Missing Items Analysis
@@ -427,16 +623,25 @@ export default function Analytics() {
       lostByEquipment: {},
       lostByCategory: {},
       lostByBorrower: {},
-      causes: {},
-      mostLostEquipment: []
+      causes: {
+        'Forgotten / Misplaced': 0,
+        'Stolen': 0,
+        'Unknown': 0
+      },
+      mostLostEquipment: [],
+      recentReports: [],
+      uncategorizedCount: 0
     };
 
     lostEntries.forEach(entry => {
       const equipmentName = entry.equipmentName || 'Unknown';
       const categoryName = entry.categoryName || 'Unknown';
       const borrower = entry.borrower || entry.adviserName || 'Unknown';
-      const notes = (entry.returnDetails?.notes || '').toLowerCase();
-      const delayReason = (entry.returnDetails?.delayReason || '').toLowerCase();
+      
+      // Get description from notes or conditionNotes
+      const notesText = (entry.returnDetails?.conditionNotes || 
+                        entry.returnDetails?.notes || 
+                        entry.condition || '').toLowerCase();
 
       lostItemsAnalysis.lostByEquipment[equipmentName] = 
         (lostItemsAnalysis.lostByEquipment[equipmentName] || 0) + 1;
@@ -445,22 +650,31 @@ export default function Analytics() {
       lostItemsAnalysis.lostByBorrower[borrower] = 
         (lostItemsAnalysis.lostByBorrower[borrower] || 0) + 1;
 
-      // Extract causes from notes and delay reasons
-      let cause = 'Unknown';
-      if (delayReason) {
-        cause = delayReason;
-      } else if (notes.includes('forgot') || notes.includes('lost')) {
-        cause = 'Forgot/Lost';
-      } else if (notes.includes('stolen') || notes.includes('theft')) {
-        cause = 'Theft';
-      } else if (notes.includes('damaged') && notes.includes('beyond repair')) {
-        cause = 'Damaged Beyond Repair';
-      } else if (notes) {
-        cause = 'Other (see notes)';
+      // Categorize cause using keyword matching
+      const cause = categorizeLostItem(notesText);
+      lostItemsAnalysis.causes[cause] = (lostItemsAnalysis.causes[cause] || 0) + 1;
+
+      // Track uncategorized
+      if (cause === 'Unknown' && !notesText) {
+        lostItemsAnalysis.uncategorizedCount += 1;
       }
 
-      lostItemsAnalysis.causes[cause] = (lostItemsAnalysis.causes[cause] || 0) + 1;
+      // Store recent reports
+      lostItemsAnalysis.recentReports.push({
+        equipmentName,
+        categoryName,
+        borrower,
+        cause,
+        timestamp: entry.timestamp,
+        notes: entry.returnDetails?.conditionNotes || entry.returnDetails?.notes || '',
+        date: entry.returnDate || entry.timestamp
+      });
     });
+
+    // Sort recent reports by date (newest first) and take top 5
+    lostItemsAnalysis.recentReports = lostItemsAnalysis.recentReports
+      .sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date))
+      .slice(0, 5);
 
     lostItemsAnalysis.mostLostEquipment = Object.entries(lostItemsAnalysis.lostByEquipment)
       .sort(([,a], [,b]) => b - a)
@@ -475,7 +689,13 @@ export default function Analytics() {
     });
 
     const lateReturns = [];
-    const lateReturnReasons = {};
+    const lateReturnReasons = {
+      'Forgotten / Misplaced': 0,
+      'Extended Use': 0,
+      'Unknown': 0
+    };
+    const uncategorizedLateReturns = []; // Store items with NO text (truly uncategorized)
+    const unknownLateReturns = []; // Store ALL "Unknown" items for review (with or without text)
 
     returnedEntries.forEach(entry => {
       // Use dateToReturn from history entry (stored when return was recorded)
@@ -487,34 +707,75 @@ export default function Analytics() {
       
       if (returnDate > dueDate) {
         const daysLate = Math.ceil((returnDate - dueDate) / (1000 * 60 * 60 * 24));
-        const delayReason = entry.returnDetails?.delayReason || '';
-        const notes = (entry.returnDetails?.notes || '').toLowerCase();
+        
+        // Get description from notes
+        const notesText = (entry.returnDetails?.notes || 
+                          entry.returnDetails?.delayReason || 
+                          '').toLowerCase();
 
         lateReturns.push({
           equipmentName: entry.equipmentName || 'Unknown',
           categoryName: entry.categoryName || 'Unknown',
           borrower: entry.borrower || entry.adviserName || 'Unknown',
           daysLate,
-          delayReason,
           notes: entry.returnDetails?.notes || '',
           returnDate: entry.returnDate || entry.timestamp,
           dueDate: dateToReturn
         });
 
-        // Categorize reasons
-        let reason = 'No reason provided';
-        if (delayReason === 'late') {
-          if (notes.includes('forgot')) reason = 'Forgot to return';
-          else if (notes.includes('damaged') || notes.includes('broken')) reason = 'Equipment damaged/broken';
-          else if (notes.includes('still using') || notes.includes('needed')) reason = 'Still in use/needed';
-          else if (notes.includes('unavailable') || notes.includes('could not')) reason = 'Could not return (unavailable)';
-          else if (notes) reason = notes.substring(0, 50);
-          else reason = 'Late return';
-        }
-
+        // Categorize reason using keyword matching
+        const reason = categorizeLateReturn(notesText);
         lateReturnReasons[reason] = (lateReturnReasons[reason] || 0) + 1;
+        
+        const lateReturnItem = {
+          equipmentName: entry.equipmentName || 'Unknown',
+          categoryName: entry.categoryName || 'Unknown',
+          borrower: entry.borrower || entry.adviserName || 'Unknown',
+          daysLate,
+          notes: entry.returnDetails?.notes || '',
+          timestamp: entry.timestamp,
+          returnDate: entry.returnDate || entry.timestamp,
+          dueDate: dateToReturn
+        };
+        
+        // Store uncategorized late returns (only if no text provided - truly uncategorized)
+        if (reason === 'Unknown' && !notesText.trim()) {
+          uncategorizedLateReturns.push(lateReturnItem);
+        }
+        
+        // Store ALL "Unknown" items for review (both with and without text)
+        if (reason === 'Unknown') {
+          unknownLateReturns.push(lateReturnItem);
+        }
       }
     });
+
+    // Calculate late return trends over time (daily for the period)
+    const lateReturnTrends = [];
+    const dailyLateReturns = {};
+    
+    lateReturns.forEach(ret => {
+      const date = new Date(ret.returnDate);
+      const dateKey = date.toISOString().split('T')[0];
+      if (!dailyLateReturns[dateKey]) {
+        dailyLateReturns[dateKey] = { count: 0, totalDaysLate: 0 };
+      }
+      dailyLateReturns[dateKey].count += 1;
+      dailyLateReturns[dateKey].totalDaysLate += ret.daysLate;
+    });
+
+    // Create trend data for the period
+    for (let i = periodDays - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = dailyLateReturns[dateKey] || { count: 0, totalDaysLate: 0 };
+      lateReturnTrends.push({
+        date: dateKey,
+        count: dayData.count,
+        avgDaysLate: dayData.count > 0 ? Math.round((dayData.totalDaysLate / dayData.count) * 10) / 10 : 0
+      });
+    }
 
     const lateReturnsAnalysis = {
       totalLateReturns: lateReturns.length,
@@ -526,9 +787,14 @@ export default function Analytics() {
       lateByBorrower: {},
       reasons: lateReturnReasons,
       topReasons: Object.entries(lateReturnReasons)
+        .filter(([reason, count]) => count > 0)
         .sort(([,a], [,b]) => b - a)
-        .slice(0, 10)
-        .map(([reason, count]) => ({ reason, count }))
+        .map(([reason, count]) => ({ reason, count })),
+      trends: lateReturnTrends,
+      // Only count as uncategorized if there's no text at all (not just "Unknown" with text)
+      uncategorizedCount: uncategorizedLateReturns.length,
+      uncategorizedItems: uncategorizedLateReturns, // Items with NO text (truly uncategorized)
+      unknownItems: unknownLateReturns // ALL "Unknown" items for review (with or without text)
     };
 
     lateReturns.forEach(ret => {
@@ -608,11 +874,24 @@ export default function Analytics() {
         .map(([category, avgHours]) => ({ category, avgHours }))
     };
 
+    // Calculate total uncategorized incidents
+    const totalUncategorized = 
+      equipmentDamageAnalysis.uncategorizedCount +
+      lostItemsAnalysis.uncategorizedCount +
+      lateReturnsAnalysis.uncategorizedCount;
+
     return {
       equipmentDamage: equipmentDamageAnalysis,
       lostItems: lostItemsAnalysis,
       lateReturns: lateReturnsAnalysis,
-      approvalBottlenecks: approvalBottlenecksAnalysis
+      approvalBottlenecks: approvalBottlenecksAnalysis,
+      totalIncidents: damageEntries.length + lostEntries.length + lateReturns.length,
+      uncategorizedIncidents: {
+        total: totalUncategorized,
+        damage: equipmentDamageAnalysis.uncategorizedCount,
+        lost: lostItemsAnalysis.uncategorizedCount,
+        lateReturn: lateReturnsAnalysis.uncategorizedCount
+      }
     };
   };
 
@@ -784,233 +1063,440 @@ export default function Analytics() {
 
         {activeTab === "diagnostics" && (
           <div className="diagnostics-tab">
-            {/* Equipment Damage Analysis */}
-            <div className="diagnostic-section">
-              <h2>🔧 Equipment Damage Analysis</h2>
-              <div className="diagnostic-metrics">
-                <div className="metric-card warning">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.equipmentDamage.totalDamageIncidents || 0}</div>
-                  <div className="metric-label">Total Damage Incidents</div>
+            {/* Overview Cards */}
+            <div className="diagnostics-overview">
+              <div className="overview-card total">
+                <div className="overview-icon">📊</div>
+                <div className="overview-content">
+                  <div className="overview-value">{analyticsData.diagnosticAnalytics.totalIncidents || 0}</div>
+                  <div className="overview-label">Total Incident Reports</div>
                 </div>
               </div>
-              
-              <div className="chart-card">
-                <h3>Most Frequently Damaged Equipment</h3>
-                <div className="diagnostic-list">
-                  {analyticsData.diagnosticAnalytics.equipmentDamage.mostDamagedEquipment?.length > 0 ? (
-                    analyticsData.diagnosticAnalytics.equipmentDamage.mostDamagedEquipment.map((item, index) => (
-                      <div key={item.equipment} className="diagnostic-item">
-                        <div className="diagnostic-rank">#{index + 1}</div>
-                        <div className="diagnostic-info">
-                          <div className="diagnostic-name">{item.equipment}</div>
-                          <div className="diagnostic-count">{item.count} {item.count === 1 ? 'incident' : 'incidents'}</div>
+              <div className="overview-card damage">
+                <div className="overview-icon">🔧</div>
+                <div className="overview-content">
+                  <div className="overview-value">{analyticsData.diagnosticAnalytics.equipmentDamage?.totalDamageIncidents || 0}</div>
+                  <div className="overview-label">Damage Reports</div>
+                  <div className="overview-percentage">
+                    {analyticsData.diagnosticAnalytics.totalIncidents > 0 
+                      ? Math.round((analyticsData.diagnosticAnalytics.equipmentDamage?.totalDamageIncidents / analyticsData.diagnosticAnalytics.totalIncidents) * 100)
+                      : 0}% of total
+                  </div>
+                </div>
+              </div>
+              <div className="overview-card lost">
+                <div className="overview-icon">🔍</div>
+                <div className="overview-content">
+                  <div className="overview-value">{analyticsData.diagnosticAnalytics.lostItems?.totalLostItems || 0}</div>
+                  <div className="overview-label">Lost Reports</div>
+                  <div className="overview-percentage">
+                    {analyticsData.diagnosticAnalytics.totalIncidents > 0 
+                      ? Math.round((analyticsData.diagnosticAnalytics.lostItems?.totalLostItems / analyticsData.diagnosticAnalytics.totalIncidents) * 100)
+                      : 0}% of total
+                  </div>
+                </div>
+              </div>
+              <div className="overview-card late">
+                <div className="overview-icon">⏰</div>
+                <div className="overview-content">
+                  <div className="overview-value">{analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns || 0}</div>
+                  <div className="overview-label">Late Return Reports</div>
+                  <div className="overview-percentage">
+                    {analyticsData.diagnosticAnalytics.totalIncidents > 0 
+                      ? Math.round((analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns / analyticsData.diagnosticAnalytics.totalIncidents) * 100)
+                      : 0}% of total
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Analytics Grid */}
+            <div className="diagnostics-grid">
+              {/* Damage Analytics */}
+              <div className="diagnostic-section damage-section">
+                <h2>🔧 Damage Analytics</h2>
+                <div className="section-content">
+                  {/* Donut Chart */}
+                  <div className="chart-card">
+                    <h3>Damage by Type</h3>
+                    {(() => {
+                      const damageData = Object.entries(analyticsData.diagnosticAnalytics.equipmentDamage?.damageByType || {})
+                        .filter(([type, count]) => count > 0)
+                        .map(([type, count]) => ({ name: type, value: count }));
+                      const COLORS = {
+                        'Cracked': '#ef4444',
+                        'Broken': '#dc2626',
+                        'Chipped': '#f59e0b',
+                        'Scratched': '#eab308',
+                        'Other': '#6b7280'
+                      };
+                      const total = damageData.reduce((sum, item) => sum + item.value, 0);
+                      
+                      if (damageData.length === 0) {
+                        return <p className="no-data-text">No damage data available</p>;
+                      }
+                      
+                      return (
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={350} minHeight={300}>
+                            <PieChart>
+                              <Pie
+                                data={damageData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                paddingAngle={5}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              >
+                                {damageData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#6b7280'} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                              <Legend 
+                                wrapperStyle={{ paddingTop: '20px' }}
+                                layout="horizontal"
+                                verticalAlign="bottom"
+                                align="center"
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="chart-summary">
+                            <div className="summary-item">
+                              <span className="summary-label">Total:</span>
+                              <span className="summary-value">{total}</span>
+                            </div>
+                          </div>
                         </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Top 5 Items */}
+                  <div className="chart-card">
+                    <h3>Top 5 Items by Damage Count</h3>
+                    <div className="top-items-list">
+                      {analyticsData.diagnosticAnalytics.equipmentDamage?.mostDamagedEquipment?.length > 0 ? (
+                        analyticsData.diagnosticAnalytics.equipmentDamage.mostDamagedEquipment
+                          .slice(0, 5)
+                          .map((item, index) => (
+                            <div key={item.equipment} className="top-item">
+                              <div className="item-rank">#{index + 1}</div>
+                              <div className="item-info">
+                                <div className="item-name">{item.equipment}</div>
+                                <div className="item-count">{item.count} {item.count === 1 ? 'incident' : 'incidents'}</div>
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="no-data-text">No damage incidents recorded</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Show "Other" items details for debugging */}
+                {analyticsData.diagnosticAnalytics.equipmentDamage?.otherItemsDetails?.length > 0 && (
+                  <div className="chart-card" style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
+                    <h3>Items Categorized as "Other" - Review Needed</h3>
+                    <p style={{ color: '#64748b', marginBottom: '16px', fontSize: '14px' }}>
+                      These items were categorized as "Other" because their descriptions don't match our keyword patterns. 
+                      Review the descriptions below to identify missing keywords.
+                    </p>
+                    <div className="other-items-list">
+                      {analyticsData.diagnosticAnalytics.equipmentDamage.otherItemsDetails.map((item, index) => (
+                        <div key={index} className="other-item">
+                          <div className="other-item-header">
+                            <div className="other-item-name">{item.equipmentName}</div>
+                            <div className="other-item-date">{formatDate(item.timestamp)}</div>
+                          </div>
+                          <div className="other-item-details">
+                            <div className="other-item-category">Category: {item.categoryName}</div>
+                            <div className="other-item-borrower">Borrower: {item.borrower}</div>
+                            <div className="other-item-description">
+                              <strong>Description:</strong> {item.description || 'No description provided'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Lost Items Analytics */}
+              <div className="diagnostic-section lost-section">
+                <h2>🔍 Lost Items Analytics</h2>
+                <div className="section-content">
+                  {/* Bar Chart */}
+                  <div className="chart-card">
+                    <h3>Lost Items by Category</h3>
+                    {(() => {
+                      const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
+                        .filter(([cause, count]) => count > 0)
+                        .map(([cause, count]) => ({ name: cause, value: count }));
+                      
+                      if (lostData.length === 0) {
+                        return <p className="no-data-text">No lost items data available</p>;
+                      }
+                      
+                      return (
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={lostData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="value" fill="#f59e0b" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Recent Lost Reports */}
+                  <div className="chart-card">
+                    <h3>Recent Lost Reports</h3>
+                    <div className="recent-reports-list">
+                      {analyticsData.diagnosticAnalytics.lostItems?.recentReports?.length > 0 ? (
+                        analyticsData.diagnosticAnalytics.lostItems.recentReports.map((report, index) => (
+                          <div key={index} className="report-item">
+                            <div className="report-header">
+                              <div className="report-equipment">{report.equipmentName}</div>
+                              <div className="report-date">{formatDate(report.date || report.timestamp)}</div>
+                            </div>
+                            <div className="report-details">
+                              <span className="report-category">{report.cause}</span>
+                              {report.notes && (
+                                <div className="report-notes">{report.notes.substring(0, 100)}...</div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="no-data-text">No recent lost reports</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Late Return Analytics */}
+              <div className="diagnostic-section late-section">
+                <h2>⏰ Late Return Analytics</h2>
+                <div className="section-content">
+                  {/* Line Chart */}
+                  <div className="chart-card">
+                    <h3>Late Returns Trend</h3>
+                    {(() => {
+                      const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
+                      
+                      if (trendData.length === 0) {
+                        return <p className="no-data-text">No late return data available</p>;
+                      }
+                      
+                      // Format dates for display
+                      const formattedData = trendData.map(item => ({
+                        ...item,
+                        dateLabel: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      }));
+                      
+                      return (
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={formattedData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="dateLabel" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} name="Late Returns" />
+                              <Line type="monotone" dataKey="avgDaysLate" stroke="#8b5cf6" strokeWidth={2} name="Avg Days Late" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Average Duration Card */}
+                  <div className="metric-card-large">
+                    <div className="metric-icon">⏱️</div>
+                    <div className="metric-content">
+                      <div className="metric-value-large">{analyticsData.diagnosticAnalytics.lateReturns?.averageDaysLate || 0}</div>
+                      <div className="metric-label-large">Average Late Return Duration (Days)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Uncategorized Incidents Card */}
+              <div className="diagnostic-section uncategorized-section">
+                <h2>⚠️ Uncategorized Incidents for Review</h2>
+                <div className="uncategorized-card">
+                  <div className="uncategorized-header">
+                    <div className="uncategorized-count">
+                      <span className="count-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.total || 0}</span>
+                      <span className="count-label">Total Uncategorized</span>
+                    </div>
+                    <div className="uncategorized-percentage">
+                      {analyticsData.diagnosticAnalytics.totalIncidents > 0 
+                        ? Math.round((analyticsData.diagnosticAnalytics.uncategorizedIncidents?.total / analyticsData.diagnosticAnalytics.totalIncidents) * 100)
+                        : 0}% of all incidents
+                    </div>
+                  </div>
+                  <div className="uncategorized-breakdown">
+                    <div className="breakdown-item">
+                      <span className="breakdown-label">Damage:</span>
+                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.damage || 0}</span>
+                    </div>
+                    <div className="breakdown-item">
+                      <span className="breakdown-label">Lost:</span>
+                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lost || 0}</span>
+                    </div>
+                    <div className="breakdown-item">
+                      <span className="breakdown-label">Late Return:</span>
+                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lateReturn || 0}</span>
+                    </div>
+                  </div>
+                  <div className="uncategorized-action">
+                    <button 
+                      className="review-button"
+                      onClick={() => {
+                        setShowReviewSection(!showReviewSection);
+                        // Scroll to review section if showing it
+                        if (!showReviewSection) {
+                          setTimeout(() => {
+                            const reviewSection = document.getElementById('review-section');
+                            if (reviewSection) {
+                              reviewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }, 100);
+                        }
+                      }}
+                    >
+                      {showReviewSection ? 'Hide Review Section' : 'Review Incidents'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review Section - Show all uncategorized incidents */}
+              {showReviewSection && (
+                <div id="review-section" className="diagnostic-section review-section">
+                  <h2>📋 Review Uncategorized Incidents</h2>
+                  
+                  {/* Damage Incidents */}
+                  {analyticsData.diagnosticAnalytics.uncategorizedIncidents?.damage > 0 && (
+                    <div className="review-category">
+                      <h3>Damage Incidents ({analyticsData.diagnosticAnalytics.uncategorizedIncidents.damage})</h3>
+                      <div className="review-items-list">
+                        {analyticsData.diagnosticAnalytics.equipmentDamage?.otherItemsDetails?.length > 0 ? (
+                          analyticsData.diagnosticAnalytics.equipmentDamage.otherItemsDetails.map((item, index) => (
+                            <div key={index} className="review-item">
+                              <div className="review-item-header">
+                                <div className="review-item-name">{item.equipmentName}</div>
+                                <div className="review-item-date">{formatDate(item.timestamp)}</div>
+                              </div>
+                              <div className="review-item-details">
+                                <div className="review-item-meta">
+                                  <span>Category: {item.categoryName}</span>
+                                  <span>Borrower: {item.borrower}</span>
+                                </div>
+                                <div className="review-item-description">
+                                  <strong>Description:</strong> {item.description || 'No description provided'}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="no-data-text">No damage incidents to review</p>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <p className="no-data-text">No damage incidents recorded in the selected period.</p>
+                    </div>
                   )}
-                </div>
-              </div>
 
-              {Object.keys(analyticsData.diagnosticAnalytics.equipmentDamage.damageByCategory || {}).length > 0 && (
-                <div className="chart-card">
-                  <h3>Damage by Category</h3>
-                  <div className="category-chart">
-                    {Object.entries(analyticsData.diagnosticAnalytics.equipmentDamage.damageByCategory)
-                      .sort(([,a], [,b]) => b - a)
-                      .slice(0, 5)
-                      .map(([category, count]) => (
-                        <div key={category} className="category-bar">
-                          <div className="category-label">{category}</div>
-                          <div className="category-bar-container">
-                            <div 
-                              className="category-bar-fill"
-                              style={{
-                                width: `${(count / Math.max(...Object.values(analyticsData.diagnosticAnalytics.equipmentDamage.damageByCategory))) * 100}%`,
-                                backgroundColor: '#ef4444'
-                              }}
-                            ></div>
-                            <span className="category-count">{count}</span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Lost/Missing Items Analysis */}
-            <div className="diagnostic-section">
-              <h2>🔍 Lost/Missing Items Analysis</h2>
-              <div className="diagnostic-metrics">
-                <div className="metric-card danger">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.lostItems.totalLostItems || 0}</div>
-                  <div className="metric-label">Total Lost/Missing Items</div>
-                </div>
-              </div>
-
-              <div className="chart-card">
-                <h3>Most Frequently Lost Equipment</h3>
-                <div className="diagnostic-list">
-                  {analyticsData.diagnosticAnalytics.lostItems.mostLostEquipment?.length > 0 ? (
-                    analyticsData.diagnosticAnalytics.lostItems.mostLostEquipment.map((item, index) => (
-                      <div key={item.equipment} className="diagnostic-item">
-                        <div className="diagnostic-rank">#{index + 1}</div>
-                        <div className="diagnostic-info">
-                          <div className="diagnostic-name">{item.equipment}</div>
-                          <div className="diagnostic-count">{item.count} {item.count === 1 ? 'item' : 'items'}</div>
-                        </div>
+                  {/* Lost Incidents */}
+                  {analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lost > 0 && (
+                    <div className="review-category">
+                      <h3>Lost Incidents ({analyticsData.diagnosticAnalytics.uncategorizedIncidents.lost})</h3>
+                      <div className="review-items-list">
+                        {analyticsData.diagnosticAnalytics.lostItems?.recentReports?.filter(r => r.cause === 'Unknown').length > 0 ? (
+                          analyticsData.diagnosticAnalytics.lostItems.recentReports
+                            .filter(r => r.cause === 'Unknown')
+                            .map((item, index) => (
+                              <div key={index} className="review-item">
+                                <div className="review-item-header">
+                                  <div className="review-item-name">{item.equipmentName}</div>
+                                  <div className="review-item-date">{formatDate(item.date || item.timestamp)}</div>
+                                </div>
+                                <div className="review-item-details">
+                                  <div className="review-item-meta">
+                                    <span>Category: {item.categoryName}</span>
+                                    <span>Borrower: {item.borrower}</span>
+                                  </div>
+                                  <div className="review-item-description">
+                                    <strong>Description:</strong> {item.notes || 'No description provided'}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                        ) : (
+                          <p className="no-data-text">No lost incidents to review</p>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <p className="no-data-text">No lost/missing items recorded in the selected period.</p>
+                    </div>
                   )}
-                </div>
-              </div>
 
-              {Object.keys(analyticsData.diagnosticAnalytics.lostItems.causes || {}).length > 0 && (
-                <div className="chart-card">
-                  <h3>Identified Causes of Lost/Missing Items</h3>
-                  <div className="category-chart">
-                    {Object.entries(analyticsData.diagnosticAnalytics.lostItems.causes)
-                      .sort(([,a], [,b]) => b - a)
-                      .slice(0, 5)
-                      .map(([cause, count]) => (
-                        <div key={cause} className="category-bar">
-                          <div className="category-label">{cause}</div>
-                          <div className="category-bar-container">
-                            <div 
-                              className="category-bar-fill"
-                              style={{
-                                width: `${(count / Math.max(...Object.values(analyticsData.diagnosticAnalytics.lostItems.causes))) * 100}%`,
-                                backgroundColor: '#f59e0b'
-                              }}
-                            ></div>
-                            <span className="category-count">{count}</span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Late Returns Analysis */}
-            <div className="diagnostic-section">
-              <h2>⏰ Late Returns Analysis</h2>
-              <div className="diagnostic-metrics">
-                <div className="metric-card warning">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.lateReturns.totalLateReturns || 0}</div>
-                  <div className="metric-label">Total Late Returns</div>
-                </div>
-                <div className="metric-card info">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.lateReturns.averageDaysLate || 0}</div>
-                  <div className="metric-label">Average Days Late</div>
-                </div>
-              </div>
-
-              {analyticsData.diagnosticAnalytics.lateReturns.topReasons?.length > 0 && (
-                <div className="chart-card">
-                  <h3>Reasons for Late Returns</h3>
-                  <div className="category-chart">
-                    {analyticsData.diagnosticAnalytics.lateReturns.topReasons.map((reason, index) => (
-                      <div key={index} className="category-bar">
-                        <div className="category-label">{reason.reason}</div>
-                        <div className="category-bar-container">
-                          <div 
-                            className="category-bar-fill"
-                            style={{
-                              width: `${(reason.count / Math.max(...analyticsData.diagnosticAnalytics.lateReturns.topReasons.map(r => r.count))) * 100}%`,
-                              backgroundColor: '#3b82f6'
-                            }}
-                          ></div>
-                          <span className="category-count">{reason.count}</span>
-                        </div>
+                  {/* Late Return Incidents */}
+                  {analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lateReturn > 0 && (
+                    <div className="review-category">
+                      <h3>Late Return Incidents ({analyticsData.diagnosticAnalytics.uncategorizedIncidents.lateReturn})</h3>
+                      <p className="info-text" style={{ color: '#64748b', marginBottom: '16px' }}>
+                        Late return incidents are categorized as "Unknown" when the reason text doesn't match our keyword patterns.
+                      </p>
+                      <div className="review-items-list">
+                        {analyticsData.diagnosticAnalytics.lateReturns?.unknownItems?.length > 0 ? (
+                          analyticsData.diagnosticAnalytics.lateReturns.unknownItems.map((item, index) => (
+                            <div key={index} className="review-item">
+                              <div className="review-item-header">
+                                <div className="review-item-name">{item.equipmentName}</div>
+                                <div className="review-item-date">{formatDate(item.returnDate || item.timestamp)}</div>
+                              </div>
+                              <div className="review-item-details">
+                                <div className="review-item-meta">
+                                  <span>Category: {item.categoryName}</span>
+                                  <span>Borrower: {item.borrower}</span>
+                                  <span>Days Late: {item.daysLate}</span>
+                                </div>
+                                <div className="review-item-description">
+                                  <strong>Description:</strong> {item.notes || 'No description provided'}
+                                </div>
+                                <div className="review-item-meta" style={{ marginTop: '8px' }}>
+                                  <span>Due Date: {formatDate(item.dueDate)}</span>
+                                  <span>Return Date: {formatDate(item.returnDate || item.timestamp)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="no-data-text">
+                            {analyticsData.diagnosticAnalytics.uncategorizedIncidents.lateReturn} late return incidents need review.
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {Object.keys(analyticsData.diagnosticAnalytics.lateReturns.lateByEquipment || {}).length > 0 && (
-                <div className="chart-card">
-                  <h3>Equipment with Most Late Returns</h3>
-                  <div className="diagnostic-list">
-                    {Object.entries(analyticsData.diagnosticAnalytics.lateReturns.lateByEquipment)
-                      .sort(([,a], [,b]) => b - a)
-                      .slice(0, 10)
-                      .map(([equipment, count], index) => (
-                        <div key={equipment} className="diagnostic-item">
-                          <div className="diagnostic-rank">#{index + 1}</div>
-                          <div className="diagnostic-info">
-                            <div className="diagnostic-name">{equipment}</div>
-                            <div className="diagnostic-count">{count} {count === 1 ? 'late return' : 'late returns'}</div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Approval Bottlenecks Analysis */}
-            <div className="diagnostic-section">
-              <h2>🚧 Approval Process Bottlenecks</h2>
-              <div className="diagnostic-metrics">
-                <div className="metric-card danger">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.approvalBottlenecks.totalBottlenecks || 0}</div>
-                  <div className="metric-label">Delayed Approvals (&gt;24 hours)</div>
-                </div>
-                <div className="metric-card info">
-                  <div className="metric-value">{analyticsData.diagnosticAnalytics.approvalBottlenecks.averageApprovalTime || 0}</div>
-                  <div className="metric-label">Avg. Approval Time (hours)</div>
-                </div>
-              </div>
-
-              {analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestLabs?.length > 0 && (
-                <div className="chart-card">
-                  <h3>Laboratories with Slowest Approval Times</h3>
-                  <div className="category-chart">
-                    {analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestLabs.map((lab, index) => (
-                      <div key={lab.lab} className="category-bar">
-                        <div className="category-label">{lab.lab}</div>
-                        <div className="category-bar-container">
-                          <div 
-                            className="category-bar-fill"
-                            style={{
-                              width: `${(lab.avgHours / Math.max(...analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestLabs.map(l => l.avgHours))) * 100}%`,
-                              backgroundColor: '#8b5cf6'
-                            }}
-                          ></div>
-                          <span className="category-count">{lab.avgHours}h</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestCategories?.length > 0 && (
-                <div className="chart-card">
-                  <h3>Equipment Categories with Slowest Approval Times</h3>
-                  <div className="category-chart">
-                    {analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestCategories.map((category, index) => (
-                      <div key={category.category} className="category-bar">
-                        <div className="category-label">{category.category}</div>
-                        <div className="category-bar-container">
-                          <div 
-                            className="category-bar-fill"
-                            style={{
-                              width: `${(category.avgHours / Math.max(...analyticsData.diagnosticAnalytics.approvalBottlenecks.topSlowestCategories.map(c => c.avgHours))) * 100}%`,
-                              backgroundColor: '#ec4899'
-                            }}
-                          ></div>
-                          <span className="category-count">{category.avgHours}h</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {analyticsData.diagnosticAnalytics.uncategorizedIncidents?.total === 0 && (
+                    <div className="no-data-text">
+                      <p>🎉 All incidents have been properly categorized!</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
