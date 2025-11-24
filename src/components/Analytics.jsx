@@ -1140,8 +1140,129 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* Main Analytics Grid */}
-            <div className="diagnostics-grid">
+            {/* Main Analytics Layout */}
+            <div className="diagnostics-row">
+              {/* Lost Items Hero */}
+              <section className="hero-card lost-hero">
+                <div className="card-heading">
+                  <div>
+                    <p className="card-kicker">Lost Items</p>
+                    <h2>Lost Items Analytics</h2>
+                  </div>
+                  <span className="card-pill">
+                    <span className="pill-dot" />
+                    {analyticsData.diagnosticAnalytics.lostItems?.totalLostItems || 0} reports
+                  </span>
+                </div>
+                <div className="hero-panels two">
+                  <div className="chart-card">
+                    <h3>Lost Items by Category</h3>
+                    {(() => {
+                      const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
+                        .filter(([cause, count]) => count > 0)
+                        .map(([cause, count]) => ({ name: cause, value: count }));
+                      
+                      if (lostData.length === 0) {
+                        return <p className="no-data-text">No lost items data available</p>;
+                      }
+                      
+                      return (
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={320}>
+                            <BarChart data={lostData}>
+                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                              <XAxis dataKey="name" tick={chartAxisTick} />
+                              <YAxis tick={chartAxisTick} />
+                              <Tooltip {...sharedTooltipProps} />
+                              <Bar dataKey="value" fill={chartPalette.accent} radius={[10, 10, 4, 4]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="chart-card">
+                    <h3>Recent Lost Reports</h3>
+                    <div className="recent-reports-list">
+                      {analyticsData.diagnosticAnalytics.lostItems?.recentReports?.length > 0 ? (
+                        analyticsData.diagnosticAnalytics.lostItems.recentReports.map((report, index) => (
+                          <div key={index} className="report-item">
+                            <div className="report-header">
+                              <div className="report-equipment">{report.equipmentName}</div>
+                              <div className="report-date">{formatDate(report.date || report.timestamp)}</div>
+                            </div>
+                            <div className="report-details">
+                              <span className="report-category">{report.cause}</span>
+                              {report.notes && (
+                                <div className="report-notes">{report.notes.substring(0, 100)}...</div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="no-data-text">No recent lost reports</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Late Return Hero */}
+              <section className="hero-card late-hero">
+                <div className="card-heading">
+                  <div>
+                    <p className="card-kicker">Late Returns</p>
+                    <h2>Late Return Analytics</h2>
+                  </div>
+                  <span className="card-pill">
+                    <span className="pill-dot" />
+                    {analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns || 0} reports
+                  </span>
+                </div>
+                <div className="hero-panels one">
+                  <div className="chart-card">
+                    <h3>Late Returns Trend</h3>
+                    {(() => {
+                      const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
+                      
+                      if (trendData.length === 0) {
+                        return <p className="no-data-text">No late return data available</p>;
+                      }
+                      
+                      const formattedData = trendData.map(item => ({
+                        ...item,
+                        dateLabel: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      }));
+                      
+                      return (
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={320}>
+                            <LineChart data={formattedData}>
+                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                              <XAxis dataKey="dateLabel" tick={chartAxisTick} />
+                              <YAxis tick={chartAxisTick} />
+                              <Tooltip {...sharedTooltipProps} />
+                              <Legend />
+                              <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={3} name="Late Returns" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                              <Line type="monotone" dataKey="avgDaysLate" stroke={chartPalette.secondary} strokeWidth={3} name="Avg Days Late" strokeDasharray="6 6" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="hero-metric-bar">
+                    <div className="hero-metric-icon">⏱️</div>
+                    <div className="hero-metric-content">
+                      <p>Average Late Return Duration (Days)</p>
+                      <span>{analyticsData.diagnosticAnalytics.lateReturns?.averageDaysLate || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="diagnostics-stack">
               {/* Damage Analytics */}
               <div className="diagnostic-section damage-section">
                 <h2>🔧 Damage Analytics</h2>
@@ -1254,114 +1375,6 @@ export default function Analytics() {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Lost Items Analytics */}
-              <div className="diagnostic-section lost-section">
-                <h2>🔍 Lost Items Analytics</h2>
-                <div className="section-content">
-                  {/* Bar Chart */}
-                  <div className="chart-card">
-                    <h3>Lost Items by Category</h3>
-                    {(() => {
-                      const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
-                        .filter(([cause, count]) => count > 0)
-                        .map(([cause, count]) => ({ name: cause, value: count }));
-                      
-                      if (lostData.length === 0) {
-                        return <p className="no-data-text">No lost items data available</p>;
-                      }
-                      
-                      return (
-                        <div className="chart-container">
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={lostData}>
-                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
-                              <XAxis dataKey="name" tick={chartAxisTick} />
-                              <YAxis tick={chartAxisTick} />
-                              <Tooltip {...sharedTooltipProps} />
-                              <Bar dataKey="value" fill={chartPalette.accent} radius={[10, 10, 4, 4]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Recent Lost Reports */}
-                  <div className="chart-card">
-                    <h3>Recent Lost Reports</h3>
-                    <div className="recent-reports-list">
-                      {analyticsData.diagnosticAnalytics.lostItems?.recentReports?.length > 0 ? (
-                        analyticsData.diagnosticAnalytics.lostItems.recentReports.map((report, index) => (
-                          <div key={index} className="report-item">
-                            <div className="report-header">
-                              <div className="report-equipment">{report.equipmentName}</div>
-                              <div className="report-date">{formatDate(report.date || report.timestamp)}</div>
-                            </div>
-                            <div className="report-details">
-                              <span className="report-category">{report.cause}</span>
-                              {report.notes && (
-                                <div className="report-notes">{report.notes.substring(0, 100)}...</div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="no-data-text">No recent lost reports</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Late Return Analytics */}
-              <div className="diagnostic-section late-section">
-                <h2>⏰ Late Return Analytics</h2>
-                <div className="section-content">
-                  {/* Line Chart */}
-                  <div className="chart-card">
-                    <h3>Late Returns Trend</h3>
-                    {(() => {
-                      const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
-                      
-                      if (trendData.length === 0) {
-                        return <p className="no-data-text">No late return data available</p>;
-                      }
-                      
-                      // Format dates for display
-                      const formattedData = trendData.map(item => ({
-                        ...item,
-                        dateLabel: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      }));
-                      
-                      return (
-                        <div className="chart-container">
-                          <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={formattedData}>
-                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
-                              <XAxis dataKey="dateLabel" tick={chartAxisTick} />
-                              <YAxis tick={chartAxisTick} />
-                              <Tooltip {...sharedTooltipProps} />
-                              <Legend />
-                              <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={3} name="Late Returns" dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                              <Line type="monotone" dataKey="avgDaysLate" stroke={chartPalette.secondary} strokeWidth={3} name="Avg Days Late" strokeDasharray="6 6" />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Average Duration Card */}
-                  <div className="metric-card-large">
-                    <div className="metric-icon">⏱️</div>
-                    <div className="metric-content">
-                      <div className="metric-value-large">{analyticsData.diagnosticAnalytics.lateReturns?.averageDaysLate || 0}</div>
-                      <div className="metric-label-large">Average Late Return Duration (Days)</div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Uncategorized Incidents Card */}
