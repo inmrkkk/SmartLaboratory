@@ -4,6 +4,7 @@
   background: #f8fafc;
   min-height: 100vh;
   width: 100%;
+  font-size: 16px;
 }
 
 /* Analytics Header */
@@ -19,14 +20,14 @@
 }
 
 .analytics-title h1 {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
   color: #1e293b;
   margin: 0 0 8px 0;
 }
 
 .analytics-title p {
-  font-size: 16px;
+  font-size: 18px;
   color: #64748b;
   margin: 0;
 }
@@ -81,7 +82,7 @@
 
 .loading-state p {
   color: #64748b;
-  font-size: 16px;
+  font-size: 18px;
   margin: 0;
 }
 
@@ -101,7 +102,7 @@
   border: none;
   background: transparent;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
@@ -192,14 +193,14 @@
 }
 
 .metric-value {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: #1e293b;
   margin-bottom: 4px;
 }
 
 .metric-label {
-  font-size: 14px;
+  font-size: 16px;
   color: #64748b;
   font-weight: 600;
   text-transform: uppercase;
@@ -249,7 +250,7 @@
 }
 
 .chart-card h3 {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #0f172a;
   margin: 0 0 20px 0;
@@ -543,14 +544,14 @@
 }
 
 .user-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #1e293b;
   margin-bottom: 4px;
 }
 
 .user-activity {
-  font-size: 14px;
+  font-size: 16px;
   color: #64748b;
 }
 
@@ -619,7 +620,7 @@
 }
 
 .monthly-bar-count {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #0f172a;
 }
@@ -645,7 +646,7 @@
 }
 
 .monthly-bar-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: #475569;
   text-transform: uppercase;
@@ -805,14 +806,14 @@
 }
 
 .overview-value {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   color: #0f172a;
   line-height: 1;
 }
 
 .overview-label {
-  font-size: 13px;
+  font-size: 15px;
   color: #475569;
   font-weight: 600;
 }
@@ -905,7 +906,7 @@
 }
 
 .diagnostic-section h2 {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #0f172a;
   margin: 0 0 24px 0;
@@ -927,7 +928,7 @@
 
 .card-heading h2 {
   margin: 0;
-  font-size: 26px;
+  font-size: 28px;
   color: #0f172a;
 }
 
@@ -1006,7 +1007,7 @@
 }
 
 .summary-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #1e293b;
 }
@@ -1054,14 +1055,14 @@
 }
 
 .item-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 4px;
 }
 
 .item-count {
-  font-size: 14px;
+  font-size: 16px;
   color: #475569;
 }
 
@@ -1096,7 +1097,7 @@
 }
 
 .report-equipment {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #0f172a;
 }
@@ -1446,7 +1447,7 @@
 }
 
 .info-text {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 
