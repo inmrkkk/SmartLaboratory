@@ -73,18 +73,23 @@ export default function Analytics() {
   };
 
   const chartAxisTick = {
-    fill: "#475569",
+    fill: "#94a3b8",
     fontSize: 12,
-    fontWeight: 600
+    fontWeight: 600,
+    fontFamily: "'Inter', 'Segoe UI', sans-serif"
   };
 
   const renderDateTick = ({ x, y, payload }) => {
-    const [month = "", day = ""] = (payload.value || "").split(" ");
     return (
       <g transform={`translate(${x},${y})`}>
-        <text dy={16} fill={chartAxisTick.fill} fontSize={chartAxisTick.fontSize} fontWeight={chartAxisTick.fontWeight} textAnchor="middle">
-          <tspan x={0} dy="0">{month}</tspan>
-          <tspan x={0} dy="14">{day}</tspan>
+        <text
+          dy={16}
+          fill={chartAxisTick.fill}
+          fontSize={chartAxisTick.fontSize}
+          fontWeight={chartAxisTick.fontWeight}
+          textAnchor="middle"
+        >
+          {payload.value || ""}
         </text>
       </g>
     );
@@ -502,15 +507,19 @@ export default function Analytics() {
     }
     
     // Check for Forgotten / Misplaced
-    if (lowerText.includes('forgot') || lowerText.includes('forgotten') ||
-        lowerText.includes('misplaced') || lowerText.includes('lost') ||
-        lowerText.includes('cannot find') || lowerText.includes('can\'t find') ||
-        lowerText.includes('can not find') || lowerText.includes('missing') ||
-        lowerText.includes('don\'t know where') || lowerText.includes('don\'t remember') ||
-        lowerText.includes('left behind') || lowerText.includes('left somewhere')) {
-      return 'Forgotten / Misplaced';
-    }
-    
+if (
+  lowerText.includes('forget') || lowerText.includes('forgot') || lowerText.includes('forgotten') ||
+  lowerText.includes('neglected') || lowerText.includes('overlooked') ||
+  lowerText.includes('slipped my mind') || lowerText.includes('disregarded') ||
+  lowerText.includes('unremembered') || lowerText.includes('ignored') ||
+  lowerText.includes('omitted') || lowerText.includes('unnoticed') ||
+  lowerText.includes('passed over') || lowerText.includes('missed') ||
+  lowerText.includes('unheeded') || lowerText.includes('lost track of') ||
+  lowerText.includes('didn\'t recall')
+) {
+  return 'Forgotten / Misplaced';
+}
+
     return 'Unknown';
   };
 
@@ -873,7 +882,8 @@ export default function Analytics() {
     });
 
     // Create trend data for the period
-    for (let i = periodDays - 1; i >= 0; i--) {
+    const trendWindow = Math.min(periodDays, 15);
+    for (let i = trendWindow - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().split('T')[0];
@@ -1278,12 +1288,6 @@ export default function Analytics() {
                                   return [`${value} (${percentage}%)`, 'Lost Items'];
                                 }}
                               />
-                              <Legend 
-                                wrapperStyle={{ paddingTop: '20px' }}
-                                layout="horizontal"
-                                verticalAlign="bottom"
-                                align="center"
-                              />
                             </PieChart>
                           </ResponsiveContainer>
                           <div className="chart-summary">
@@ -1390,11 +1394,11 @@ export default function Analytics() {
                         .filter(([type, count]) => count > 0)
                         .map(([type, count]) => ({ name: type, value: count }));
                       const COLORS = {
-                        'Cracked': chartPalette.primary,
-                        'Broken': '#5b21b6',
-                        'Chipped': chartPalette.accent,
-                        'Scratched': '#60a5fa',
-                        'Other': chartPalette.neutral
+                        'Cracked': '#f97316',
+                        'Broken': '#ef4444',
+                        'Chipped': '#facc15',
+                        'Scratched': '#0ea5e9',
+                        'Other': '#94a3b8'
                       };
                       const total = damageData.reduce((sum, item) => sum + item.value, 0);
                       
@@ -1476,31 +1480,31 @@ export default function Analytics() {
                           key: 'Cracked',
                           label: 'Cracked',
                           description: 'Surface or structural cracks observed on return.',
-                          badgeColor: chartPalette.primary
+                          badgeColor: '#f97316'
                         },
                         {
                           key: 'Broken',
                           label: 'Broken',
                           description: 'Major breakage or non-functional equipment.',
-                          badgeColor: '#5b21b6'
+                          badgeColor: '#ef4444'
                         },
                         {
                           key: 'Chipped',
                           label: 'Chipped',
                           description: 'Small pieces or edges chipped off.',
-                          badgeColor: chartPalette.accent
+                          badgeColor: '#facc15'
                         },
                         {
                           key: 'Scratched',
                           label: 'Scratched',
                           description: 'Surface scratches or abrasions reported.',
-                          badgeColor: '#60a5fa'
+                          badgeColor: '#0ea5e9'
                         },
                         {
                           key: 'Other',
                           label: 'Other / Uncategorized',
                           description: 'Does not fit mapped damage patterns.',
-                          badgeColor: chartPalette.neutral
+                          badgeColor: '#94a3b8'
                         }
                       ];
 
@@ -1548,7 +1552,7 @@ export default function Analytics() {
               </div>
               <div className="hero-panels two">
                 <div className="chart-card">
-                  <h3>Late Returns Trend</h3>
+                  <h3 className="chart-title-emphasis">Late Returns Trend</h3>
                   {(() => {
                     const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
                     
@@ -1556,26 +1560,50 @@ export default function Analytics() {
                       return <p className="no-data-text">No late return data available</p>;
                     }
                     
-                    const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+                    const dayFormatter = new Intl.DateTimeFormat('en-US', { day: 'numeric' });
                     const formattedData = trendData.map(item => ({
                       ...item,
-                      dateLabel: dateFormatter.format(new Date(item.date))
+                      dateLabel: dayFormatter.format(new Date(item.date))
                     }));
                     
                     return (
-                      <div className="chart-container">
+                      <div className="chart-container minimalist-chart">
                         <ResponsiveContainer width="100%" height={320}>
-                          <LineChart data={formattedData}>
-                            <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
-                            <XAxis dataKey="dateLabel" tickLine={false} tick={renderDateTick} height={70} interval={0} />
-                            <YAxis tick={chartAxisTick} />
+                          <LineChart data={formattedData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                            <CartesianGrid stroke="#eceff5" strokeDasharray="2 6" vertical={false} />
+                            <XAxis
+                              dataKey="dateLabel"
+                              tickLine={false}
+                              axisLine={false}
+                              tick={renderDateTick}
+                              height={70}
+                              interval={0}
+                            />
+                            <YAxis
+                              tick={chartAxisTick}
+                              tickLine={false}
+                              axisLine={false}
+                              width={40}
+                            />
                             <Tooltip
                               {...sharedTooltipProps}
                               labelFormatter={(label) => `Returned on ${label}`}
-                              formatter={(value) => [`${value} reports`, 'Late Returns']}
+                              formatter={(value, _name, { payload }) => [
+                                `${value} late ${value === 1 ? 'return' : 'returns'}`,
+                                payload?.avgDaysLate
+                                  ? `Avg ${payload.avgDaysLate} days late`
+                                  : 'Late Returns'
+                              ]}
                             />
-                            <Legend />
-                            <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={4} name="Late Returns" dot={{ r: 5 }} activeDot={{ r: 7 }} />
+                            <Line
+                              type="monotone"
+                              dataKey="count"
+                              stroke="#2563eb"
+                              strokeWidth={3.5}
+                              name="Late Returns"
+                              dot={{ r: 6, strokeWidth: 2, stroke: '#2563eb', fill: '#ffffff' }}
+                              activeDot={{ r: 8, strokeWidth: 2, stroke: '#1d4ed8', fill: '#2563eb' }}
+                            />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
