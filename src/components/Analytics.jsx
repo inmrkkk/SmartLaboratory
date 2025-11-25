@@ -45,11 +45,8 @@ export default function Analytics() {
         reasons: {
           'Forgot to Return': 0,
           'Extended Use': 0,
-          'Not Available to Return': 0,
-          'Lost Track of Schedule': 0,
           'Unexpected Conflict': 0,
-          'Equipment Hard to Transport': 0,
-          'Unknown': 0
+          'Other': 0
         }
       },
       approvalBottlenecks: {}
@@ -518,109 +515,74 @@ export default function Analytics() {
   };
 
   const categorizeLateReturn = (text) => {
-    if (!text || text.trim().length === 0) return 'Unknown';
-    const normalizedText = text
+    if (!text || text.trim().length === 0) return 'Other';
+    const lowerText = text
       .toLowerCase()
       .replace(/[’‘]/g, "'")
       .trim();
 
-    const matches = (phrases) => phrases.some(phrase => normalizedText.includes(phrase));
+    // Skip overly generic phrases that don't help classification
+    if (
+      lowerText === 'late return' ||
+      lowerText === 'late' ||
+      lowerText === 'returned late'
+    ) {
+      return 'Other';
+    }
 
     // Forgot to return
-    if (matches([
-      'forgot',
-      'forgotten',
-      'left it',
-      'overlooked',
-      'did not remember',
-      "didn't remember",
-      "i didn't remember",
-      "i didnt remember",
-      "i don't remember",
-      "i dont remember",
-      'forgot to return'
-    ])) {
+    if (
+      lowerText.includes('forgot') ||
+      lowerText.includes('forgotten') ||
+      lowerText.includes('left it') ||
+      lowerText.includes('left behind') ||
+      lowerText.includes('overlooked') ||
+      lowerText.includes('did not remember') ||
+      lowerText.includes("didn't remember") ||
+      lowerText.includes("i didn't remember") ||
+      lowerText.includes("i didnt remember") ||
+      lowerText.includes("i don't remember") ||
+      lowerText.includes("i dont remember") ||
+      lowerText.includes('forgot to return')
+    ) {
       return 'Forgot to Return';
     }
 
     // Extended use / still needed
-    if (matches([
-      'still using',
-      'still used',
-      'ongoing',
-      'extended',
-      'not done',
-      'unfinished',
-      'continued the experiment',
-      'need more time',
-      'still needed',
-      'still need',
-      'in use',
-      'continued work',
-      'extra time'
-    ])) {
+    if (
+      lowerText.includes('still') ||
+      lowerText.includes('still used') ||
+      lowerText.includes('ongoing') ||
+      lowerText.includes('extended') ||
+      lowerText.includes('extended use') ||
+      lowerText.includes('not done') ||
+      lowerText.includes('unfinished') ||
+      lowerText.includes('need more time') ||
+      lowerText.includes('still needed') ||
+      lowerText.includes('still need') ||
+      lowerText.includes('in use') ||
+      lowerText.includes('continued work') ||
+      lowerText.includes('continued the experiment') ||
+      lowerText.includes('extra time')
+    ) {
       return 'Extended Use';
     }
 
-    // Borrower not available
-    if (matches([
-      'absent',
-      'not in school',
-      'was sick',
-      'out of town',
-      "couldn't come",
-      'could not come',
-      'busy with class',
-      'had class',
-      'not available'
-    ])) {
-      return 'Not Available to Return';
-    }
-
-    // Lost track of schedule
-    if (matches([
-      "didn't notice",
-      'did not notice',
-      "didn't know",
-      'not aware',
-      'lost track',
-      'wrong schedule',
-      'wrong time',
-      'thought it was due later',
-      'thought due later'
-    ])) {
-      return 'Lost Track of Schedule';
-    }
-
     // Emergency or unexpected conflict
-    if (matches([
-      'emergency',
-      'urgent',
-      'sudden',
-      'meeting',
-      'important event',
-      'unexpected',
-      'conflict',
-      'problem came up'
-    ])) {
+    if (
+      lowerText.includes('emergency') ||
+      lowerText.includes('urgent') ||
+      lowerText.includes('sudden') ||
+      lowerText.includes('meeting') ||
+      lowerText.includes('important event') ||
+      lowerText.includes('unexpected') ||
+      lowerText.includes('conflict') ||
+      lowerText.includes('problem came up')
+    ) {
       return 'Unexpected Conflict';
     }
 
-    // Hard to transport or difficulty returning equipment
-    if (matches([
-      'hard to carry',
-      'heavy',
-      'difficult to bring',
-      'transport',
-      'far lab',
-      "can't carry",
-      'cant carry',
-      'difficult to return'
-    ])) {
-      return 'Equipment Hard to Transport';
-    }
-
-    return 'Unknown';
+    return 'Other';
   };
 
   // Diagnostic Analytics Functions
@@ -816,14 +778,11 @@ export default function Analytics() {
     const lateReturnReasons = {
       'Forgot to Return': 0,
       'Extended Use': 0,
-      'Not Available to Return': 0,
-      'Lost Track of Schedule': 0,
       'Unexpected Conflict': 0,
-      'Equipment Hard to Transport': 0,
-      'Unknown': 0
+      'Other': 0
     };
     const uncategorizedLateReturns = []; // Store items with NO text (truly uncategorized)
-    const unknownLateReturns = []; // Store ALL "Unknown" items for review (with or without text)
+    const otherLateReturns = []; // Store ALL "Other" items for review (with or without text)
 
     returnedEntries.forEach(entry => {
       // Use dateToReturn from history entry (stored when return was recorded)
@@ -836,44 +795,65 @@ export default function Analytics() {
       if (returnDate > dueDate) {
         const daysLate = Math.ceil((returnDate - dueDate) / (1000 * 60 * 60 * 24));
         
-        // Get description from notes
-        const notesText = (entry.returnDetails?.notes || 
-                          entry.returnDetails?.delayReason || 
-                          '').toLowerCase();
+        // Gather all potential text inputs that explain the delay
+        const delayReasonRaw = entry.returnDetails?.delayReason || '';
+        const delayNotes = entry.returnDetails?.delayNotes || '';
+        const supplementalNotes = entry.returnDetails?.notes || '';
+        const conditionNotes = entry.returnDetails?.conditionNotes || '';
+        const combinedReasonText = [delayNotes, supplementalNotes, conditionNotes]
+          .filter(text => typeof text === 'string' && text.trim().length > 0)
+          .join(' ')
+          .trim();
+        const normalizedReasonText = (delayReasonRaw.toLowerCase().trim() === 'late'
+          ? combinedReasonText
+          : '')
+          .toLowerCase()
+          .replace(/[’‘]/g, "'")
+          .trim();
 
         lateReturns.push({
           equipmentName: entry.equipmentName || 'Unknown',
           categoryName: entry.categoryName || 'Unknown',
           borrower: entry.borrower || entry.adviserName || 'Unknown',
           daysLate,
-          notes: entry.returnDetails?.notes || '',
+          notes: combinedReasonText,
           returnDate: entry.returnDate || entry.timestamp,
           dueDate: dateToReturn
         });
 
         // Categorize reason using keyword matching
-        const reason = categorizeLateReturn(notesText);
-        lateReturnReasons[reason] = (lateReturnReasons[reason] || 0) + 1;
-        
+        const reason = categorizeLateReturn(
+          delayReasonRaw.toLowerCase().trim() === 'late'
+            ? combinedReasonText
+            : ''
+        );
+        const normalizedReason = Object.prototype.hasOwnProperty.call(
+          lateReturnReasons,
+          reason
+        )
+          ? reason
+          : 'Other';
+        lateReturnReasons[normalizedReason] =
+          (lateReturnReasons[normalizedReason] || 0) + 1;
+
         const lateReturnItem = {
           equipmentName: entry.equipmentName || 'Unknown',
           categoryName: entry.categoryName || 'Unknown',
           borrower: entry.borrower || entry.adviserName || 'Unknown',
           daysLate,
-          notes: entry.returnDetails?.notes || '',
+          notes: combinedReasonText,
           timestamp: entry.timestamp,
           returnDate: entry.returnDate || entry.timestamp,
           dueDate: dateToReturn
         };
-        
+
         // Store uncategorized late returns (only if no text provided - truly uncategorized)
-        if (reason === 'Unknown' && !notesText.trim()) {
+        if (normalizedReason === 'Other' && !normalizedReasonText) {
           uncategorizedLateReturns.push(lateReturnItem);
         }
-        
-        // Store ALL "Unknown" items for review (both with and without text)
-        if (reason === 'Unknown') {
-          unknownLateReturns.push(lateReturnItem);
+
+        if (normalizedReason === 'Other') {
+          otherLateReturns.push(lateReturnItem);
         }
       }
     });
@@ -915,14 +895,14 @@ export default function Analytics() {
       lateByBorrower: {},
       reasons: lateReturnReasons,
       topReasons: Object.entries(lateReturnReasons)
-        .filter(([reason, count]) => reason !== 'Unknown' && count > 0)
+        .filter(([reason, count]) => reason !== 'Other' && count > 0)
         .sort(([,a], [,b]) => b - a)
         .map(([reason, count]) => ({ reason, count })),
       trends: lateReturnTrends,
       // Only count as uncategorized if there's no text at all (not just "Unknown" with text)
       uncategorizedCount: uncategorizedLateReturns.length,
       uncategorizedItems: uncategorizedLateReturns, // Items with NO text (truly uncategorized)
-      unknownItems: unknownLateReturns // ALL "Unknown" items for review (with or without text)
+      otherItems: otherLateReturns // ALL "Other" items for review (with or without text)
     };
 
     lateReturns.forEach(ret => {
@@ -1257,8 +1237,12 @@ export default function Analytics() {
                     <h3>Lost Items by Cause</h3>
                     {(() => {
                       const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
-                        .filter(([cause, count]) => count > 0)
-                        .map(([cause, count]) => ({ name: cause, value: count }));
+                        .filter(([, count]) => count > 0)
+                        .map(([cause, count]) => ({
+                          key: cause,
+                          name: cause === 'Unknown' ? 'Other' : cause,
+                          value: count
+                        }));
                       const COLORS = {
                         'Forgotten / Misplaced': '#f97316',
                         'Stolen': '#ef4444',
@@ -1282,13 +1266,18 @@ export default function Analytics() {
                                 outerRadius={100}
                                 paddingAngle={5}
                                 dataKey="value"
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                               >
                                 {lostData.map((entry, index) => (
-                                  <Cell key={`lost-cell-${index}`} fill={COLORS[entry.name] || chartPalette.accent} />
+                                  <Cell key={`lost-cell-${index}`} fill={COLORS[entry.key] || chartPalette.accent} />
                                 ))}
                               </Pie>
-                              <Tooltip {...sharedTooltipProps} />
+                              <Tooltip
+                                {...sharedTooltipProps}
+                                formatter={(value) => {
+                                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                  return [`${value} (${percentage}%)`, 'Lost Items'];
+                                }}
+                              />
                               <Legend 
                                 wrapperStyle={{ paddingTop: '20px' }}
                                 layout="horizontal"
@@ -1425,13 +1414,18 @@ export default function Analytics() {
                                 outerRadius={100}
                                 paddingAngle={5}
                                 dataKey="value"
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                               >
                                 {damageData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#6b7280'} />
                                 ))}
                               </Pie>
-                              <Tooltip {...sharedTooltipProps} />
+                              <Tooltip
+                                {...sharedTooltipProps}
+                                formatter={(value) => {
+                                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                  return [`${value} (${percentage}%)`, 'Damage Incidents'];
+                                }}
+                              />
                               <Legend 
                                 wrapperStyle={{ paddingTop: '20px' }}
                                 layout="horizontal"
@@ -1592,18 +1586,17 @@ export default function Analytics() {
                   <h3>Late Returns by Reason</h3>
                   {(() => {
                     const reasonsData = Object.entries(analyticsData.diagnosticAnalytics.lateReturns?.reasons || {})
-                      .filter(([reason, count]) => reason !== 'Unknown' && count > 0)
+                      .filter(([, count]) => count > 0)
                       .map(([reason, count]) => ({
+                        key: reason,
                         name: reason,
                         value: count
                       }));
                     const reasonColors = {
                       'Forgot to Return': '#f97316',
                       'Extended Use': '#6366f1',
-                      'Not Available to Return': '#0ea5e9',
-                      'Lost Track of Schedule': '#10b981',
                       'Unexpected Conflict': '#e11d48',
-                      'Equipment Hard to Transport': '#c026d3'
+                      Other: '#94a3b8'
                     };
                     const totalReasons = reasonsData.reduce((sum, item) => sum + item.value, 0);
 
@@ -1625,7 +1618,6 @@ export default function Analytics() {
                               cornerRadius={8}
                               dataKey="value"
                               nameKey="name"
-                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                             >
                               {reasonsData.map((entry, index) => (
                                 <Cell key={`late-reason-cell-${index}`} fill={reasonColors[entry.name] || chartPalette.accent} />
@@ -1633,9 +1625,12 @@ export default function Analytics() {
                             </Pie>
                             <Tooltip
                               {...sharedTooltipProps}
-                              formatter={(value) => {
+                              formatter={(value, _name, { payload }) => {
                                 const percentage = totalReasons > 0 ? ((value / totalReasons) * 100).toFixed(1) : 0;
-                                return [`${value} (${percentage}%)`, 'Late Returns'];
+                                return [
+                                  `${value} (${percentage}%)`,
+                                  payload?.name || 'Reason'
+                                ];
                               }}
                             />
                             <Legend verticalAlign="bottom" align="center" iconType="circle" />
@@ -1664,33 +1659,15 @@ export default function Analytics() {
                         badgeColor: '#6366f1'
                       },
                       {
-                        key: 'Not Available to Return',
-                        label: 'Not Available to Return',
-                        description: 'Borrower was absent or unavailable during the return window.',
-                        badgeColor: '#0ea5e9'
-                      },
-                      {
-                        key: 'Lost Track of Schedule',
-                        label: 'Lost Track of Schedule',
-                        description: 'Borrower misunderstood or forgot the due date.',
-                        badgeColor: '#10b981'
-                      },
-                      {
                         key: 'Unexpected Conflict',
                         label: 'Unexpected Conflict',
                         description: 'Emergencies or sudden priorities interfered with the return.',
                         badgeColor: '#e11d48'
                       },
                       {
-                        key: 'Equipment Hard to Transport',
-                        label: 'Equipment Hard to Transport',
-                        description: 'Borrower experienced difficulty transporting the equipment.',
-                        badgeColor: '#c026d3'
-                      },
-                      {
-                        key: 'Unknown',
+                        key: 'Other',
                         label: 'Other',
-                        description: 'No clear reason provided; requires manual follow-up.',
+                        description: 'Includes reasons like not available, lost track, transport issues, or unspecified text.',
                         badgeColor: '#94a3b8'
                       }
                     ];

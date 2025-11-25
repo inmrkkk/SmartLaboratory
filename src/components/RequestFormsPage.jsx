@@ -1115,12 +1115,18 @@ export default function RequestFormsPage() {
         }));
       }
 
+      const lateReturnDescription =
+        returnFormData.delayReason === "late"
+          ? returnFormData.delayNotes || ""
+          : "";
+      const additionalNotes = returnFormData.notes || "";
+
       const returnDetails = {
         condition: returnFormData.condition,
         conditionNotes: returnFormData.conditionNotes,
         delayReason: returnFormData.delayReason,
-        delayNotes: returnFormData.delayNotes,
-        notes: returnFormData.notes,
+        delayNotes: lateReturnDescription,
+        notes: additionalNotes,
         returnedQuantity: adjustedReturnedQuantity,
         processedBy: "Admin", // You can get actual admin name from auth
       };
