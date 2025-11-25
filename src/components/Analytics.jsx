@@ -792,14 +792,24 @@ export default function Analytics() {
     
     // Check for Forgotten / Misplaced
 if (
-  lowerText.includes('forget') || lowerText.includes('forgot') || lowerText.includes('forgotten') ||
-  lowerText.includes('neglected') || lowerText.includes('overlooked') ||
+  lowerText.includes('forget') || lowerText.includes('forgets') || lowerText.includes('forgetting') ||
+  lowerText.includes('forgot') || lowerText.includes('forgotten') ||
+  lowerText.includes('neglect') || lowerText.includes('neglects') ||
+  lowerText.includes('neglected') || lowerText.includes('neglecting') ||
+  lowerText.includes('overlook') || lowerText.includes('overlooks') ||
+  lowerText.includes('overlooked') || lowerText.includes('overlooking') ||
   lowerText.includes('slipped my mind') || lowerText.includes('disregarded') ||
-  lowerText.includes('unremembered') || lowerText.includes('ignored') ||
-  lowerText.includes('omitted') || lowerText.includes('unnoticed') ||
-  lowerText.includes('passed over') || lowerText.includes('missed') ||
+  lowerText.includes('disregarding') || lowerText.includes('unremembered') ||
+  lowerText.includes('ignore') || lowerText.includes('ignores') ||
+  lowerText.includes('ignored') || lowerText.includes('ignoring') ||
+  lowerText.includes('omitted') || lowerText.includes('omitting') ||
+  lowerText.includes('omit') || lowerText.includes('unnoticed') ||
+  lowerText.includes('pass over') || lowerText.includes('passed over') ||
+  lowerText.includes('passing over') || lowerText.includes('missed') ||
+  lowerText.includes('miss') || lowerText.includes('missing') ||
   lowerText.includes('unheeded') || lowerText.includes('lost track of') ||
-  lowerText.includes('didn\'t recall')
+  lowerText.includes('losing track of') || lowerText.includes('didn\'t recall') ||
+  lowerText.includes('do not recall') || lowerText.includes('does not recall')
 ) {
   return 'Forgotten / Misplaced';
 }
@@ -825,18 +835,24 @@ if (
 
     // Forgot to return
     if (
+      lowerText.includes('forget') ||
+      lowerText.includes('forgets') ||
+      lowerText.includes('forgetting') ||
       lowerText.includes('forgot') ||
       lowerText.includes('forgotten') ||
       lowerText.includes('left it') ||
       lowerText.includes('left behind') ||
+      lowerText.includes('leaving it') ||
       lowerText.includes('overlooked') ||
+      lowerText.includes('overlooking') ||
       lowerText.includes('did not remember') ||
       lowerText.includes("didn't remember") ||
       lowerText.includes("i didn't remember") ||
       lowerText.includes("i didnt remember") ||
       lowerText.includes("i don't remember") ||
       lowerText.includes("i dont remember") ||
-      lowerText.includes('forgot to return')
+      lowerText.includes('forgot to return') ||
+      lowerText.includes('forgetting to return')
     ) {
       return 'Forgot to Return';
     }
@@ -845,17 +861,30 @@ if (
     if (
       lowerText.includes('still') ||
       lowerText.includes('still used') ||
-      lowerText.includes('ongoing') ||
-      lowerText.includes('extended') ||
-      lowerText.includes('extended use') ||
-      lowerText.includes('not done') ||
-      lowerText.includes('unfinished') ||
-      lowerText.includes('need more time') ||
-      lowerText.includes('still needed') ||
+      lowerText.includes('still using') ||
       lowerText.includes('still need') ||
+      lowerText.includes('still needs') ||
+      lowerText.includes('still needed') ||
+      lowerText.includes('ongoing') ||
+      lowerText.includes('extend') ||
+      lowerText.includes('extends') ||
+      lowerText.includes('extended') ||
+      lowerText.includes('extending') ||
+      lowerText.includes('extended use') ||
+      lowerText.includes('extension') ||
+      lowerText.includes('not done') ||
+      lowerText.includes('not finished') ||
+      lowerText.includes('unfinished') ||
+      lowerText.includes('finishing') ||
+      lowerText.includes('need more time') ||
+      lowerText.includes('needed more time') ||
+      lowerText.includes('needing more time') ||
       lowerText.includes('in use') ||
+      lowerText.includes('using it') ||
       lowerText.includes('continued work') ||
+      lowerText.includes('continuing work') ||
       lowerText.includes('continued the experiment') ||
+      lowerText.includes('continuing the experiment') ||
       lowerText.includes('extra time')
     ) {
       return 'Extended Use';
@@ -864,13 +893,23 @@ if (
     // Emergency or unexpected conflict
     if (
       lowerText.includes('emergency') ||
+      lowerText.includes('emergencies') ||
       lowerText.includes('urgent') ||
+      lowerText.includes('urgency') ||
       lowerText.includes('sudden') ||
+      lowerText.includes('suddenly') ||
       lowerText.includes('meeting') ||
+      lowerText.includes('meetings') ||
       lowerText.includes('important event') ||
+      lowerText.includes('important events') ||
       lowerText.includes('unexpected') ||
+      lowerText.includes('unexpectedly') ||
       lowerText.includes('conflict') ||
-      lowerText.includes('problem came up')
+      lowerText.includes('conflicts') ||
+      lowerText.includes('problem came up') ||
+      lowerText.includes('problems came up') ||
+      lowerText.includes('issue arose') ||
+      lowerText.includes('issues arose')
     ) {
       return 'Unexpected Conflict';
     }
