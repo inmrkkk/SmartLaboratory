@@ -43,8 +43,12 @@ export default function Analytics() {
       },
       lateReturns: {
         reasons: {
-          'Forgotten / Misplaced': 0,
+          'Forgot to Return': 0,
           'Extended Use': 0,
+          'Not Available to Return': 0,
+          'Lost Track of Schedule': 0,
+          'Unexpected Conflict': 0,
+          'Equipment Hard to Transport': 0,
           'Unknown': 0
         }
       },
@@ -75,6 +79,18 @@ export default function Analytics() {
     fill: "#475569",
     fontSize: 12,
     fontWeight: 600
+  };
+
+  const renderDateTick = ({ x, y, payload }) => {
+    const [month = "", day = ""] = (payload.value || "").split(" ");
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text dy={16} fill={chartAxisTick.fill} fontSize={chartAxisTick.fontSize} fontWeight={chartAxisTick.fontWeight} textAnchor="middle">
+          <tspan x={0} dy="0">{month}</tspan>
+          <tspan x={0} dy="14">{day}</tspan>
+        </text>
+      </g>
+    );
   };
 
   const chartGridStroke = "#e2e8f0";
@@ -502,30 +518,108 @@ export default function Analytics() {
   };
 
   const categorizeLateReturn = (text) => {
-    if (!text) return 'Unknown';
-    const lowerText = text.toLowerCase();
-    
-    // Check for Forgotten / Misplaced
-    if (lowerText.includes('forgot') || lowerText.includes('forgotten') ||
-        lowerText.includes('misplaced') || lowerText.includes('lost') ||
-        lowerText.includes('cannot find') || lowerText.includes('can\'t find') ||
-        lowerText.includes('can not find') || lowerText.includes('don\'t remember') ||
-        lowerText.includes('didn\'t remember') || lowerText.includes('forgot to return')) {
-      return 'Forgotten / Misplaced';
+    if (!text || text.trim().length === 0) return 'Unknown';
+    const normalizedText = text
+      .toLowerCase()
+      .replace(/[’‘]/g, "'")
+      .trim();
+
+    const matches = (phrases) => phrases.some(phrase => normalizedText.includes(phrase));
+
+    // Forgot to return
+    if (matches([
+      'forgot',
+      'forgotten',
+      'left it',
+      'overlooked',
+      'did not remember',
+      "didn't remember",
+      "i didn't remember",
+      "i didnt remember",
+      "i don't remember",
+      "i dont remember",
+      'forgot to return'
+    ])) {
+      return 'Forgot to Return';
     }
-    
-    // Check for Extended Use
-    if (lowerText.includes('still using') || lowerText.includes('still in use') ||
-        lowerText.includes('needed') || lowerText.includes('extended') ||
-        lowerText.includes('continue') || lowerText.includes('ongoing') ||
-        lowerText.includes('requires more time') || lowerText.includes('need more time') ||
-        lowerText.includes('still need') || lowerText.includes('still needed') ||
-        lowerText.includes('using it') || lowerText.includes('in use') ||
-        lowerText.includes('requires additional') || lowerText.includes('need additional') ||
-        lowerText.includes('more time needed') || lowerText.includes('extend')) {
+
+    // Extended use / still needed
+    if (matches([
+      'still using',
+      'still used',
+      'ongoing',
+      'extended',
+      'not done',
+      'unfinished',
+      'continued the experiment',
+      'need more time',
+      'still needed',
+      'still need',
+      'in use',
+      'continued work',
+      'extra time'
+    ])) {
       return 'Extended Use';
     }
-    
+
+    // Borrower not available
+    if (matches([
+      'absent',
+      'not in school',
+      'was sick',
+      'out of town',
+      "couldn't come",
+      'could not come',
+      'busy with class',
+      'had class',
+      'not available'
+    ])) {
+      return 'Not Available to Return';
+    }
+
+    // Lost track of schedule
+    if (matches([
+      "didn't notice",
+      'did not notice',
+      "didn't know",
+      'not aware',
+      'lost track',
+      'wrong schedule',
+      'wrong time',
+      'thought it was due later',
+      'thought due later'
+    ])) {
+      return 'Lost Track of Schedule';
+    }
+
+    // Emergency or unexpected conflict
+    if (matches([
+      'emergency',
+      'urgent',
+      'sudden',
+      'meeting',
+      'important event',
+      'unexpected',
+      'conflict',
+      'problem came up'
+    ])) {
+      return 'Unexpected Conflict';
+    }
+
+    // Hard to transport or difficulty returning equipment
+    if (matches([
+      'hard to carry',
+      'heavy',
+      'difficult to bring',
+      'transport',
+      'far lab',
+      "can't carry",
+      'cant carry',
+      'difficult to return'
+    ])) {
+      return 'Equipment Hard to Transport';
+    }
+
     return 'Unknown';
   };
 
@@ -720,8 +814,12 @@ export default function Analytics() {
 
     const lateReturns = [];
     const lateReturnReasons = {
-      'Forgotten / Misplaced': 0,
+      'Forgot to Return': 0,
       'Extended Use': 0,
+      'Not Available to Return': 0,
+      'Lost Track of Schedule': 0,
+      'Unexpected Conflict': 0,
+      'Equipment Hard to Transport': 0,
       'Unknown': 0
     };
     const uncategorizedLateReturns = []; // Store items with NO text (truly uncategorized)
@@ -817,7 +915,7 @@ export default function Analytics() {
       lateByBorrower: {},
       reasons: lateReturnReasons,
       topReasons: Object.entries(lateReturnReasons)
-        .filter(([reason, count]) => count > 0)
+        .filter(([reason, count]) => reason !== 'Unknown' && count > 0)
         .sort(([,a], [,b]) => b - a)
         .map(([reason, count]) => ({ reason, count })),
       trends: lateReturnTrends,
@@ -1156,118 +1254,146 @@ export default function Analytics() {
                 </div>
                 <div className="hero-panels two">
                   <div className="chart-card">
-                    <h3>Lost Items by Category</h3>
+                    <h3>Lost Items by Cause</h3>
                     {(() => {
                       const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
                         .filter(([cause, count]) => count > 0)
                         .map(([cause, count]) => ({ name: cause, value: count }));
-                      
+                      const COLORS = {
+                        'Forgotten / Misplaced': '#f97316',
+                        'Stolen': '#ef4444',
+                        'Unknown': chartPalette.neutral
+                      };
+                      const total = lostData.reduce((sum, item) => sum + item.value, 0);
+
                       if (lostData.length === 0) {
                         return <p className="no-data-text">No lost items data available</p>;
                       }
-                      
+
                       return (
                         <div className="chart-container">
                           <ResponsiveContainer width="100%" height={320}>
-                            <BarChart data={lostData}>
-                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
-                              <XAxis dataKey="name" tick={chartAxisTick} />
-                              <YAxis tick={chartAxisTick} />
+                            <PieChart>
+                              <Pie
+                                data={lostData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                paddingAngle={5}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              >
+                                {lostData.map((entry, index) => (
+                                  <Cell key={`lost-cell-${index}`} fill={COLORS[entry.name] || chartPalette.accent} />
+                                ))}
+                              </Pie>
                               <Tooltip {...sharedTooltipProps} />
-                              <Bar dataKey="value" fill={chartPalette.accent} radius={[10, 10, 4, 4]} />
-                            </BarChart>
+                              <Legend 
+                                wrapperStyle={{ paddingTop: '20px' }}
+                                layout="horizontal"
+                                verticalAlign="bottom"
+                                align="center"
+                              />
+                            </PieChart>
                           </ResponsiveContainer>
+                          <div className="chart-summary">
+                            <div className="summary-item">
+                              <span className="summary-label">Total:</span>
+                              <span className="summary-value">{total}</span>
+                            </div>
+                          </div>
                         </div>
                       );
                     })()}
                   </div>
                   <div className="chart-card">
-                    <h3>Recent Lost Reports</h3>
-                    <div className="recent-reports-list">
-                      {analyticsData.diagnosticAnalytics.lostItems?.recentReports?.length > 0 ? (
-                        analyticsData.diagnosticAnalytics.lostItems.recentReports.map((report, index) => (
-                          <div key={index} className="report-item">
-                            <div className="report-header">
-                              <div className="report-equipment">{report.equipmentName}</div>
-                              <div className="report-date">{formatDate(report.date || report.timestamp)}</div>
+                    <h3>Top 5 Items by Lost Count</h3>
+                    <div className="top-items-list">
+                      {analyticsData.diagnosticAnalytics.lostItems?.mostLostEquipment?.length > 0 ? (
+                        analyticsData.diagnosticAnalytics.lostItems.mostLostEquipment
+                          .slice(0, 5)
+                          .map((item, index) => (
+                            <div key={item.equipment} className="top-item">
+                              <div className="item-rank">#{index + 1}</div>
+                              <div className="item-info">
+                                <div className="item-name">{item.equipment}</div>
+                                <div className="item-count">{item.count} {item.count === 1 ? 'report' : 'reports'}</div>
+                              </div>
                             </div>
-                            <div className="report-details">
-                              <span className="report-category">{report.cause}</span>
-                              {report.notes && (
-                                <div className="report-notes">{report.notes.substring(0, 100)}...</div>
-                              )}
-                            </div>
-                          </div>
-                        ))
+                          ))
                       ) : (
-                        <p className="no-data-text">No recent lost reports</p>
+                        <p className="no-data-text">No lost items recorded</p>
                       )}
                     </div>
                   </div>
-                </div>
-              </section>
-
-              {/* Late Return Hero */}
-              <section className="hero-card late-hero">
-                <div className="card-heading">
-                  <div>
-                    <p className="card-kicker">Late Returns</p>
-                    <h2>Late Return Analytics</h2>
-                  </div>
-                  <span className="card-pill">
-                    <span className="pill-dot" />
-                    {analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns || 0} reports
-                  </span>
-                </div>
-                <div className="hero-panels one">
-                  <div className="chart-card">
-                    <h3>Late Returns Trend</h3>
+                  <div className="chart-card full-width reason-breakdown-card">
+                    <h3>Lost Item Cause Breakdown</h3>
                     {(() => {
-                      const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
-                      
-                      if (trendData.length === 0) {
-                        return <p className="no-data-text">No late return data available</p>;
-                      }
-                      
-                      const formattedData = trendData.map(item => ({
-                        ...item,
-                        dateLabel: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      }));
-                      
+                      const lostCauses = analyticsData.diagnosticAnalytics.lostItems?.causes || {};
+                      const totalLost = analyticsData.diagnosticAnalytics.lostItems?.totalLostItems || 0;
+                      const reasonConfig = [
+                        {
+                          key: 'Forgotten / Misplaced',
+                          label: 'Forgotten / Misplaced',
+                          description: 'Item was misplaced or borrower forgot where it was left.',
+                          badgeColor: '#f97316'
+                        },
+                        {
+                          key: 'Stolen',
+                          label: 'Stolen',
+                          description: 'Incident report indicates possible theft.',
+                          badgeColor: '#ef4444'
+                        },
+                        {
+                          key: 'Unknown',
+                          label: 'Other / Unknown',
+                          description: 'Cause not specified; requires manual follow-up.',
+                          badgeColor: '#94a3b8'
+                        }
+                      ];
+
                       return (
-                        <div className="chart-container">
-                          <ResponsiveContainer width="100%" height={320}>
-                            <LineChart data={formattedData}>
-                              <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
-                              <XAxis dataKey="dateLabel" tick={chartAxisTick} />
-                              <YAxis tick={chartAxisTick} />
-                              <Tooltip {...sharedTooltipProps} />
-                              <Legend />
-                              <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={3} name="Late Returns" dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                              <Line type="monotone" dataKey="avgDaysLate" stroke={chartPalette.secondary} strokeWidth={3} name="Avg Days Late" strokeDasharray="6 6" />
-                            </LineChart>
-                          </ResponsiveContainer>
+                        <div className="reason-breakdown-grid">
+                          {reasonConfig.map(reason => {
+                            const count = lostCauses[reason.key] || 0;
+                            const percentage = totalLost > 0 ? Math.round((count / totalLost) * 100) : 0;
+                            return (
+                              <div key={reason.key} className="reason-item">
+                                <div className="reason-item-header">
+                                  <span className="reason-badge" style={{ backgroundColor: reason.badgeColor }} />
+                                  <div>
+                                    <div className="reason-label">{reason.label}</div>
+                                    <div className="reason-description">{reason.description}</div>
+                                  </div>
+                                </div>
+                                <div className="reason-metrics">
+                                  <div className="reason-count">{count}</div>
+                                  <div className="reason-percentage">{percentage}%</div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
                   </div>
-                  <div className="hero-metric-bar">
-                    <div className="hero-metric-icon">⏱️</div>
-                    <div className="hero-metric-content">
-                      <p>Average Late Return Duration (Days)</p>
-                      <span>{analyticsData.diagnosticAnalytics.lateReturns?.averageDaysLate || 0}</span>
-                    </div>
-                  </div>
                 </div>
               </section>
-            </div>
 
-            <div className="diagnostics-stack">
-              {/* Damage Analytics */}
-              <div className="diagnostic-section damage-section">
-                <h2>🔧 Damage Analytics</h2>
-                <div className="section-content">
-                  {/* Donut Chart */}
+              {/* Damage Hero */}
+              <section className="hero-card damage-hero">
+                <div className="card-heading">
+                  <div>
+                    <p className="card-kicker">Damage</p>
+                    <h2>Damage Analytics</h2>
+                  </div>
+                  <span className="card-pill">
+                    <span className="pill-dot" />
+                    {analyticsData.diagnosticAnalytics.equipmentDamage?.totalDamageIncidents || 0} incidents
+                  </span>
+                </div>
+                <div className="hero-panels two">
                   <div className="chart-card">
                     <h3>Damage by Type</h3>
                     {(() => {
@@ -1325,7 +1451,6 @@ export default function Analytics() {
                     })()}
                   </div>
 
-                  {/* Top 5 Items */}
                   <div className="chart-card">
                     <h3>Top 5 Items by Damage Count</h3>
                     <div className="top-items-list">
@@ -1346,37 +1471,259 @@ export default function Analytics() {
                       )}
                     </div>
                   </div>
+
+                  <div className="chart-card full-width reason-breakdown-card">
+                    <h3>Damage Reason Breakdown</h3>
+                    {(() => {
+                      const damageTypes = analyticsData.diagnosticAnalytics.equipmentDamage?.damageByType || {};
+                      const totalDamage = analyticsData.diagnosticAnalytics.equipmentDamage?.totalDamageIncidents || 0;
+                      const typeConfig = [
+                        {
+                          key: 'Cracked',
+                          label: 'Cracked',
+                          description: 'Surface or structural cracks observed on return.',
+                          badgeColor: chartPalette.primary
+                        },
+                        {
+                          key: 'Broken',
+                          label: 'Broken',
+                          description: 'Major breakage or non-functional equipment.',
+                          badgeColor: '#5b21b6'
+                        },
+                        {
+                          key: 'Chipped',
+                          label: 'Chipped',
+                          description: 'Small pieces or edges chipped off.',
+                          badgeColor: chartPalette.accent
+                        },
+                        {
+                          key: 'Scratched',
+                          label: 'Scratched',
+                          description: 'Surface scratches or abrasions reported.',
+                          badgeColor: '#60a5fa'
+                        },
+                        {
+                          key: 'Other',
+                          label: 'Other / Uncategorized',
+                          description: 'Does not fit mapped damage patterns.',
+                          badgeColor: chartPalette.neutral
+                        }
+                      ];
+
+                      return (
+                        <div className="reason-breakdown-grid">
+                          {typeConfig.map(type => {
+                            const count = damageTypes[type.key] || 0;
+                            const percentage = totalDamage > 0 ? Math.round((count / totalDamage) * 100) : 0;
+                            return (
+                              <div key={type.key} className="reason-item">
+                                <div className="reason-item-header">
+                                  <span className="reason-badge" style={{ backgroundColor: type.badgeColor }} />
+                                  <div>
+                                    <div className="reason-label">{type.label}</div>
+                                    <div className="reason-description">{type.description}</div>
+                                  </div>
+                                </div>
+                                <div className="reason-metrics">
+                                  <div className="reason-count">{count}</div>
+                                  <div className="reason-percentage">{percentage}%</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
-                {/* Show "Other" items details for debugging */}
-                {analyticsData.diagnosticAnalytics.equipmentDamage?.otherItemsDetails?.length > 0 && (
-                  <div className="chart-card" style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
-                    <h3>Items Categorized as "Other" - Review Needed</h3>
-                    <p style={{ color: '#64748b', marginBottom: '16px', fontSize: '14px' }}>
-                      These items were categorized as "Other" because their descriptions don't match our keyword patterns. 
-                      Review the descriptions below to identify missing keywords.
-                    </p>
-                    <div className="other-items-list">
-                      {analyticsData.diagnosticAnalytics.equipmentDamage.otherItemsDetails.map((item, index) => (
-                        <div key={index} className="other-item">
-                          <div className="other-item-header">
-                            <div className="other-item-name">{item.equipmentName}</div>
-                            <div className="other-item-date">{formatDate(item.timestamp)}</div>
-                          </div>
-                          <div className="other-item-details">
-                            <div className="other-item-category">Category: {item.categoryName}</div>
-                            <div className="other-item-borrower">Borrower: {item.borrower}</div>
-                            <div className="other-item-description">
-                              <strong>Description:</strong> {item.description || 'No description provided'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </section>
+            </div>
 
+            {/* Late Return Hero */}
+            <section className="hero-card late-hero">
+              <div className="card-heading">
+                <div>
+                  <p className="card-kicker">Late Returns</p>
+                  <h2>Late Return Analytics</h2>
+                </div>
+                <span className="card-pill">
+                  <span className="pill-dot" />
+                  {analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns || 0} reports
+                </span>
+              </div>
+              <div className="hero-panels two">
+                <div className="chart-card">
+                  <h3>Late Returns Trend</h3>
+                  {(() => {
+                    const trendData = analyticsData.diagnosticAnalytics.lateReturns?.trends || [];
+                    
+                    if (trendData.length === 0) {
+                      return <p className="no-data-text">No late return data available</p>;
+                    }
+                    
+                    const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+                    const formattedData = trendData.map(item => ({
+                      ...item,
+                      dateLabel: dateFormatter.format(new Date(item.date))
+                    }));
+                    
+                    return (
+                      <div className="chart-container">
+                        <ResponsiveContainer width="100%" height={320}>
+                          <LineChart data={formattedData}>
+                            <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                            <XAxis dataKey="dateLabel" tickLine={false} tick={renderDateTick} height={70} interval={0} />
+                            <YAxis tick={chartAxisTick} />
+                            <Tooltip
+                              {...sharedTooltipProps}
+                              labelFormatter={(label) => `Returned on ${label}`}
+                              formatter={(value) => [`${value} reports`, 'Late Returns']}
+                            />
+                            <Legend />
+                            <Line type="monotone" dataKey="count" stroke={chartPalette.primary} strokeWidth={4} name="Late Returns" dot={{ r: 5 }} activeDot={{ r: 7 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="chart-card">
+                  <h3>Late Returns by Reason</h3>
+                  {(() => {
+                    const reasonsData = Object.entries(analyticsData.diagnosticAnalytics.lateReturns?.reasons || {})
+                      .filter(([reason, count]) => reason !== 'Unknown' && count > 0)
+                      .map(([reason, count]) => ({
+                        name: reason,
+                        value: count
+                      }));
+                    const reasonColors = {
+                      'Forgot to Return': '#f97316',
+                      'Extended Use': '#6366f1',
+                      'Not Available to Return': '#0ea5e9',
+                      'Lost Track of Schedule': '#10b981',
+                      'Unexpected Conflict': '#e11d48',
+                      'Equipment Hard to Transport': '#c026d3'
+                    };
+                    const totalReasons = reasonsData.reduce((sum, item) => sum + item.value, 0);
+
+                    if (reasonsData.length === 0) {
+                      return <p className="no-data-text">No late return reason data available</p>;
+                    }
+
+                    return (
+                      <div className="chart-container">
+                        <ResponsiveContainer width="100%" height={320}>
+                          <PieChart>
+                            <Pie
+                              data={reasonsData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={80}
+                              outerRadius={120}
+                              paddingAngle={2}
+                              cornerRadius={8}
+                              dataKey="value"
+                              nameKey="name"
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {reasonsData.map((entry, index) => (
+                                <Cell key={`late-reason-cell-${index}`} fill={reasonColors[entry.name] || chartPalette.accent} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              {...sharedTooltipProps}
+                              formatter={(value) => {
+                                const percentage = totalReasons > 0 ? ((value / totalReasons) * 100).toFixed(1) : 0;
+                                return [`${value} (${percentage}%)`, 'Late Returns'];
+                              }}
+                            />
+                            <Legend verticalAlign="bottom" align="center" iconType="circle" />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="chart-card full-width reason-breakdown-card">
+                  <h3>Reason Breakdown Summary</h3>
+                  {(() => {
+                    const reasonTotals = analyticsData.diagnosticAnalytics.lateReturns?.reasons || {};
+                    const totalLateReturns = analyticsData.diagnosticAnalytics.lateReturns?.totalLateReturns || 0;
+                    const reasonConfig = [
+                      {
+                        key: 'Forgot to Return',
+                        label: 'Forgot to Return',
+                        description: 'Borrower admitted they simply forgot to bring the equipment back.',
+                        badgeColor: '#f97316'
+                      },
+                      {
+                        key: 'Extended Use',
+                        label: 'Extended Use',
+                        description: 'Borrower needed the gear longer to finish ongoing work.',
+                        badgeColor: '#6366f1'
+                      },
+                      {
+                        key: 'Not Available to Return',
+                        label: 'Not Available to Return',
+                        description: 'Borrower was absent or unavailable during the return window.',
+                        badgeColor: '#0ea5e9'
+                      },
+                      {
+                        key: 'Lost Track of Schedule',
+                        label: 'Lost Track of Schedule',
+                        description: 'Borrower misunderstood or forgot the due date.',
+                        badgeColor: '#10b981'
+                      },
+                      {
+                        key: 'Unexpected Conflict',
+                        label: 'Unexpected Conflict',
+                        description: 'Emergencies or sudden priorities interfered with the return.',
+                        badgeColor: '#e11d48'
+                      },
+                      {
+                        key: 'Equipment Hard to Transport',
+                        label: 'Equipment Hard to Transport',
+                        description: 'Borrower experienced difficulty transporting the equipment.',
+                        badgeColor: '#c026d3'
+                      },
+                      {
+                        key: 'Unknown',
+                        label: 'Other',
+                        description: 'No clear reason provided; requires manual follow-up.',
+                        badgeColor: '#94a3b8'
+                      }
+                    ];
+
+                    return (
+                      <div className="reason-breakdown-grid">
+                        {reasonConfig.map(reason => {
+                          const count = reasonTotals[reason.key] || 0;
+                          const percentage = totalLateReturns > 0 ? Math.round((count / totalLateReturns) * 100) : 0;
+                          return (
+                            <div key={reason.key} className="reason-item">
+                              <div className="reason-item-header">
+                                <span className="reason-badge" style={{ backgroundColor: reason.badgeColor }} />
+                                <div>
+                                  <div className="reason-label">{reason.label}</div>
+                                  <div className="reason-description">{reason.description}</div>
+                                </div>
+                              </div>
+                              <div className="reason-metrics">
+                                <div className="reason-count">{count}</div>
+                                <div className="reason-percentage">{percentage}%</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </section>
+
+            <div className="diagnostics-stack">
               {/* Uncategorized Incidents Card */}
               <div className="diagnostic-section uncategorized-section">
                 <h2>⚠️ Uncategorized Incidents for Review</h2>

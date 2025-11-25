@@ -347,6 +347,72 @@
   padding: 20px 0;
 }
 
+/* Reason Breakdown */
+.reason-breakdown-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.reason-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.reason-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+}
+
+.reason-item-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.reason-badge {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: 4px;
+}
+
+.reason-label {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.reason-description {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.reason-metrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.reason-count {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.reason-percentage {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
 .line-chart-container {
   display: flex;
   align-items: end;
