@@ -12,7 +12,7 @@ import AnnouncementModal from "./AnnouncementModal";
 import Analytics from "./Analytics";
 import LaboratoryManagement from "./LaboratoryManagement";
 import NotificationModal from "./NotificationModal";
-import { checkForOverdueEquipment } from "../utils/notificationUtils";
+import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import "../CSS/Dashboard.css";
 
@@ -490,11 +490,6 @@ export default function Dashboard() {
 
     // Calculate items in stock (based on status, for backward compatibility)
     // Note: inStock calculation kept for potential future use
-    // const inStock = equipmentList.reduce((sum, item) => {
-    //   const quantity = Number(item.quantity) || 1;
-    //   return normalizeText(item.status) === 'available' ? sum + quantity : sum;
-    // }, 0);
-
     setDashboardStats(prev => ({
       ...prev,
       totalEquipment,
@@ -504,64 +499,119 @@ export default function Dashboard() {
     }));
   }, [equipmentData, isAdmin, equipmentBelongsToAssignedLabs, getAssignedLaboratoryIds]);
 
-
   useEffect(() => {
-    const fetchMaintenanceData = () => {
-      const categoriesRef = ref(database, 'equipment_categories');
-      onValue(categoriesRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const categoriesData = snapshot.val();
-          let totalScheduledToday = 0;
+    const categoriesRef = ref(database, 'equipment_categories');
+    const unsubscribe = onValue(categoriesRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setDashboardStats(prev => ({
+          ...prev,
+          needMaintenance: 0
+        }));
+        return;
+      }
 
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
+      const categoriesData = snapshot.val();
+      let totalScheduledToday = 0;
+      const notificationQueue = [];
 
-          Object.keys(categoriesData).forEach((categoryId) => {
-            const category = categoriesData[categoryId] || {};
-            const scheduledMaintenance = category.scheduled_maintenance || {};
-            const maintenanceRecords = category.maintenance_records || {};
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-            const completedForToday = Object.values(maintenanceRecords).filter(record => {
-              if (!record.datePerformed) return false;
-              const completedDate = new Date(record.datePerformed);
-              const userTimezoneOffset = completedDate.getTimezoneOffset() * 60000;
-              const localCompletedDate = new Date(completedDate.getTime() + userTimezoneOffset);
-              localCompletedDate.setHours(0, 0, 0, 0);
-              return localCompletedDate.getTime() === today.getTime() && record.status === 'Completed';
-            });
+      const todayKey = today.toISOString().split('T')[0];
 
-            Object.values(scheduledMaintenance).forEach((schedule) => {
-              if (!schedule.scheduledDate) return;
+      Object.keys(categoriesData).forEach((categoryId) => {
+        const category = categoriesData[categoryId] || {};
+        const scheduledMaintenance = category.scheduled_maintenance || {};
+        const maintenanceRecords = category.maintenance_records || {};
+        const equipments = category.equipments || {};
+        const categoryTitle = category.title || 'Equipment Category';
 
-              const scheduledDate = new Date(schedule.scheduledDate);
-              const userTimezoneOffset = scheduledDate.getTimezoneOffset() * 60000;
-              const localScheduledDate = new Date(scheduledDate.getTime() + userTimezoneOffset);
-              localScheduledDate.setHours(0, 0, 0, 0);
+        const completedForToday = Object.values(maintenanceRecords).filter(record => {
+          if (!record.datePerformed) return false;
+          const completedDate = new Date(record.datePerformed);
+          const userTimezoneOffset = completedDate.getTimezoneOffset() * 60000;
+          const localCompletedDate = new Date(completedDate.getTime() + userTimezoneOffset);
+          localCompletedDate.setHours(0, 0, 0, 0);
+          return localCompletedDate.getTime() === today.getTime() && record.status === 'Completed';
+        });
 
-              if (localScheduledDate.getTime() === today.getTime()) {
-                const isCompleted = completedForToday.some(record =>
-                  record.equipmentId === schedule.equipmentId &&
-                  record.description === schedule.description &&
-                  record.type === schedule.type
-                );
+        Object.entries(scheduledMaintenance).forEach(([scheduleId, schedule]) => {
+          if (!schedule?.scheduledDate) return;
 
-                if (!isCompleted) {
-                  totalScheduledToday++;
-                }
-              }
-            });
+          const scheduledDate = new Date(schedule.scheduledDate);
+          if (Number.isNaN(scheduledDate.getTime())) return;
+          const userTimezoneOffset = scheduledDate.getTimezoneOffset() * 60000;
+          const localScheduledDate = new Date(scheduledDate.getTime() + userTimezoneOffset);
+          localScheduledDate.setHours(0, 0, 0, 0);
+
+          if (localScheduledDate.getTime() !== today.getTime()) return;
+
+          const isCompleted = completedForToday.some(record =>
+            record.equipmentId === schedule.equipmentId &&
+            record.description === schedule.description &&
+            record.type === schedule.type
+          );
+
+          if (isCompleted) return;
+
+          totalScheduledToday += 1;
+
+          const lab = laboratories.find((labItem) =>
+            labItem.id === category.labRecordId ||
+            labItem.labId === category.labId ||
+            labItem.id === category.labId ||
+            labItem.labId === category.labRecordId
+          );
+
+          if (!lab || !lab.managerUserId) return;
+
+          const storageKey = `maintenance_${categoryId}_${scheduleId}_${todayKey}`;
+          if (typeof window !== 'undefined' && localStorage.getItem(storageKey)) return;
+
+          const equipmentEntry = equipments[schedule.equipmentId] || {};
+          const equipmentName =
+            equipmentEntry.name ||
+            equipmentEntry.itemName ||
+            equipmentEntry.title ||
+            equipmentEntry.equipmentName ||
+            equipmentEntry.serialNumber ||
+            schedule.equipmentName ||
+            'Equipment';
+
+          notificationQueue.push({
+            storageKey,
+            params: {
+              scheduleId,
+              schedule,
+              lab,
+              equipmentName,
+              categoryTitle,
+              categoryId
+            }
           });
-
-          setDashboardStats(prev => ({
-            ...prev,
-            needMaintenance: totalScheduledToday
-          }));
-        }
+        });
       });
-    };
 
-    fetchMaintenanceData();
-  }, []);
+      setDashboardStats(prev => ({
+        ...prev,
+        needMaintenance: totalScheduledToday
+      }));
+
+      notificationQueue.forEach(({ storageKey, params }) => {
+        notifyMaintenanceDueToday(params)
+          .then(() => {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(storageKey, 'true');
+            }
+          })
+          .catch((error) => {
+            console.error('Error sending maintenance notification:', error);
+          });
+      });
+    });
+
+    return () => unsubscribe();
+  }, [laboratories]);
 
   useEffect(() => {
     const historyRef = ref(database, 'history');

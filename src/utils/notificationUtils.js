@@ -50,6 +50,59 @@ export const createNotification = async ({
 };
 
 /**
+ * Notifies laboratory managers that maintenance is due today
+ * @param {Object} params
+ * @param {string} params.scheduleId - Firebase ID of the schedule entry
+ * @param {Object} params.schedule - Schedule payload
+ * @param {Object} params.lab - Laboratory information
+ * @param {string} params.equipmentName - Human readable equipment name
+ * @param {string} params.categoryTitle - Category title
+ * @param {string} params.categoryId - Category identifier
+ */
+export const notifyMaintenanceDueToday = async ({
+  scheduleId,
+  schedule,
+  lab,
+  equipmentName,
+  categoryTitle,
+  categoryId
+}) => {
+  if (!lab?.labId || !lab?.labName || !lab?.managerUserId) {
+    console.warn('Missing laboratory info for maintenance notification', { lab, scheduleId });
+    return;
+  }
+
+  const scheduledDateText = schedule?.scheduledDate
+    ? new Date(schedule.scheduledDate).toLocaleDateString()
+    : 'today';
+
+  const descriptionText = schedule?.description ? `Task: ${schedule.description}.` : '';
+  const notesText = schedule?.notes ? `Notes: ${schedule.notes}` : '';
+  const locationText = categoryTitle ? `in ${categoryTitle}` : '';
+
+  const title = 'Maintenance Needed Today';
+  const message = `Scheduled maintenance for "${equipmentName || 'equipment'}" ${locationText} is due today (${scheduledDateText}). ${descriptionText} ${notesText}`.trim();
+
+  await createNotification({
+    type: 'maintenance_due_today',
+    title,
+    message,
+    labId: lab.labId,
+    labName: lab.labName,
+    recipientUserId: lab.managerUserId,
+    metadata: {
+      scheduleId,
+      equipmentId: schedule?.equipmentId || null,
+      scheduledDate: schedule?.scheduledDate || null,
+      priority: schedule?.priority || 'Medium',
+      maintenanceType: schedule?.type || 'Preventive',
+      categoryId: categoryId || null,
+      createdAt: new Date().toISOString()
+    }
+  });
+};
+
+/**
  * Creates notifications for laboratory managers when a new request is made
  * @param {Object} requestData - The request data
  * @param {Object} equipmentData - The equipment data

@@ -9,6 +9,8 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
   const [showAddMaintenanceForm, setShowAddMaintenanceForm] = useState(false);
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState(null);
+  const [completingScheduleId, setCompletingScheduleId] = useState(null);
+
   const [activeSubTab, setActiveSubTab] = useState("records");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -148,6 +150,18 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
           onMaintenanceComplete();
         }
       }
+
+      // If this maintenance was created from a scheduled maintenance, permanently remove that schedule entry
+      if (completingScheduleId) {
+        try {
+          const scheduleRef = ref(database, `equipment_categories/${selectedCategory}/scheduled_maintenance/${completingScheduleId}`);
+          await remove(scheduleRef);
+        } catch (scheduleError) {
+          console.error("Error deleting related scheduled maintenance:", scheduleError);
+        } finally {
+          setCompletingScheduleId(null);
+        }
+      }
       
       resetMaintenanceForm();
     } catch (error) {
@@ -231,6 +245,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
       description: scheduledItem.description,
       datePerformed: new Date().toISOString().split('T')[0]
     });
+    setCompletingScheduleId(scheduledItem.id || null);
     setShowAddMaintenanceForm(true);
   };
 
@@ -243,6 +258,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
     });
     setShowAddMaintenanceForm(false);
     setEditingMaintenance(null);
+    setCompletingScheduleId(null);
   };
 
   const resetScheduleForm = () => {
