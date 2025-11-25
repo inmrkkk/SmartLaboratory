@@ -1559,6 +1559,7 @@ if (
                                 innerRadius={60}
                                 outerRadius={100}
                                 paddingAngle={5}
+                                cornerRadius={12}
                                 dataKey="value"
                               >
                                 {lostData.map((entry, index) => (
@@ -1713,6 +1714,7 @@ if (
                                 innerRadius={60}
                                 outerRadius={100}
                                 paddingAngle={5}
+                                cornerRadius={12}
                                 dataKey="value"
                               >
                                 {damageData.map((entry, index) => (
@@ -1725,12 +1727,6 @@ if (
                                   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                   return [`${value} (${percentage}%)`, 'Damage Incidents'];
                                 }}
-                              />
-                              <Legend 
-                                wrapperStyle={{ paddingTop: '20px' }}
-                                layout="horizontal"
-                                verticalAlign="bottom"
-                                align="center"
                               />
                             </PieChart>
                           </ResponsiveContainer>
