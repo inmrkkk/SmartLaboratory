@@ -2295,7 +2295,7 @@ export default function RequestFormsPage() {
                   <input
                     id="returnedQuantity"
                     type="number"
-                    min="1"
+                    min="0"
                     max={selectedRequest.quantity || 1}
                     value={returnFormData.returnedQuantity}
                     onChange={(e) =>
