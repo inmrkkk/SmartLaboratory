@@ -929,6 +929,92 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleExportEquipmentToPDF = () => {
+    if (filteredEquipments.length === 0) {
+      alert("No equipment data to export");
+      return;
+    }
+
+    const title = "Laboratory Equipment List";
+    const dateStr = new Date().toLocaleString();
+
+    const rowsHtml = filteredEquipments.map((equipment, index) => {
+      const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
+      const warrantyStatus = getWarrantyStatus(equipment.warrantyExpiry);
+      const warrantyText = warrantyStatus ? warrantyStatus.text : "—";
+
+      return `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${index + 1}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.name || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.model || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.serialNumber || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${laboratory ? laboratory.labName : ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.status || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.condition || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.location || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.quantity || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${warrantyText}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.assignedTo || ""}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charSet="utf-8" />
+        <title>${title}</title>
+        <style>
+          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          p { font-size: 12px; color: #6b7280; margin-top: 0; margin-bottom: 16px; }
+          table { border-collapse: collapse; width: 100%; }
+          thead { background-color: #f3f4f6; }
+          th { text-align: left; padding: 8px; border: 1px solid #e5e7eb; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <p>Generated on ${dateStr}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Model</th>
+              <th>Serial Number</th>
+              <th>Laboratory</th>
+              <th>Status</th>
+              <th>Condition</th>
+              <th>Location</th>
+              <th>Quantity</th>
+              <th>Warranty</th>
+              <th>Assigned To</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Unable to open print window. Please allow pop-ups and try again.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -1234,14 +1320,24 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               </div>
             </div>
             <div className="section-header-right">
-              {selectedCategory && equipments.length > 0 && (
-                <button
-                  onClick={exportEquipmentData}
-                  className="btn btn-outline"
-                >
-                  <span className="btn-icon">📊</span>
-                  Export CSV
-                </button>
+              {selectedCategory && filteredEquipments.length > 0 && (
+                <>
+                  <button
+                    onClick={handleExportEquipmentToPDF}
+                    className="btn btn-outline"
+                    style={{ marginRight: '8px' }}
+                  >
+                    <span className="btn-icon">🧾</span>
+                    Export PDF
+                  </button>
+                  <button
+                    onClick={exportEquipmentData}
+                    className="btn btn-outline"
+                  >
+                    <span className="btn-icon">📊</span>
+                    Export CSV
+                  </button>
+                </>
               )}
               <button
                 onClick={() => {
