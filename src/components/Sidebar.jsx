@@ -60,13 +60,6 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       icon: "👥",
       roles: ["admin"], // Only admins can manage users
       description: "Manage user accounts and roles"
-    },
-    {
-      id: "profile",
-      label: "Profile",
-      icon: "👤",
-      roles: ["admin", "laboratory_manager"],
-      description: "Manage your profile settings"
     }
   ];
 
