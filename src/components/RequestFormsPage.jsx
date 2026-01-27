@@ -50,6 +50,8 @@ export default function RequestFormsPage() {
     notes: "",
     returnedQuantity: "1",
   });
+  const [showReleaseConfirmation, setShowReleaseConfirmation] = useState(false);
+  const [requestToRelease, setRequestToRelease] = useState(null);
 
   const statuses = [
     "pending",
@@ -1589,9 +1591,10 @@ export default function RequestFormsPage() {
                                 {request.status === "approved" && (
                                   <button
                                     className="action-btn icon-btn release-btn"
-                                    onClick={() =>
-                                      handleStatusUpdate(request.id, "released")
-                                    }
+                                    onClick={() => {
+                                      setRequestToRelease(request);
+                                      setShowReleaseConfirmation(true);
+                                    }}
                                     title="Release Item"
                                   >
                                     <img src={releaseIcon} alt="Release" style={{ width: '18px', height: '18px' }} />
@@ -1766,9 +1769,10 @@ export default function RequestFormsPage() {
                               <>
                                 <button
                                   className="action-btn icon-btn release-btn"
-                                  onClick={() =>
-                                    handleStatusUpdate(request.id, "released")
-                                  }
+                                  onClick={() => {
+                                    setRequestToRelease(request);
+                                    setShowReleaseConfirmation(true);
+                                  }}
                                   title="Release Item"
                                 >
                                   <img src={releaseIcon} alt="View" style={{ width: '20px', height: '20px' }} />
@@ -2206,8 +2210,8 @@ export default function RequestFormsPage() {
                     <button
                       className="btn btn-primary"
                       onClick={() => {
-                        handleStatusUpdate(selectedRequest.id, "released");
-                        closeDetailsModal();
+                        setRequestToRelease(selectedRequest);
+                        setShowReleaseConfirmation(true);
                       }}
                     >
                       🚀 Release Item
@@ -2419,12 +2423,62 @@ export default function RequestFormsPage() {
               </div>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions" style={{ gap: '12px', padding: '20px', marginBottom: '10px' }}>
               <button className="btn btn-secondary" onClick={closeReturnModal}>
                 Cancel
               </button>
               <button className="btn btn-success" onClick={handleReturnSubmit}>
                 ✅ Confirm Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Release Confirmation Modal */}
+      {showReleaseConfirmation && requestToRelease && (
+        <div className="modal-overlay" onClick={() => setShowReleaseConfirmation(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Confirm Item Release</h2>
+              <button className="modal-close" onClick={() => setShowReleaseConfirmation(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p>Are you sure you want to release this item?</p>
+              <div className="confirmation-details">
+                <p><strong>Item:</strong> {requestToRelease.itemName}</p>
+                <p><strong>Quantity:</strong> {requestToRelease.quantity || 1}</p>
+                <p><strong>Requested by:</strong> {getBorrowerName(requestToRelease.userId)}</p>
+              </div>
+              <div className="confirmation-warning">
+                <p>⚠️ This action will mark the item as released and update the inventory.</p>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ gap: '12px', padding: '20px' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowReleaseConfirmation(false)}
+                style={{ marginLeft: '10px' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  handleStatusUpdate(requestToRelease.id, "released");
+                  setShowReleaseConfirmation(false);
+                  setRequestToRelease(null);
+                  if (showDetailsModal) {
+                    closeDetailsModal();
+                  }
+                }}
+                style={{ marginRight: '10px' }}
+              >
+                🚀 Release Item
               </button>
             </div>
           </div>
