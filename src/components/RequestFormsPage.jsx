@@ -9,6 +9,8 @@ import {
   notifyRequestRejected,
   notifyEquipmentReturned,
 } from "../utils/notificationUtils";
+import { createDamagedLostRecord } from "../utils/damagedLostUtils";
+import { validateBorrowerEligibility } from "../utils/damagedLostUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import "../CSS/RequestFormsPage.css";
 import eyeIcon from '../images/eye.png';
@@ -469,6 +471,16 @@ export default function RequestFormsPage() {
       if (!requestData) {
         alert("Request not found");
         return;
+      }
+
+      // Check borrower eligibility for approval and release actions
+      if (newStatus === "approved" || newStatus === "released") {
+        const eligibilityCheck = await validateBorrowerEligibility(requestData.userId);
+        
+        if (!eligibilityCheck.eligible) {
+          alert(`Cannot approve request: ${eligibilityCheck.message}`);
+          return;
+        }
       }
 
       // Find equipment data - try itemId first, then fallback to name matching
@@ -1143,6 +1155,46 @@ export default function RequestFormsPage() {
 
       const returnedAt = new Date().toISOString();
 
+      // Check if item is damaged, lost, or has insufficient return and create record
+      const hasInsufficientReturn = adjustedReturnedQuantity < requestedQuantity;
+      const shouldCreateRecord = returnFormData.condition === "damaged" || 
+                                returnFormData.condition === "lost" || 
+                                returnFormData.condition === "missing" ||
+                                hasInsufficientReturn;
+
+      if (shouldCreateRecord) {
+        const borrowerData = users.find(u => u.id === selectedRequest.userId) || {};
+        const itemData = {
+          id: selectedRequest.itemId,
+          name: selectedRequest.itemName,
+          itemName: selectedRequest.itemName,
+          labId: selectedRequest.labId,
+          categoryId: selectedRequest.categoryId
+        };
+
+        const damagedLostData = {
+          ...returnDetails,
+          transactionId: selectedRequest.id,
+          returnDate: returnedAt,
+          userId: selectedRequest.userId
+        };
+
+        const result = await createDamagedLostRecord(
+          damagedLostData, 
+          borrowerData, 
+          itemData, 
+          requestedQuantity, 
+          adjustedReturnedQuantity
+        );
+        
+        if (result.success) {
+          console.log("Damaged/lost record created:", result.message);
+        } else {
+          console.error("Failed to create damaged/lost record:", result.error);
+          // Still continue with return process but log the error
+        }
+      }
+
       // Update status to returned to trigger notifications
       await handleStatusUpdate(selectedRequest.id, "returned", returnDetails);
 
@@ -1162,7 +1214,17 @@ export default function RequestFormsPage() {
 
       closeReturnModal();
       closeDetailsModal();
-      alert("Item marked as returned successfully!");
+      
+      let successMessage = "Item marked as returned successfully!";
+      
+      if (hasInsufficientReturn) {
+        const missingCount = requestedQuantity - adjustedReturnedQuantity;
+        successMessage = `Item returned with insufficient quantity (${adjustedReturnedQuantity}/${requestedQuantity}). Missing ${missingCount} item(s). Record created and borrower restricted.`;
+      } else if (returnFormData.condition === "damaged" || returnFormData.condition === "lost" || returnFormData.condition === "missing") {
+        successMessage = `Item marked as returned with ${returnFormData.condition} status. Record created and borrower restricted.`;
+      }
+      
+      alert(successMessage);
     } catch (error) {
       console.error("Error processing return:", error);
       alert("Failed to process return. Please try again.");

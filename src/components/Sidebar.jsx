@@ -60,6 +60,13 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       icon: "👥",
       roles: ["admin"], // Only admins can manage users
       description: "Manage user accounts and roles"
+    },
+    {
+      id: "damaged-lost",
+      label: "Damaged / Lost Records",
+      icon: "🚨",
+      roles: ["admin", "laboratory_manager"],
+      description: "Manage damaged and lost item records"
     }
   ];
 

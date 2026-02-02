@@ -12,6 +12,7 @@ import AnnouncementModal from "./AnnouncementModal";
 import Analytics from "./Analytics";
 import LaboratoryManagement from "./LaboratoryManagement";
 import NotificationModal from "./NotificationModal";
+import DamagedLostRecords from "./DamagedLostRecords";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import "../CSS/Dashboard.css";
@@ -990,15 +991,6 @@ export default function Dashboard() {
 
             {/* Secondary Statistics Grid */}
             <div className="secondary-stats-grid">
-              <div className="stat-card-small success">
-                <div className="stat-number">{dashboardStats.availableEquipment.toLocaleString()}</div>
-                <div className="stat-label">Available Equipment</div>
-                <div className="stat-subtext" style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                  {dashboardStats.totalEquipment > 0 
-                    ? `${Math.round((dashboardStats.availableEquipment / dashboardStats.totalEquipment) * 100)}% of total`
-                    : 'No equipment'}
-                </div>
-              </div>
               <div className="stat-card-small info">
                 <div className="stat-number">{totalItemsBorrowedFromHistory.toLocaleString()}</div>
                 <div className="stat-label">Total Items Borrowed</div>
@@ -1006,6 +998,15 @@ export default function Dashboard() {
               <div className="stat-card-small">
                 <div className="stat-number">{dashboardStats.totalEquipment.toLocaleString()}</div>
                 <div className="stat-label">Total Equipment</div>
+              </div>
+              <div className="stat-card-small success">
+                <div className="stat-number">{dashboardStats.availableEquipment.toLocaleString()}</div>
+                <div className="stat-label">Available Equipment</div>
+                <div className="stat-subtext">
+                  {dashboardStats.totalEquipment > 0 
+                    ? `${Math.round((dashboardStats.availableEquipment / dashboardStats.totalEquipment) * 100)}% of total`
+                    : 'No equipment'}
+                </div>
               </div>
               <div className="stat-card-small warning">
                 <div className="stat-number">{dashboardStats.needMaintenance}</div>
@@ -1240,6 +1241,19 @@ export default function Dashboard() {
           );
         }
         return <UserManagement onRedirectToUsers={() => setActiveSection("users")} />;
+      
+      case "damaged-lost":
+        if (!isAdmin() && !isLaboratoryManager()) {
+          return (
+            <div className="dashboard-content-centered">
+              <div className="access-denied">
+                <h1>Access Denied</h1>
+                <p>You don't have permission to access this section. Admin or Laboratory Manager privileges required.</p>
+              </div>
+            </div>
+          );
+        }
+        return <DamagedLostRecords />;
       
       case "profile":
         return (

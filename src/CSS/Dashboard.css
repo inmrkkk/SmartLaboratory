@@ -830,14 +830,14 @@
 /* Secondary Statistics Grid */
 .secondary-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
   margin: 30px 0;
 }
 
 .stat-card-small {
   background: white;
-  padding: 24px 20px;
+  padding: 16px 12px;
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   border: 1px solid #f1f5f9;
@@ -845,6 +845,11 @@
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .stat-card-small:hover {
@@ -871,18 +876,39 @@
 }
 
 .stat-card-small .stat-number {
-  font-size: 2.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 0 0 3px 0;
+  transition: font-size 0.3s ease;
+  line-height: 1;
 }
 
 .stat-card-small .stat-label {
-  font-size: 0.875rem;
+  font-size: 0.625rem;
   color: #6b7280;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  margin-bottom: 3px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.stat-card-small .stat-subtext {
+  font-size: 0.5rem;
+  color: #6b7280;
+  margin-top: 1px;
+  line-height: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Charts Section */
@@ -1217,6 +1243,11 @@
     font-size: 1.875rem;
   }
   
+  .stat-card-small .stat-subtext {
+    font-size: 0.6rem;
+    margin-top: 3px;
+  }
+  
   .chart-card,
   .activity-card {
     padding: 24px 20px;
@@ -1252,7 +1283,12 @@
   }
   
   .stat-card-small .stat-number {
-    font-size: 1.5rem;
+    font-size: 2rem;
+  }
+  
+  .stat-card-small .stat-subtext {
+    font-size: 0.625rem;
+    margin-top: 3px;
   }
   
   .dashboard-welcome h1 {
@@ -1261,6 +1297,30 @@
   
   .dashboard-welcome p {
     font-size: 1rem;
+  }
+}
+
+/* Extra Small Screens */
+@media (max-width: 360px) {
+  .stat-card-small {
+    padding: 12px 8px;
+  }
+  
+  .stat-card-small .stat-number {
+    font-size: 1.625rem;
+  }
+  
+  .stat-card-small .stat-subtext {
+    font-size: 0.5875rem;
+    margin-top: 2px;
+  }
+  
+  .stat-card-small .stat-label {
+    font-size: 0.65rem;
+  }
+  
+  .stat-subtext {
+    font-size: 0.6rem !important;
   }
 }
 
