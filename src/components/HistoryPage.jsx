@@ -1,7 +1,7 @@
 // src/components/HistoryPage.jsx
 import { useState, useEffect, Fragment } from "react";
 
-import { ref, onValue, get } from "firebase/database";
+import { ref, onValue, get, push } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
@@ -9,7 +9,7 @@ import "../CSS/HistoryPage.css";
 import eyeIcon from '../images/eye.png';
 
 export default function HistoryPage() {
-  const { isAdmin, getAssignedLaboratoryIds } = useAuth();
+  const { isAdmin, getAssignedLaboratoryIds, isLaboratoryManager } = useAuth();
   const [historyData, setHistoryData] = useState([]);
   const [allHistoryEntries, setAllHistoryEntries] = useState([]);
   const [equipmentData, setEquipmentData] = useState([]);
@@ -25,6 +25,24 @@ export default function HistoryPage() {
   const [itemsPerPage] = useState(10);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // Manual record form state
+  const [showManualRecordModal, setShowManualRecordModal] = useState(false);
+  const [manualRecordData, setManualRecordData] = useState({
+    action: "Released",
+    equipmentName: "",
+    userId: "",
+    adviserName: "",
+    status: "Released",
+    releasedDate: "",
+    returnDate: "",
+    condition: "Good",
+    quantity: "1",
+    batchId: "",
+    batchSize: "",
+    notes: ""
+  });
+  const [isSubmittingManualRecord, setIsSubmittingManualRecord] = useState(false);
 
   // Load laboratories data
   const loadLaboratories = async () => {
