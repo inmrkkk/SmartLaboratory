@@ -268,13 +268,13 @@ export default function DamagedLostRecords() {
           className={`tab-button ${activeTab === 'restricted' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('restricted')}
         >
-          🔒 Restricted Borrowers ({restrictedBorrowers.length})
+          Restricted Borrowers ({restrictedBorrowers.length})
         </button>
         <button 
           className={`tab-button ${activeTab === 'settled' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('settled')}
         >
-          ✅ Settled Records ({settledRecords.length})
+          Settled Records ({settledRecords.length})
         </button>
       </div>
 
@@ -284,7 +284,7 @@ export default function DamagedLostRecords() {
           <div className="restricted-tab">
             {restrictedBorrowers.length === 0 ? (
               <div className="no-records">
-                <div className="no-records-icon">✅</div>
+                <div className="no-records-icon"></div>
                 <h3>No Restricted Borrowers</h3>
                 <p>All borrowers have cleared their damaged/lost item records.</p>
               </div>
