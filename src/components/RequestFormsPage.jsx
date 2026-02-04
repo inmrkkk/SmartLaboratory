@@ -1260,17 +1260,17 @@ export default function RequestFormsPage() {
 
   return (
     <div className="request-forms-page">
-      {/* Page Header */}
-      <div className="request-forms-header">
-        <div className="header-content">
-          <h1 className="page-title">Item Request Management</h1>
-          <p className="page-subtitle">
+      {/* Header - Welcome Banner Style */}
+      <div className="request-forms-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Item Request Management</h1>
+          <p className="welcome-subtitle">
             Review and manage user requests for equipment and services
           </p>
         </div>
         <div
           className="header-actions"
-          style={{ display: "flex", gap: "10px", marginTop: "10px" }}
+          style={{ display: "flex", gap: "12px", marginLeft: "20px" }}
         >
           <button
             className="action-button"

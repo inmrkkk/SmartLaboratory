@@ -1,35 +1,122 @@
-/* Requests Container */
-.requests-container {
-  margin-top: 20px;
+/* Request Forms Page - Main Container */
+.request-forms-page {
+  padding: 20px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Table Styles */
-.table-container {
-  background: white;
+/* Request Forms Welcome Banner - Matching SmartLab Dashboard Design */
+.request-forms-welcome {
+  margin-bottom: 40px;
+  padding: 30px;
+  background: #2aa59d;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(42, 165, 157, 0.1);
-  overflow-x: auto;
-  overflow-y: visible;
-  border: 1px solid rgba(42, 165, 157, 0.1);
-  -webkit-overflow-scrolling: touch;
+  color: white;
+  box-shadow: 0 8px 32px rgba(42, 165, 157, 0.3);
   position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.table-container::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 30px;
-  background: linear-gradient(to left, rgba(255, 255, 255, 0.9), transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.welcome-content {
+  flex: 1;
 }
 
-.table-container:not(.scrolled-end)::after {
-  opacity: 1;
+.welcome-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 12px 0;
+  line-height: 1.2;
+}
+
+.welcome-subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  margin-left: 20px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.action-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Responsive Design for Request Forms Welcome Banner */
+@media (max-width: 768px) {
+  .request-forms-welcome {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px 20px;
+    margin-bottom: 30px;
+  }
+
+  .welcome-title {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+  }
+
+  .welcome-subtitle {
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .header-actions {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .action-button {
+    flex: 1;
+    justify-content: center;
+    min-width: 140px;
+  }
+}
+
+@media (max-width: 480px) {
+  .request-forms-welcome {
+    padding: 20px 16px;
+  }
+
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .action-button {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
 }
 
 /* Scrollbar styling */

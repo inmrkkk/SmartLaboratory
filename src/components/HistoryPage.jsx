@@ -333,9 +333,12 @@ export default function HistoryPage() {
 
   return (
     <div className="history-page">
-      {/* Header */}
-      <div className="history-header">
-        <h1 className="history-title">Equipment Borrowing History</h1>
+      {/* Header - Welcome Banner Style */}
+      <div className="history-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Equipment Borrowing History</h1>
+          <p className="welcome-subtitle">Track and analyze equipment borrowing patterns and request history.</p>
+        </div>
         <div className="header-actions">
           <button 
             className="action-button"

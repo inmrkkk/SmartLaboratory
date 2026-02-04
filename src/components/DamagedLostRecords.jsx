@@ -238,8 +238,12 @@ export default function DamagedLostRecords() {
 
   return (
     <div className="damaged-lost-records">
-      <div className="page-header">
-        <h1>Damaged / Lost Item Records</h1>
+      {/* Header - Welcome Banner Style */}
+      <div className="damaged-lost-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Damaged / Lost Item Records</h1>
+          <p className="welcome-subtitle">Track and manage damaged, lost, and missing laboratory equipment records.</p>
+        </div>
       </div>
 
       {/* Statistics Overview */}

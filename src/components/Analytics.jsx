@@ -1507,10 +1507,11 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
 
   return (
     <div className="analytics-container">
-      <div className="analytics-header">
-        <div className="analytics-title">
-          <h1>Analytics Dashboard</h1>
-          <p>Comprehensive insights into your laboratory operations</p>
+      {/* Header - Welcome Banner Style */}
+      <div className="analytics-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Analytics Dashboard</h1>
+          <p className="welcome-subtitle">Comprehensive insights into your laboratory operations</p>
         </div>
         
         <div className="analytics-controls">

@@ -1041,80 +1041,33 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   return (
     <div className="equipment-page">
-      {/* Header */}
-      <div className="page-header">
-        <div style={{ flex: 1 }}>
-          <h1 className="page-title">Laboratory Equipment Management</h1>
-          <p className="page-subtitle">Manage equipment categories, individual laboratory equipment, and maintenance schedules.</p>
+      {/* Header - Welcome Banner Style */}
+      <div className="equipment-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Laboratory Equipment Management</h1>
+          <p className="welcome-subtitle">Manage equipment categories, individual laboratory equipment, and maintenance schedules.</p>
         </div>
         {isLaboratoryManager() && (
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'flex-end',
-            gap: '8px',
-            minWidth: '200px',
-            flexShrink: 0,
-            padding: '12px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb'
-          }}>
+          <div className="assigned-lab-container">
             {assignedLaboratories && assignedLaboratories.length > 0 ? (
               <>
-                <div style={{ 
-                  fontSize: '11px', 
-                  color: '#6b7280', 
-                  fontWeight: '600',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  marginBottom: '4px'
-                }}>
-                  Assigned Laboratory{assignedLaboratories.length > 1 ? 'ies' : ''}
+                <div className="assigned-lab-label">
+                  ASSIGNED LABORATORY{assignedLaboratories.length > 1 ? 'IES' : ''}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', width: '100%' }}>
+                <div className="assigned-lab-buttons">
                   {assignedLaboratories.map((lab) => (
-                    <div key={lab.id} style={{
-                      backgroundColor: '#14b8a6',
-                      color: 'white',
-                      padding: '8px 16px',
-                      borderRadius: '20px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 4px rgba(20, 184, 166, 0.2)'
-                    }}>
-                      <span>🧪</span>
-                      <span>{lab.labName || lab.labId || 'Unknown Lab'}</span>
+                    <div key={lab.id} className="lab-button">
+                      <span className="lab-icon">🧪</span>
+                      <span className="lab-name">{lab.labName || lab.labId || 'Unknown Lab'}</span>
                       {lab.labId && (
-                        <span style={{ 
-                          fontSize: '11px', 
-                          opacity: 0.95,
-                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                          padding: '3px 10px',
-                          borderRadius: '12px',
-                          fontWeight: '500'
-                        }}>
-                          {lab.labId}
-                        </span>
+                        <span className="lab-code">{lab.labId}</span>
                       )}
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div style={{
-                backgroundColor: '#fef3c7',
-                color: '#92400e',
-                padding: '8px 16px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: '500',
-                border: '1px solid #fde68a'
-              }}>
+              <div className="no-lab-assignment">
                 ⚠️ No laboratory assigned
               </div>
             )}
