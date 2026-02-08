@@ -31,8 +31,6 @@ export default function HistoryPage() {
   const [manualRecordData, setManualRecordData] = useState({
     action: "Released",
     equipmentName: "",
-    borrowerType: "student",
-    borrowerName: "",
     userId: "",
     adviserName: "",
     status: "Released",
@@ -307,6 +305,49 @@ export default function HistoryPage() {
     setShowDetailsModal(false);
   };
 
+  const handleManualRecordSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmittingManualRecord(true);
+
+    try {
+      const historyRef = ref(database, 'history');
+      const newRecord = {
+        ...manualRecordData,
+        timestamp: new Date().toISOString(),
+        borrower: manualRecordData.borrower,
+        userId: manualRecordData.borrower, // Using borrower name as userId for manual records
+        quantity: parseInt(manualRecordData.quantity) || 1
+      };
+
+      await push(historyRef, newRecord);
+      
+      // Reset form
+      setManualRecordData({
+        action: "Released",
+        equipmentName: "",
+        userId: "",
+        adviserName: "",
+        status: "Released",
+        releasedDate: "",
+        returnDate: "",
+        condition: "Good",
+        quantity: "1",
+        batchId: "",
+        batchSize: "",
+        notes: ""
+      });
+      
+      setShowManualRecordModal(false);
+      setIsSubmittingManualRecord(false);
+      
+      alert('Manual record added successfully!');
+    } catch (error) {
+      console.error('Error adding manual record:', error);
+      setIsSubmittingManualRecord(false);
+      alert('Error adding manual record. Please try again.');
+    }
+  };
+
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   // Enhanced user type detection function
@@ -340,81 +381,6 @@ export default function HistoryPage() {
     return false;
   };
 
-  // Handle manual record form submission
-  const handleManualRecordSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmittingManualRecord(true);
-
-    try {
-      const historyRef = ref(database, 'history');
-      const newRecord = {
-        action: manualRecordData.action,
-        equipmentName: manualRecordData.equipmentName,
-        borrowerType: manualRecordData.borrowerType,
-        borrowerName: manualRecordData.borrowerName,
-        userId: manualRecordData.userId || 'manual-entry',
-        adviserName: manualRecordData.adviserName,
-        status: manualRecordData.status,
-        releasedDate: manualRecordData.releasedDate || new Date().toISOString(),
-        returnDate: manualRecordData.returnDate || null,
-        condition: manualRecordData.condition,
-        quantity: parseInt(manualRecordData.quantity) || 1,
-        batchId: manualRecordData.batchId || null,
-        batchSize: manualRecordData.batchSize ? parseInt(manualRecordData.batchSize) : null,
-        notes: manualRecordData.notes,
-        timestamp: new Date().toISOString(),
-        isManualEntry: true
-      };
-
-      await push(historyRef, newRecord);
-
-      // Reset form and close modal
-      setManualRecordData({
-        action: "Released",
-        equipmentName: "",
-        borrowerType: "student",
-        borrowerName: "",
-        userId: "",
-        adviserName: "",
-        status: "Released",
-        releasedDate: "",
-        returnDate: "",
-        condition: "Good",
-        quantity: "1",
-        batchId: "",
-        batchSize: "",
-        notes: ""
-      });
-      setShowManualRecordModal(false);
-      alert("Manual record added successfully!");
-    } catch (error) {
-      console.error("Error adding manual record:", error);
-      alert("Failed to add manual record. Please try again.");
-    } finally {
-      setIsSubmittingManualRecord(false);
-    }
-  };
-
-  const closeManualRecordModal = () => {
-    setShowManualRecordModal(false);
-    setManualRecordData({
-      action: "Released",
-      equipmentName: "",
-      borrowerType: "student",
-      borrowerName: "",
-      userId: "",
-      adviserName: "",
-      status: "Released",
-      releasedDate: "",
-      returnDate: "",
-      condition: "Good",
-      quantity: "1",
-      batchId: "",
-      batchSize: "",
-      notes: ""
-    });
-  };
-
   if (loading) {
     return (
       <div className="history-page">
@@ -436,7 +402,7 @@ export default function HistoryPage() {
         </div>
         <div className="header-actions">
           <button 
-            className="action-button primary-button"
+            className="action-button"
             onClick={() => setShowManualRecordModal(true)}
           >
             ➕ Add Manual Record
@@ -849,233 +815,163 @@ export default function HistoryPage() {
           </div>
         </div>
       )}
+    </div>
 
-      {/* Manual Record Modal */}
-      {showManualRecordModal && (
-        <div className="modal-overlay" onClick={closeManualRecordModal}>
-          <div className="modal-content manual-record-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Add Manual Record</h2>
-              <button onClick={closeManualRecordModal} className="modal-close">×</button>
-            </div>
-            
-            <form onSubmit={handleManualRecordSubmit} className="manual-record-form">
-              <div className="modal-body">
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label htmlFor="action">Action *</label>
-                    <select
-                      id="action"
-                      value={manualRecordData.action}
-                      onChange={(e) => setManualRecordData({...manualRecordData, action: e.target.value})}
-                      required
-                    >
-                      <option value="Released">Released</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="status">Status *</label>
-                    <select
-                      id="status"
-                      value={manualRecordData.status}
-                      onChange={(e) => setManualRecordData({...manualRecordData, status: e.target.value})}
-                      required
-                    >
-                      <option value="Released">Released</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group full-width">
-                    <label htmlFor="equipmentName">Equipment Name *</label>
-                    <select
-                      id="equipmentName"
-                      value={manualRecordData.equipmentName}
-                      onChange={(e) => setManualRecordData({...manualRecordData, equipmentName: e.target.value})}
-                      required
-                    >
-                      <option value="">Select equipment...</option>
-                      {equipmentData.map((equipment) => (
-                        <option key={equipment.id} value={equipment.equipmentName || equipment.itemName || equipment.name || equipment.title}>
-                          {equipment.equipmentName || equipment.itemName || equipment.name || equipment.title} ({equipment.categoryName})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="borrowerType">Borrower Type *</label>
-                    <select
-                      id="borrowerType"
-                      value={manualRecordData.borrowerType}
-                      onChange={(e) => setManualRecordData({...manualRecordData, borrowerType: e.target.value, borrowerName: "", userId: ""})}
-                      required
-                    >
-                      <option value="student">Student</option>
-                      <option value="instructor">Instructor</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="borrowerName">Borrower Name *</label>
-                    <select
-                      id="borrowerName"
-                      value={manualRecordData.borrowerName}
-                      onChange={(e) => {
-                        const selectedUser = users.find(u => (u.name || u.fullName || u.displayName || u.email) === e.target.value);
-                        setManualRecordData({
-                          ...manualRecordData, 
-                          borrowerName: e.target.value,
-                          userId: selectedUser?.id || selectedUser?.userId || e.target.value
-                        });
-                      }}
-                      required
-                    >
-                      <option value="">Select {manualRecordData.borrowerType}...</option>
-                      {users
-                        .filter(u => {
-                          const role = u.role?.toLowerCase() || '';
-                          if (manualRecordData.borrowerType === 'student') {
-                            return role === 'student';
-                          } else {
-                            return role === 'admin' || role === 'laboratory_manager' || role === 'instructor' || role === 'faculty';
-                          }
-                        })
-                        .map((user) => (
-                          <option key={user.id} value={user.name || user.fullName || user.displayName || user.email}>
-                            {user.name || user.fullName || user.displayName || user.email}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="adviserName">Instructor/Adviser Name</label>
-                    <select
-                      id="adviserName"
-                      value={manualRecordData.adviserName}
-                      onChange={(e) => setManualRecordData({...manualRecordData, adviserName: e.target.value})}
-                    >
-                      <option value="">Select instructor...</option>
-                      {users
-                        .filter(u => {
-                          const role = u.role?.toLowerCase() || '';
-                          return role === 'instructor' || role === 'teacher' || role === 'faculty';
-                        })
-                        .map((user) => (
-                          <option key={user.id} value={user.name || user.fullName || user.displayName || user.email}>
-                            {user.name || user.fullName || user.displayName || user.email}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="quantity">Quantity *</label>
-                    <input
-                      type="number"
-                      id="quantity"
-                      min="1"
-                      value={manualRecordData.quantity}
-                      onChange={(e) => setManualRecordData({...manualRecordData, quantity: e.target.value})}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="condition">Condition *</label>
-                    <select
-                      id="condition"
-                      value={manualRecordData.condition}
-                      onChange={(e) => setManualRecordData({...manualRecordData, condition: e.target.value})}
-                      required
-                    >
-                      <option value="Good">Good</option>
-                      <option value="Fair">Fair</option>
-                      <option value="Poor">Poor</option>
-                      <option value="Damaged">Damaged</option>
-                      <option value="Lost">Lost</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="releasedDate">Released Date *</label>
-                    <input
-                      type="datetime-local"
-                      id="releasedDate"
-                      value={manualRecordData.releasedDate}
-                      onChange={(e) => setManualRecordData({...manualRecordData, releasedDate: e.target.value})}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="returnDate">Return Date</label>
-                    <input
-                      type="datetime-local"
-                      id="returnDate"
-                      value={manualRecordData.returnDate}
-                      onChange={(e) => setManualRecordData({...manualRecordData, returnDate: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="batchId">Batch ID (optional)</label>
-                    <input
-                      type="text"
-                      id="batchId"
-                      value={manualRecordData.batchId}
-                      onChange={(e) => setManualRecordData({...manualRecordData, batchId: e.target.value})}
-                      placeholder="Enter batch ID if applicable"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="batchSize">Batch Size (optional)</label>
-                    <input
-                      type="number"
-                      id="batchSize"
-                      min="1"
-                      value={manualRecordData.batchSize}
-                      onChange={(e) => setManualRecordData({...manualRecordData, batchSize: e.target.value})}
-                      placeholder="Number of items in batch"
-                    />
-                  </div>
-
-                  <div className="form-group full-width">
-                    <label htmlFor="notes">Notes</label>
-                    <textarea
-                      id="notes"
-                      rows="3"
-                      value={manualRecordData.notes}
-                      onChange={(e) => setManualRecordData({...manualRecordData, notes: e.target.value})}
-                      placeholder="Additional notes about this record..."
-                    />
-                  </div>
-                </div>
+    {/* Manual Record Modal */}
+    {showManualRecordModal && (
+      <div className="modal-overlay" onClick={() => setShowManualRecordModal(false)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2 className="modal-title">Add Manual Record</h2>
+            <button onClick={() => setShowManualRecordModal(false)} className="modal-close">×</button>
+          </div>
+          
+          <div className="modal-body">
+            <form onSubmit={handleManualRecordSubmit}>
+              <div className="form-group">
+                <label className="form-label">Action</label>
+                <select
+                  value={manualRecordData.action}
+                  onChange={(e) => setManualRecordData({...manualRecordData, action: e.target.value})}
+                  className="form-input"
+                  required
+                >
+                  <option value="Released">Released</option>
+                  <option value="Returned">Returned</option>
+                  <option value="Damaged">Damaged</option>
+                  <option value="Lost">Lost</option>
+                </select>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" onClick={closeManualRecordModal} className="cancel-button">
+              <div className="form-group">
+                <label className="form-label">Equipment Name</label>
+                <input
+                  type="text"
+                  value={manualRecordData.equipmentName}
+                  onChange={(e) => setManualRecordData({...manualRecordData, equipmentName: e.target.value})}
+                  className="form-input"
+                  placeholder="Enter equipment name"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Borrower Name</label>
+                <input
+                  type="text"
+                  value={manualRecordData.borrower}
+                  onChange={(e) => setManualRecordData({...manualRecordData, borrower: e.target.value})}
+                  className="form-input"
+                  placeholder="Enter borrower name"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Instructor Name</label>
+                <input
+                  type="text"
+                  value={manualRecordData.adviserName}
+                  onChange={(e) => setManualRecordData({...manualRecordData, adviserName: e.target.value})}
+                  className="form-input"
+                  placeholder="Enter instructor name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  value={manualRecordData.status}
+                  onChange={(e) => setManualRecordData({...manualRecordData, status: e.target.value})}
+                  className="form-input"
+                  required
+                >
+                  <option value="Released">Released</option>
+                  <option value="Returned">Returned</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Released Date</label>
+                <input
+                  type="datetime-local"
+                  value={manualRecordData.releasedDate}
+                  onChange={(e) => setManualRecordData({...manualRecordData, releasedDate: e.target.value})}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Return Date</label>
+                <input
+                  type="datetime-local"
+                  value={manualRecordData.returnDate}
+                  onChange={(e) => setManualRecordData({...manualRecordData, returnDate: e.target.value})}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Condition</label>
+                <select
+                  value={manualRecordData.condition}
+                  onChange={(e) => setManualRecordData({...manualRecordData, condition: e.target.value})}
+                  className="form-input"
+                >
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Poor">Poor</option>
+                  <option value="Damaged">Damaged</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Quantity</label>
+                <input
+                  type="number"
+                  value={manualRecordData.quantity}
+                  onChange={(e) => setManualRecordData({...manualRecordData, quantity: e.target.value})}
+                  className="form-input"
+                  min="1"
+                  defaultValue="1"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Notes</label>
+                <textarea
+                  value={manualRecordData.notes}
+                  onChange={(e) => setManualRecordData({...manualRecordData, notes: e.target.value})}
+                  className="form-textarea"
+                  placeholder="Additional notes..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowManualRecordModal(false)}
+                  className="cancel-button"
+                >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="submit-button"
                   disabled={isSubmittingManualRecord}
                 >
-                  {isSubmittingManualRecord ? 'Saving...' : 'Save Record'}
+                  {isSubmittingManualRecord ? 'Adding...' : 'Add Record'}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    )}
+  </div>
+);
