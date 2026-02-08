@@ -943,7 +943,7 @@ export default function HistoryPage() {
                           if (manualRecordData.borrowerType === 'student') {
                             return role === 'student';
                           } else {
-                            return role === 'admin' || role === 'laboratory_manager' || role === 'instructor' || role === 'faculty';
+                            return role === 'instructor' || role === 'teacher' || role === 'faculty';
                           }
                         })
                         .map((user) => (
