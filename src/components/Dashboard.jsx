@@ -13,6 +13,7 @@ import Analytics from "./Analytics";
 import LaboratoryManagement from "./LaboratoryManagement";
 import NotificationModal from "./NotificationModal";
 import DamagedLostRecords from "./DamagedLostRecords";
+import DataConsistencyAudit from "./DataConsistencyAudit";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import "../CSS/Dashboard.css";
@@ -1254,6 +1255,19 @@ export default function Dashboard() {
           );
         }
         return <DamagedLostRecords />;
+      
+      case "data-consistency":
+        if (!isAdmin()) {
+          return (
+            <div className="dashboard-content-centered">
+              <div className="access-denied">
+                <h1>Access Denied</h1>
+                <p>You don't have permission to access this section. Admin privileges required.</p>
+              </div>
+            </div>
+          );
+        }
+        return <DataConsistencyAudit />;
       
       case "profile":
         return (

@@ -17,6 +17,7 @@ export default function DamagedLostRecords() {
   const [activeTab, setActiveTab] = useState('restricted');
 
   const [users, setUsers] = useState([]);
+  const [laboratories, setLaboratories] = useState([]);
 
   const usersById = useMemo(() => {
     const map = new Map();
@@ -25,6 +26,49 @@ export default function DamagedLostRecords() {
     });
     return map;
   }, [users]);
+
+  const laboratoriesByLabId = useMemo(() => {
+    const map = new Map();
+    laboratories.forEach((lab) => {
+      const labId = (lab?.labId || '').toString().trim();
+      if (labId) map.set(labId, lab);
+    });
+    return map;
+  }, [laboratories]);
+
+  const getSettledByDisplay = (record) => {
+    const directName = (record?.settledByName || '').toString().trim();
+    if (directName) return directName;
+
+    const settledById = (record?.settledBy || '').toString().trim();
+    const settledByUser = settledById ? usersById.get(settledById) : null;
+    const resolvedName = (
+      settledByUser?.name ||
+      settledByUser?.fullName ||
+      settledByUser?.displayName ||
+      settledByUser?.email ||
+      ''
+    )
+      .toString()
+      .trim();
+
+    if (resolvedName) return resolvedName;
+
+    const recordLabId = (record?.labId || '').toString().trim();
+    const lab = recordLabId ? laboratoriesByLabId.get(recordLabId) : null;
+    const managerUser = lab?.managerUserId ? usersById.get(lab.managerUserId) : null;
+    const managerName = (
+      managerUser?.name ||
+      managerUser?.fullName ||
+      managerUser?.displayName ||
+      managerUser?.email ||
+      ''
+    )
+      .toString()
+      .trim();
+
+    return managerName || 'Lab In-Charge';
+  };
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -48,6 +92,30 @@ export default function DamagedLostRecords() {
     };
 
     loadUsers();
+  }, []);
+
+  useEffect(() => {
+    const loadLaboratories = async () => {
+      try {
+        const laboratoriesRef = ref(database, 'laboratories');
+        const snapshot = await get(laboratoriesRef);
+
+        if (snapshot.exists()) {
+          const labsData = snapshot.val();
+          const labsList = Object.keys(labsData).map((key) => ({
+            id: key,
+            ...labsData[key]
+          }));
+          setLaboratories(labsList);
+        } else {
+          setLaboratories([]);
+        }
+      } catch (error) {
+        console.error('Error loading laboratories:', error);
+      }
+    };
+
+    loadLaboratories();
   }, []);
 
   const getCourseSectionDisplay = (borrowerId, fallbackRecord = {}) => {
@@ -447,7 +515,7 @@ export default function DamagedLostRecords() {
                           </td>
                           <td className="settled-by-cell">
                             <span className="settled-by">
-                              {record.settledByName || usersById.get(record.settledBy)?.name || usersById.get(record.settledBy)?.displayName || record.settledBy || 'Lab In-Charge'}
+                              {getSettledByDisplay(record)}
                             </span>
                           </td>
                         </tr>

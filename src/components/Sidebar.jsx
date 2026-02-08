@@ -67,6 +67,13 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       icon: "🚨",
       roles: ["admin", "laboratory_manager"],
       description: "Manage damaged and lost item records"
+    },
+    {
+      id: "data-consistency",
+      label: "Data Consistency",
+      icon: "🧾",
+      roles: ["admin"],
+      description: "Audit and auto-fix inconsistent records"
     }
   ];
 
