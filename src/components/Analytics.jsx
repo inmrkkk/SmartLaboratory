@@ -56,6 +56,10 @@ export default function Analytics() {
   const [selectedPeriod, setSelectedPeriod] = useState("30"); // days
   const [activeTab, setActiveTab] = useState("diagnostics");
   const [showReviewSection, setShowReviewSection] = useState(false);
+  
+  // Pagination state for borrowers list
+  const [borrowersCurrentPage, setBorrowersCurrentPage] = useState(1);
+  const [borrowersItemsPerPage] = useState(10);
 
   const chartPalette = {
     primary: "#4da1ff",
@@ -1581,30 +1585,125 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
           <div className="users-tab">
             <div className="chart-card">
               <h3>Top Active Borrowers</h3>
-              <div className="user-list top-users">
-                {analyticsData.userActivity.topUsers.map((user, index) => (
-                  <div key={user.user} className="user-item">
-                    <div className="user-rank">#{index + 1}</div>
-                    <div className="user-info">
-                      <div className="user-name">{user.user}</div>
-                      <div className="user-activity">{user.count} borrows</div>
+              
+              {/* Top 3 borrowers as cards */}
+              <div className="top-borrowers-cards">
+                {analyticsData.userActivity.topUsers.slice(0, 3).map((user, index) => {
+                  const maxCount = Math.max(...analyticsData.userActivity.topUsers.map(u => u.count), 1);
+                  const percentage = Math.round((user.count / maxCount) * 100);
+                  
+                  return (
+                    <div key={user.user} className="borrower-card">
+                      <div className="borrower-rank">#{index + 1}</div>
+                      <div className="borrower-info">
+                        <div className="borrower-name">{user.user}</div>
+                        <div className="borrower-count">{user.count} borrows</div>
+                      </div>
+                      <div className="borrower-progress">
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              {analyticsData.userActivity.others?.totalBorrowCount > 0 && (
-                <div className="user-list others-row">
-                  <div className="user-item others">
-                    <div className="user-rank">+</div>
-                    <div className="user-info">
-                      <div className="user-name">
-                        Others ({analyticsData.userActivity.others.uniqueBorrowers})
-                      </div>
-                      <div className="user-activity">
-                        {analyticsData.userActivity.others.totalBorrowCount} total borrows
-                      </div>
-                    </div>
+              {/* Remaining borrowers with pagination */}
+              {analyticsData.userActivity.topUsers.length > 3 && (
+                <div className="remaining-borrowers">
+                  <h4>Other Borrowers</h4>
+                  <div className="borrowers-list">
+                    {(() => {
+                      const remainingBorrowers = analyticsData.userActivity.topUsers.slice(3);
+                      const indexOfLastItem = borrowersCurrentPage * borrowersItemsPerPage;
+                      const indexOfFirstItem = indexOfLastItem - borrowersItemsPerPage;
+                      const currentBorrowers = remainingBorrowers.slice(indexOfFirstItem, indexOfLastItem);
+                      const totalPages = Math.ceil(remainingBorrowers.length / borrowersItemsPerPage);
+                      
+                      return (
+                        <>
+                          {currentBorrowers.map((user, index) => (
+                            <div key={user.user} className="borrower-item">
+                              <div className="borrower-rank-small">#{index + indexOfFirstItem + 4}</div>
+                              <div className="borrower-info-small">
+                                <div className="borrower-name-small">{user.user}</div>
+                                <div className="borrower-count-small">{user.count} borrows</div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="pagination-container">
+                              <div className="pagination-info">
+                                Showing <strong>{indexOfFirstItem + 4}</strong> to <strong>{Math.min(indexOfLastItem + 3, remainingBorrowers.length + 3)}</strong> of <strong>{remainingBorrowers.length + 3}</strong> borrowers
+                              </div>
+                              <div className="pagination-controls">
+                                <button
+                                  onClick={() => setBorrowersCurrentPage(1)}
+                                  disabled={borrowersCurrentPage === 1}
+                                  className="pagination-arrow"
+                                  aria-label="First page"
+                                >
+                                  «
+                                </button>
+                                <button
+                                  onClick={() => setBorrowersCurrentPage(borrowersCurrentPage - 1)}
+                                  disabled={borrowersCurrentPage === 1}
+                                  className="pagination-arrow"
+                                  aria-label="Previous page"
+                                >
+                                  ‹
+                                </button>
+                                <div className="pagination-pages">
+                                  {(() => {
+                                    const pages = [];
+                                    if (totalPages === 0) return pages;
+                                    let start = Math.max(1, borrowersCurrentPage - 1);
+                                    let end = Math.min(totalPages, start + 2);
+                                    if (end - start < 2) {
+                                      start = Math.max(1, end - 2);
+                                    }
+                                    for (let page = start; page <= end; page += 1) {
+                                      pages.push(
+                                        <button
+                                          key={page}
+                                          onClick={() => setBorrowersCurrentPage(page)}
+                                          className={`pagination-page ${borrowersCurrentPage === page ? 'active' : ''}`}
+                                        >
+                                          {page}
+                                        </button>
+                                      );
+                                    }
+                                    return pages;
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => setBorrowersCurrentPage(borrowersCurrentPage + 1)}
+                                  disabled={borrowersCurrentPage === totalPages || totalPages === 0}
+                                  className="pagination-arrow"
+                                  aria-label="Next page"
+                                >
+                                  ›
+                                </button>
+                                <button
+                                  onClick={() => setBorrowersCurrentPage(totalPages || 1)}
+                                  disabled={borrowersCurrentPage === totalPages || totalPages === 0}
+                                  className="pagination-arrow"
+                                  aria-label="Last page"
+                                >
+                                  »
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
