@@ -1083,7 +1083,9 @@
 }
 
 .modal-content.large {
-  width: 900px;
+  width: 1200px;
+  max-width: 96vw;
+  max-height: 94vh;
 }
 
 @keyframes modalSlideIn {
