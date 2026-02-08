@@ -2590,7 +2590,7 @@ export default function RequestFormsPage() {
 
         <div className="welcome-content">
 
-          <h1 className="welcome-title">Item Request Managements</h1>
+          <h1 className="welcome-title">Item Request Management</h1>
 
           <p className="welcome-subtitle">
 

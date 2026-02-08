@@ -458,23 +458,9 @@
 
 }
 
-
-
-.adviser-name,
-
 .borrower-name {
-
-  font-weight: 500;
-
-  color: #1e293b;
-
-  font-size: 14px;
-
-}
-
-.borrower-name {
- font-weight: 500;
-  color: #1e293b;
+ font-weight: 200;
+  color: #09ff00;
   font-size: 14px;
 }
 
