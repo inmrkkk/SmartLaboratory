@@ -280,7 +280,7 @@
 
 .table-body tr:last-child {
   border-bottom: none;
-}
+} 
 
 .table-cell {
   padding: 1rem;
@@ -294,35 +294,51 @@
 
 .status-badge {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .status-released {
-  background-color: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+.status-released::before {
+  content: none !important;
+}
+
+.status-badge.status-released::before {
+  content: none !important;
 }
 
 .status-returned {
-  background-color: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.status-returned::before {
+  content: none !important;
 }
 
 .status-pending {
-  background-color: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status-approved {
-  background-color: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .status-rejected {
-  background-color: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .date-cell {
