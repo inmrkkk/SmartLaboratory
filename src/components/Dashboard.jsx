@@ -302,21 +302,23 @@ export default function Dashboard() {
         }
 
         // Calculate statistics
-        const pendingCount = requests.filter(req => req.status === 'pending').length;
+        const pendingCount = requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length;
+
         const getQuantity = (req) => {
           if (!req) return 1;
           return Number(req.quantityReleased ?? req.approvedQuantity ?? req.quantity) || 1;
         };
         // Count items that are actually released (physically borrowed)
         const borrowedCount = requests.reduce((sum, req) => {
-          if (req.status === 'released') {
+          if ((req.status || '').toString().trim().toLowerCase() === 'released') {
             return sum + getQuantity(req);
           }
           return sum;
         }, 0);
 
         const overdueCount = requests.filter(req => {
-          if (req.dateToReturn && (req.status === 'approved' || req.status === 'released' || req.status === 'in_progress')) {
+          const statusValue = (req.status || '').toString().trim().toLowerCase();
+          if (req.dateToReturn && (statusValue === 'approved' || statusValue === 'released' || statusValue === 'in_progress')) {
             return new Date(req.dateToReturn) < new Date();
           }
           return false;
@@ -351,7 +353,8 @@ export default function Dashboard() {
         
         filteredRequestsForChart.forEach(req => {
           // Count requests that were actually borrowed (released, in_progress, or returned)
-          if (req.status === 'released' || req.status === 'in_progress' || req.status === 'returned') {
+          const statusValue = (req.status || '').toString().trim().toLowerCase();
+          if (statusValue === 'released' || statusValue === 'in_progress' || statusValue === 'returned') {
             const itemName = req.itemName || 'Unknown Item';
             const quantity = getQuantity(req);
             itemData[itemName] = (itemData[itemName] || 0) + quantity;
@@ -394,7 +397,7 @@ export default function Dashboard() {
         const facultyRoles = ['admin', 'laboratory_manager', 'instructor', 'adviser', 'advisor', 'faculty', 'teacher'];
         
         requests.forEach(req => {
-          if (req.status === 'released') {
+          if ((req.status || '').toString().trim().toLowerCase() === 'released') {
             const borrowerRole = getBorrowerRole(req);
             const quantity = getQuantity(req);
             let isFaculty = false;
@@ -620,9 +623,11 @@ export default function Dashboard() {
     const unsubscribe = onValue(historyRef, (snapshot) => {
       if (snapshot.exists()) {
         const historyData = snapshot.val();
-        const releasedItems = Object.values(historyData).filter(
-          (entry) => entry.status === "Released"
-        );
+        const releasedItems = Object.values(historyData).filter((entry) => {
+          const statusValue = (entry?.status || entry?.action || '').toString().trim().toLowerCase();
+          // Include Released or Returned for manual entries; only Released for regular entries
+          return statusValue === 'released' || (statusValue === 'returned' && entry.isManualEntry);
+        });
 
         const matchesLaboratoryAccess = (entry) => {
           if (isAdmin()) return true;

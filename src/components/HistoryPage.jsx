@@ -9,7 +9,7 @@ import "../CSS/HistoryPage.css";
 import eyeIcon from '../images/eye.png';
 
 export default function HistoryPage() {
-  const { isAdmin, getAssignedLaboratoryIds, isLaboratoryManager } = useAuth();
+  const { isAdmin, getAssignedLaboratoryIds } = useAuth();
   const [historyData, setHistoryData] = useState([]);
   const [allHistoryEntries, setAllHistoryEntries] = useState([]);
   const [equipmentData, setEquipmentData] = useState([]);
@@ -309,37 +309,6 @@ export default function HistoryPage() {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Enhanced user type detection function
-  // Helper function to get user role from userId
-  const getUserRole = (userId) => {
-    if (!userId) return null;
-    const user = users.find(u => u.id === userId || u.userId === userId);
-    return user?.role || null;
-  };
-
-  const determineUserType = (entry) => {
-    // Get userId from entry - try different possible fields
-    const userId = entry.userId || entry.details?.originalRequest?.userId || null;
-    
-    // If we have userId, look up the user's role from the users database
-    if (userId) {
-      const userRole = getUserRole(userId);
-      // Check if role indicates faculty (admin or laboratory_manager are considered faculty)
-      if (userRole === 'admin' || userRole === 'laboratory_manager') {
-        return true; // Faculty
-      }
-      
-      // If role is explicitly 'student', return false
-      if (userRole === 'student') {
-        return false; // Student
-      }
-    }
-    
-    // Fallback: If user not found or no role, default to student
-    // This is safer than pattern matching - assumes student by default
-    return false;
-  };
-
   // Handle manual record form submission
   const handleManualRecordSubmit = async (e) => {
     e.preventDefault();
@@ -347,16 +316,79 @@ export default function HistoryPage() {
 
     try {
       const historyRef = ref(database, 'history');
+
+      const normalizedStatus = (manualRecordData.status || manualRecordData.action || '').toString().trim();
+      const normalizedAction = (manualRecordData.action || manualRecordData.status || '').toString().trim();
+
+      const selectedEquipment = equipmentData.find((equipment) => {
+        const equipmentName = equipment.equipmentName || equipment.itemName || equipment.name || equipment.title;
+        return equipmentName === manualRecordData.equipmentName;
+      });
+
+      const normalizeDateTimeLocalToIso = (value) => {
+        if (!value) return null;
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return parsed.toISOString();
+      };
+
+      const resolvedReleasedDate =
+        normalizeDateTimeLocalToIso(manualRecordData.releasedDate) || new Date().toISOString();
+      const resolvedReturnDate = normalizeDateTimeLocalToIso(manualRecordData.returnDate);
+
+      let resolvedLabId = selectedEquipment?.labId || null;
+      const resolvedCategoryId = selectedEquipment?.categoryId || null;
+      const resolvedItemId = selectedEquipment?.id || null;
+
+      if (!resolvedLabId && resolvedCategoryId) {
+        try {
+          const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
+          if (categorySnapshot.exists()) {
+            const categoryData = categorySnapshot.val() || {};
+            resolvedLabId = categoryData.labId || resolvedLabId;
+          }
+        } catch (error) {
+          console.error('Error resolving labId from category:', error);
+        }
+      }
+
+      let resolvedLabRecordId = null;
+      if (resolvedLabId) {
+        resolvedLabRecordId = laboratories.find((lab) => lab.labId === resolvedLabId || lab.id === resolvedLabId)?.id || null;
+      }
+
+      if (!resolvedLabRecordId && resolvedCategoryId) {
+        try {
+          const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
+          if (categorySnapshot.exists()) {
+            const categoryData = categorySnapshot.val() || {};
+            resolvedLabRecordId = categoryData.labRecordId || resolvedLabRecordId;
+          }
+        } catch (error) {
+          console.error('Error resolving labRecordId from category:', error);
+        }
+      }
+
+      const resolvedLabName = resolvedLabRecordId
+        ? (laboratories.find((lab) => lab.id === resolvedLabRecordId)?.labName || '')
+        : (laboratories.find((lab) => lab.labId === resolvedLabId)?.labName || '');
+
       const newRecord = {
-        action: manualRecordData.action,
+        action: normalizedAction,
         equipmentName: manualRecordData.equipmentName,
+        itemName: manualRecordData.equipmentName,
+        itemId: resolvedItemId,
+        categoryId: resolvedCategoryId,
+        labId: resolvedLabId,
+        labRecordId: resolvedLabRecordId,
+        laboratory: resolvedLabName,
         borrowerType: manualRecordData.borrowerType,
         borrowerName: manualRecordData.borrowerName,
         userId: manualRecordData.userId || 'manual-entry',
         adviserName: manualRecordData.adviserName,
-        status: manualRecordData.status,
-        releasedDate: manualRecordData.releasedDate || new Date().toISOString(),
-        returnDate: manualRecordData.returnDate || null,
+        status: normalizedStatus,
+        releasedDate: resolvedReleasedDate,
+        returnDate: resolvedReturnDate,
         condition: manualRecordData.condition,
         quantity: parseInt(manualRecordData.quantity) || 1,
         batchId: manualRecordData.batchId || null,
@@ -366,7 +398,10 @@ export default function HistoryPage() {
         isManualEntry: true
       };
 
-      await push(historyRef, newRecord);
+      const createdHistoryRef = await push(historyRef, newRecord);
+      console.log('[HistoryPage] Manual history record created:', createdHistoryRef.key, newRecord);
+
+      // Manual records are saved only to history, not to borrow_requests
 
       // Reset form and close modal
       setManualRecordData({
