@@ -49,6 +49,32 @@ export default function DamagedLostRecords() {
 
     loadUsers();
   }, []);
+
+  const getCourseSectionDisplay = (borrowerId, fallbackRecord = {}) => {
+    const borrowerUser = usersById.get(borrowerId);
+
+    const course = borrowerUser?.course || fallbackRecord.course;
+    const yearLevel = borrowerUser?.yearLevel || fallbackRecord.yearLevel;
+    const section = borrowerUser?.section || fallbackRecord.section;
+
+    if (course && yearLevel && section) {
+      return `${course} ${yearLevel}-${section}`;
+    }
+
+    if (course && yearLevel) {
+      return `${course} ${yearLevel}`;
+    }
+
+    if (fallbackRecord.courseYearSection && fallbackRecord.courseYearSection !== 'N/A') {
+      return fallbackRecord.courseYearSection;
+    }
+
+    if (section) {
+      return section;
+    }
+
+    return 'N/A';
+  };
   // Load damaged/lost records and restricted borrowers
   useEffect(() => {
     const damagedLostRef = ref(database, 'damaged_lost_records');
@@ -291,7 +317,9 @@ export default function DamagedLostRecords() {
                           </div>
                         </td>
                         <td className="course-cell">
-                          <span className="course-badge">{borrower.courseYearSection}</span>
+                          <span className="course-badge">
+                            {getCourseSectionDisplay(borrower.borrowerId, borrower)}
+                          </span>
                         </td>
                         <td className="damaged-cell">
                           <span className="item-count-badge damaged">
@@ -392,7 +420,9 @@ export default function DamagedLostRecords() {
                             })()}
                           </td>
                           <td className="course-cell">
-                            <span className="course-badge">{record.courseYearSection}</span>
+                            <span className="course-badge">
+                              {getCourseSectionDisplay(record.borrowerId, record)}
+                            </span>
                           </td>
                           <td className="item-name-cell">
                             <span className="item-name">{record.itemName}</span>
