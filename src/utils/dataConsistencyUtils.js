@@ -280,6 +280,15 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
         requestId: request.id,
         quantity
       });
+      
+      // Queue a fix to set quantity to 1 if it's 0 or negative
+      const fixQuantity = quantity <= 0 ? 1 : quantity;
+      const quantityField = request.quantityReleased !== undefined ? "quantityReleased" : 
+                           request.approvedQuantity !== undefined ? "approvedQuantity" : 
+                           "quantity";
+      
+      queueFix(`borrow_requests/${request.id}/${quantityField}`, fixQuantity, 
+               `Fix non-positive quantity (${quantity}) to 1`, true);
     }
   });
 

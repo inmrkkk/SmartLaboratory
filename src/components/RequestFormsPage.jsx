@@ -1672,6 +1672,15 @@ export default function RequestFormsPage() {
                                     <img src={returnIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
                                   </button>
                                 )}
+                                {request.status === "returned" && (
+                                  <button
+                                    className="action-btn icon-btn delete-btn"
+                                    onClick={() => handleDeleteRequest(request.id)}
+                                    title="Delete Returned Request"
+                                  >
+                                    <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+                                  </button>
+                                )}
                             {request.status === "rejected" && (
                               <button
                               className="action-btn icon-btn approve-btn"
@@ -1861,7 +1870,7 @@ export default function RequestFormsPage() {
                                 <img src={returnIcon} alt="View" style={{ width: '20px', height: '20px' }} />
                               </button>
                             )}
-                            {request.status === "rejected" && (
+                            {request.status === "returned" && (
                               <button
                                 className="action-btn icon-btn delete-btn"
                                 onClick={() => handleDeleteRequest(request.id)}
