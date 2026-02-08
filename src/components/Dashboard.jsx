@@ -1341,6 +1341,7 @@ export default function Dashboard() {
         <NotificationModal
           isOpen={showNotificationModal}
           onClose={() => setShowNotificationModal(false)}
+          onRedirect={handleSectionChange}
         />
       )}
       

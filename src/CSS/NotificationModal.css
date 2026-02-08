@@ -97,22 +97,31 @@
 
 .close-btn {
   padding: 0;
-  background: #ef4444;
-  color: white;
+  background: #000000;
+  color: #ff4444;
   border: none;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 18px;
+  font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.2s;
-  width: 36px;
-  height: 36px;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .close-btn:hover {
-  background: #dc2626;
+  background: #333333;
+  color: #ff6666;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.close-btn:active {
+  transform: scale(0.95);
 }
 
 .notification-content {
@@ -159,8 +168,18 @@
   position: relative;
 }
 
-.notification-item:hover {
-  background-color: #f9fafb;
+.notification-item.clickable {
+  cursor: pointer;
+}
+
+.notification-item.clickable:hover {
+  background-color: #f0f9ff;
+  transform: translateX(2px);
+}
+
+.notification-item.clickable:active {
+  background-color: #e0f2fe;
+  transform: translateX(1px);
 }
 
 .notification-item.unread {

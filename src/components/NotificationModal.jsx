@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { ref, onValue, update } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { getNotificationRedirectDescription } from "../utils/navigationUtils";
 import "../CSS/NotificationModal.css";
 
-export default function NotificationModal({ isOpen, onClose }) {
+export default function NotificationModal({ isOpen, onClose, onRedirect }) {
   const { user, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,20 @@ export default function NotificationModal({ isOpen, onClose }) {
     };
 
     fetchNotifications();
-  }, [isOpen, user, isLaboratoryManager, getAssignedLaboratoryIds]);
+
+    // Add ESC key handler
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, user, isLaboratoryManager, getAssignedLaboratoryIds, onClose]);
 
   const markAsRead = async (notificationId) => {
     try {
@@ -62,6 +76,40 @@ export default function NotificationModal({ isOpen, onClose }) {
       });
     } catch (error) {
       console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Mark as read if unread
+    if (!notification.isRead) {
+      await markAsRead(notification.id);
+    }
+
+    // Determine where to redirect based on notification type
+    let targetSection = 'dashboard'; // default fallback
+    
+    switch (notification.type) {
+      case 'new_request':
+      case 'request_approved':
+      case 'request_rejected':
+      case 'equipment_overdue':
+        targetSection = 'request-forms';
+        break;
+      case 'equipment_returned':
+        targetSection = 'history';
+        break;
+      case 'maintenance_due_today':
+        targetSection = 'equipments';
+        break;
+      default:
+        targetSection = 'dashboard';
+        break;
+    }
+
+    // Close modal and redirect
+    onClose();
+    if (onRedirect) {
+      onRedirect(targetSection);
     }
   };
 
@@ -209,8 +257,9 @@ export default function NotificationModal({ isOpen, onClose }) {
               {filteredNotifications.map((notification) => (
                 <div 
                   key={notification.id} 
-                  className={`notification-item ${notification.isRead ? 'read' : 'unread'}`}
-                  onClick={() => !notification.isRead && markAsRead(notification.id)}
+                  className={`notification-item ${notification.isRead ? 'read' : 'unread'} clickable`}
+                  onClick={() => handleNotificationClick(notification)}
+                  title={`Click to ${getNotificationRedirectDescription(notification.type)}`}
                 >
                   <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
                     {getNotificationIcon(notification.type)}
