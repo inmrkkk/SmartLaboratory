@@ -240,6 +240,7 @@
 .transaction-date-cell {
   min-width: 100px;
   max-width: 120px;
+  text-align: center;
 }
 
 .transaction-date {
@@ -424,6 +425,40 @@
   max-width: 120px;
 }
 
+.borrower-type-cell {
+  min-width: 100px;
+  max-width: 120px;
+  text-align: center;
+}
+
+.borrower-type-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.borrower-type-badge[data-type="student"] {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+.borrower-type-badge[data-type="instructor"] {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.borrower-type-badge[data-type="staff"] {
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  color: #3730a3;
+  border: 1px solid #6366f1;
+}
+
 .course-badge {
   display: inline-block;
   padding: 4px 8px;
@@ -477,6 +512,7 @@
 .status-cell {
   min-width: 100px;
   max-width: 120px;
+  text-align: center;
 }
 
 .status-badge.restricted {
@@ -601,6 +637,7 @@
 .settled-date-cell {
   min-width: 100px;
   max-width: 120px;
+  text-align: center;
 }
 
 .settled-date {
@@ -612,6 +649,19 @@
 .remarks-cell {
   min-width: 150px;
   max-width: 200px;
+  text-align: center;
+}
+
+.settled-by-cell {
+  min-width: 120px;
+  max-width: 150px;
+  text-align: center;
+}
+
+.settled-by {
+  font-size: 0.85rem;
+  color: #059669;
+  font-weight: 500;
 }
 
 .admin-remarks {

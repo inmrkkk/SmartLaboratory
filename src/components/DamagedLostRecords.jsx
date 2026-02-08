@@ -1,38 +1,46 @@
 // src/components/DamagedLostRecords.jsx
-import React, { useState, useEffect, useCallback } from "react";
-import { ref, onValue, update, get, push, remove } from "firebase/database";
+import React, { useMemo, useState, useEffect } from "react";
+import { ref, onValue, update, get, remove } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import "../CSS/DamagedLostRecords.css";
 
 export default function DamagedLostRecords() {
-  const { isAdmin, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
+  const { user } = useAuth();
   const [restrictedBorrowers, setRestrictedBorrowers] = useState([]);
   const [settledRecords, setSettledRecords] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBorrower, setSelectedBorrower] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSettledModal, setShowSettledModal] = useState(false);
   const [borrowerDetails, setBorrowerDetails] = useState(null);
   const [selectedSettledRecords, setSelectedSettledRecords] = useState([]);
   const [activeTab, setActiveTab] = useState('restricted');
-  const [users, setUsers] = useState([]);
-  const [allRequests, setAllRequests] = useState([]);
 
-  // Load users data
+  const [users, setUsers] = useState([]);
+
+  const usersById = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => {
+      if (u?.id) map.set(u.id, u);
+    });
+    return map;
+  }, [users]);
+
   useEffect(() => {
     const loadUsers = async () => {
       try {
         const usersRef = ref(database, 'users');
         const snapshot = await get(usersRef);
-        
+
         if (snapshot.exists()) {
           const usersData = snapshot.val();
-          const usersList = Object.keys(usersData).map(key => ({
+          const usersList = Object.keys(usersData).map((key) => ({
             id: key,
             ...usersData[key]
           }));
           setUsers(usersList);
+        } else {
+          setUsers([]);
         }
       } catch (error) {
         console.error("Error loading users:", error);
@@ -41,30 +49,6 @@ export default function DamagedLostRecords() {
 
     loadUsers();
   }, []);
-
-  // Load all requests for reference
-  useEffect(() => {
-    const loadRequests = async () => {
-      try {
-        const requestsRef = ref(database, 'borrow_requests');
-        const snapshot = await get(requestsRef);
-        
-        if (snapshot.exists()) {
-          const requestsData = snapshot.val();
-          const requestsList = Object.keys(requestsData).map(key => ({
-            id: key,
-            ...requestsData[key]
-          }));
-          setAllRequests(requestsList);
-        }
-      } catch (error) {
-        console.error("Error loading requests:", error);
-      }
-    };
-
-    loadRequests();
-  }, []);
-
   // Load damaged/lost records and restricted borrowers
   useEffect(() => {
     const damagedLostRef = ref(database, 'damaged_lost_records');
@@ -129,12 +113,6 @@ export default function DamagedLostRecords() {
     };
   }, []);
 
-  // Get borrower details
-  const getBorrowerDetails = useCallback((borrowerId) => {
-    const user = users.find(u => u.id === borrowerId);
-    return user || {};
-  }, [users]);
-
   // View borrower details
   const viewBorrowerDetails = async (borrower) => {
     try {
@@ -173,7 +151,8 @@ export default function DamagedLostRecords() {
         status: newStatus,
         adminRemarks,
         settledAt: newStatus === 'Settled' ? new Date().toISOString() : null,
-        settledBy: newStatus === 'Settled' ? getAssignedLaboratoryIds()?.[0] || 'admin' : null
+        settledBy: newStatus === 'Settled' ? (user?.uid || 'admin') : null,
+        settledByName: newStatus === 'Settled' ? (user?.name || user?.displayName || user?.email || 'Admin') : null
       });
 
       // Check if all items are settled for this borrower
@@ -206,12 +185,6 @@ export default function DamagedLostRecords() {
     } catch (error) {
       console.error("Error updating item status:", error);
     }
-  };
-
-  // View settled records for all borrowers
-  const viewAllSettledRecords = () => {
-    setSelectedSettledRecords(settledRecords);
-    setShowSettledModal(true);
   };
 
   // View settled records for specific borrower
@@ -298,7 +271,6 @@ export default function DamagedLostRecords() {
                   <thead>
                     <tr>
                       <th>Borrower Information</th>
-                      <th>Contact</th>
                       <th>Course/Section</th>
                       <th>Damaged Items</th>
                       <th>Lost Items</th>
@@ -316,12 +288,6 @@ export default function DamagedLostRecords() {
                           </div>
                           <div className="borrower-name">
                             <strong>{borrower.borrowerName}</strong>
-                          </div>
-                        </td>
-                        <td className="contact-cell">
-                          <div className="email-info">
-                            <span className="email-icon">📧</span>
-                            <span>{borrower.emailAddress}</span>
                           </div>
                         </td>
                         <td className="course-cell">
@@ -384,26 +350,19 @@ export default function DamagedLostRecords() {
               </div>
             ) : (
               <>
-                <div className="tab-actions">
-                  <button 
-                    className="btn-action btn-primary"
-                    onClick={viewAllSettledRecords}
-                  >
-                    📋 View All Settled Records
-                  </button>
-                </div>
                 <div className="table-container">
                   <table className="borrowers-table settled-table">
                     <thead>
                       <tr>
                         <th>Borrower Information</th>
-                        <th>Contact</th>
+                        <th>Type of Borrower</th>
                         <th>Course/Section</th>
                         <th>Item Name</th>
                         <th>Status</th>
                         <th>Transaction Date</th>
                         <th>Settled Date</th>
                         <th>Admin Remarks</th>
+                        <th>Settled By</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -417,11 +376,20 @@ export default function DamagedLostRecords() {
                               <strong>{record.borrowerName}</strong>
                             </div>
                           </td>
-                          <td className="contact-cell">
-                            <div className="email-info">
-                              <span className="email-icon">📧</span>
-                              <span>{record.emailAddress}</span>
-                            </div>
+                          <td className="borrower-type-cell">
+                            {(() => {
+                              const borrowerUser = usersById.get(record.borrowerId);
+                              const role = (borrowerUser?.role || borrowerUser?.userType || borrowerUser?.accountType || record.userType || '').toString().toLowerCase();
+                              const isInstructor = role === 'instructor' || role === 'teacher';
+                              return (
+                                <span
+                                  className="borrower-type-badge"
+                                  data-type={isInstructor ? 'instructor' : 'student'}
+                                >
+                                  {isInstructor ? 'Instructor' : 'Student'}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="course-cell">
                             <span className="course-badge">{record.courseYearSection}</span>
@@ -447,13 +415,18 @@ export default function DamagedLostRecords() {
                           <td className="remarks-cell">
                             <span className="admin-remarks">{record.adminRemarks || 'N/A'}</span>
                           </td>
+                          <td className="settled-by-cell">
+                            <span className="settled-by">
+                              {record.settledByName || usersById.get(record.settledBy)?.name || usersById.get(record.settledBy)?.displayName || record.settledBy || 'Lab In-Charge'}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                   {settledRecords.length > 15 && (
                     <div className="show-more">
-                      <p>Showing 15 of {settledRecords.length} settled records. Click "View All Settled Records" to see more.</p>
+                      <p>Showing 15 of {settledRecords.length} settled records.</p>
                     </div>
                   )}
                 </div>
