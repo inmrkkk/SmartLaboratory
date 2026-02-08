@@ -521,7 +521,7 @@ export default function Analytics() {
     }
 
     // Borrowing Trends
-    const borrowingTrends = calculateBorrowingTrends(borrowRequests, periodDays);
+    const borrowingTrends = calculateBorrowingTrends(borrowRequests, history, periodDays);
 
     // User Activity
     const userActivity = calculateUserActivity(history, periodDays);
@@ -554,16 +554,30 @@ export default function Analytics() {
     };
   };
 
-  const calculateBorrowingTrends = (borrowRequests, periodDays) => {
+  const calculateBorrowingTrends = (borrowRequests, history, periodDays) => {
     const trends = [];
     const requests = Object.values(borrowRequests);
+    const historyEntries = Object.values(history || {});
     
-    // Group by date
+    // Group by date from borrow requests
     const dailyData = {};
     requests.forEach(req => {
       if (req.requestedAt) {
         const date = new Date(req.requestedAt).toDateString();
         dailyData[date] = (dailyData[date] || 0) + 1;
+      }
+    });
+
+    // Add manual records from history
+    historyEntries.forEach(entry => {
+      // Only include manual records with valid borrowing lifecycle (Returned status)
+      if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned')) {
+        const dateSource = entry.returnDate || entry.releasedDate || entry.timestamp;
+        if (dateSource) {
+          const date = new Date(dateSource).toDateString();
+          const quantity = parseInt(entry.quantity) || 1;
+          dailyData[date] = (dailyData[date] || 0) + quantity;
+        }
       }
     });
 
@@ -587,10 +601,15 @@ export default function Analytics() {
     const cutoffDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
     historyEntries.forEach(entry => {
+      // Include both system-generated "released" records and manual "returned" records
       const status = (entry.status || '').toLowerCase();
-      if (status !== 'released') return;
+      const action = (entry.action || '').toLowerCase();
+      const isSystemReleased = status === 'released' || action === 'item released';
+      const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+      
+      if (!isSystemReleased && !isManualReturned) return;
 
-      const dateSource = entry.releasedDate || entry.timestamp;
+      const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
       if (dateSource) {
         const entryDate = new Date(dateSource);
         if (isNaN(entryDate) || entryDate < cutoffDate) return;
@@ -605,7 +624,9 @@ export default function Analytics() {
         (entry.userEmail && entry.userEmail.trim()) ||
         'Unknown';
 
-      borrowerCounts[borrowerName] = (borrowerCounts[borrowerName] || 0) + 1;
+      // For manual records, count by quantity instead of just 1
+      const count = entry.isManualEntry ? (parseInt(entry.quantity) || 1) : 1;
+      borrowerCounts[borrowerName] = (borrowerCounts[borrowerName] || 0) + count;
     });
 
     const sortedBorrowers = Object.entries(borrowerCounts).sort(([, a], [, b]) => b - a);
@@ -664,10 +685,14 @@ export default function Analytics() {
     historyEntries.forEach(entry => {
       const action = (entry.action || '').toLowerCase();
       const status = (entry.status || '').toLowerCase();
-      const isRelease = entry.entryType === 'release' || action.includes('release') || status === 'released';
-      if (!isRelease) return;
+      
+      // Include both system-generated releases and manual returned records
+      const isSystemRelease = entry.entryType === 'release' || action.includes('release') || status === 'released';
+      const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+      
+      if (!isSystemRelease && !isManualReturned) return;
 
-      const dateSource = entry.releasedDate || entry.timestamp;
+      const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
       if (!dateSource) return;
       const date = new Date(dateSource);
       if (isNaN(date) || date < cutoffDate) return;

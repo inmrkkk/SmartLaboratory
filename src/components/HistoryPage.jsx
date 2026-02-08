@@ -1,7 +1,7 @@
 // src/components/HistoryPage.jsx
 import { useState, useEffect, Fragment } from "react";
 
-import { ref, onValue, get, push } from "firebase/database";
+import { ref, onValue, get, push, update } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
@@ -309,6 +309,65 @@ export default function HistoryPage() {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // Update equipment usage analytics for manual records
+  const updateEquipmentUsageAnalytics = async (manualRecord) => {
+    try {
+      // Only update analytics for records with 'Returned' status (valid borrowing lifecycle)
+      if (manualRecord.status !== 'Returned' && manualRecord.status !== 'returned') {
+        console.log('[HistoryPage] Skipping analytics update - not a returned record');
+        return;
+      }
+
+      const quantity = parseInt(manualRecord.quantity) || 1;
+      const borrowerType = manualRecord.borrowerType || 'student';
+      const equipmentName = manualRecord.equipmentName;
+
+      console.log('[HistoryPage] Updating equipment usage analytics:', {
+        equipmentName,
+        quantity,
+        borrowerType,
+        status: manualRecord.status
+      });
+
+      // Reference to equipment usage analytics node
+      const usageAnalyticsRef = ref(database, `equipment_usage_analytics/${equipmentName}`);
+      
+      // Get current analytics data
+      const analyticsSnapshot = await get(usageAnalyticsRef);
+      const currentData = analyticsSnapshot.exists() ? analyticsSnapshot.val() : {
+        totalBorrowed: 0,
+        borrowedByStudents: 0,
+        borrowedByFaculty: 0,
+        lastUpdated: new Date().toISOString()
+      };
+
+      // Update counts based on borrower type
+      const updatedData = {
+        totalBorrowed: currentData.totalBorrowed + quantity,
+        borrowedByStudents: borrowerType === 'student' || borrowerType === 'Student' 
+          ? currentData.borrowedByStudents + quantity 
+          : currentData.borrowedByStudents,
+        borrowedByFaculty: borrowerType === 'faculty' || borrowerType === 'Faculty / Instructor' || borrowerType === 'laboratory_manager'
+          ? currentData.borrowedByFaculty + quantity 
+          : currentData.borrowedByFaculty,
+        lastUpdated: new Date().toISOString(),
+        lastManualEntry: {
+          timestamp: new Date().toISOString(),
+          quantity: quantity,
+          borrowerType: borrowerType,
+          recordId: manualRecord.id || 'unknown'
+        }
+      };
+
+      // Update the analytics data
+      await update(usageAnalyticsRef, updatedData);
+      
+      console.log('[HistoryPage] Equipment usage analytics updated successfully:', updatedData);
+    } catch (error) {
+      console.error('[HistoryPage] Error updating equipment usage analytics:', error);
+    }
+  };
+
   // Handle manual record form submission
   const handleManualRecordSubmit = async (e) => {
     e.preventDefault();
@@ -400,6 +459,12 @@ export default function HistoryPage() {
 
       const createdHistoryRef = await push(historyRef, newRecord);
       console.log('[HistoryPage] Manual history record created:', createdHistoryRef.key, newRecord);
+
+      // Add the record ID to the newRecord for analytics tracking
+      newRecord.id = createdHistoryRef.key;
+
+      // Update equipment usage analytics for returned records
+      await updateEquipmentUsageAnalytics(newRecord);
 
       // Manual records are saved only to history, not to borrow_requests
 

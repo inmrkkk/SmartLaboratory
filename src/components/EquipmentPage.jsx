@@ -61,6 +61,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [historyData, setHistoryData] = useState([]);
   const [showUsageReportModal, setShowUsageReportModal] = useState(false);
   const [selectedEquipmentForReport, setSelectedEquipmentForReport] = useState(null);
+  const [usageData, setUsageData] = useState(null);
+  const [usageDataLoading, setUsageDataLoading] = useState(false);
 
   const fetchCategories = useCallback(() => {
     try {
@@ -635,34 +637,97 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   };
 
   // Calculate usage data for equipment
-  const calculateUsageData = (equipmentName) => {
+  const calculateUsageData = async (equipmentName) => {
     const equipmentHistory = historyData.filter(entry => 
       entry.equipmentName === equipmentName
     );
 
-    const totalBorrowings = equipmentHistory.filter(entry => 
+    // Count system-generated records
+    const systemBorrowings = equipmentHistory.filter(entry => 
       entry.action === "Item Released"
     ).length;
 
-    let studentBorrowings = 0;
-    let facultyBorrowings = 0;
+    // Count manual records with valid borrowing lifecycle (Returned status)
+    const manualReturnedRecords = equipmentHistory.filter(entry => 
+      entry.isManualEntry && 
+      (entry.status === "Returned" || entry.status === "returned")
+    );
+
+    // Calculate quantities for manual records
+    let manualTotalQuantity = 0;
+    let manualStudentQuantity = 0;
+    let manualFacultyQuantity = 0;
+
+    manualReturnedRecords.forEach(entry => {
+      const quantity = parseInt(entry.quantity) || 1;
+      const borrowerType = entry.borrowerType || 'student';
+      
+      manualTotalQuantity += quantity;
+      
+      if (borrowerType === 'student' || borrowerType === 'Student') {
+        manualStudentQuantity += quantity;
+      } else if (borrowerType === 'faculty' || borrowerType === 'Faculty / Instructor' || borrowerType === 'laboratory_manager') {
+        manualFacultyQuantity += quantity;
+      }
+    });
+
+    // Calculate system-generated counts by user type
+    let systemStudentBorrowings = 0;
+    let systemFacultyBorrowings = 0;
 
     equipmentHistory.forEach(entry => {
-      if (entry.action === "Item Released") {
+      if (entry.action === "Item Released" && !entry.isManualEntry) {
         const isFaculty = determineUserType(entry);
         
         if (isFaculty) {
-          facultyBorrowings++;
+          systemFacultyBorrowings++;
         } else {
-          studentBorrowings++;
+          systemStudentBorrowings++;
         }
       }
     });
 
+    // Try to get analytics data from Firebase
+    try {
+      const analyticsRef = ref(database, `equipment_usage_analytics/${equipmentName}`);
+      const analyticsSnapshot = await get(analyticsRef);
+      
+      if (analyticsSnapshot.exists()) {
+        const analyticsData = analyticsSnapshot.val();
+        console.log('[EquipmentPage] Using analytics data for', equipmentName, analyticsData);
+        
+        return {
+          total: analyticsData.totalBorrowed || (systemBorrowings + manualTotalQuantity),
+          students: analyticsData.borrowedByStudents || (systemStudentBorrowings + manualStudentQuantity),
+          faculty: analyticsData.borrowedByFaculty || (systemFacultyBorrowings + manualFacultyQuantity),
+          systemTotal: systemBorrowings,
+          systemStudents: systemStudentBorrowings,
+          systemFaculty: systemFacultyBorrowings,
+          manualTotal: manualTotalQuantity,
+          manualStudents: manualStudentQuantity,
+          manualFaculty: manualFacultyQuantity,
+          lastUpdated: analyticsData.lastUpdated
+        };
+      }
+    } catch (error) {
+      console.error('[EquipmentPage] Error fetching analytics data:', error);
+    }
+
+    // Fallback to calculated values if analytics data not available
+    const totalBorrowings = systemBorrowings + manualTotalQuantity;
+    const totalStudentBorrowings = systemStudentBorrowings + manualStudentQuantity;
+    const totalFacultyBorrowings = systemFacultyBorrowings + manualFacultyQuantity;
+
     return {
       total: totalBorrowings,
-      students: studentBorrowings,
-      faculty: facultyBorrowings
+      students: totalStudentBorrowings,
+      faculty: totalFacultyBorrowings,
+      systemTotal: systemBorrowings,
+      systemStudents: systemStudentBorrowings,
+      systemFaculty: systemFacultyBorrowings,
+      manualTotal: manualTotalQuantity,
+      manualStudents: manualStudentQuantity,
+      manualFaculty: manualFacultyQuantity
     };
   };
 
@@ -748,9 +813,24 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     };
   };
 
-  const handleViewUsageReport = (equipment) => {
+  const handleViewUsageReport = async (equipment) => {
     setSelectedEquipmentForReport(equipment);
     setShowUsageReportModal(true);
+    setUsageDataLoading(true);
+    
+    try {
+      const data = await calculateUsageData(equipment.name || equipment.equipmentName);
+      setUsageData(data);
+    } catch (error) {
+      console.error('[EquipmentPage] Error loading usage data:', error);
+      setUsageData({
+        total: 0,
+        students: 0,
+        faculty: 0
+      });
+    } finally {
+      setUsageDataLoading(false);
+    }
   };
 
   const handleEditCategory = (category) => {
@@ -2000,53 +2080,85 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             
             <div className="modal-body">
               <div className="usage-report">
-                <div className="usage-table-container">
-                  <table className="usage-table">
-                    <thead>
-                      <tr>
-                        <th>Equipment Name</th>
-                        <th>Total Borrowed</th>
-                        <th>Borrowed by Students</th>
-                        <th>Borrowed by Faculty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const usageData = calculateUsageData(selectedEquipmentForReport.name);
-                        return (
+                {usageDataLoading ? (
+                  <div className="loading-container" style={{ textAlign: 'center', padding: '40px' }}>
+                    <div className="loading-spinner"></div>
+                    <p>Loading usage data...</p>
+                  </div>
+                ) : usageData ? (
+                  <>
+                    <div className="usage-table-container">
+                      <table className="usage-table">
+                        <thead>
                           <tr>
-                            <td>{selectedEquipmentForReport.name}</td>
+                            <th>Equipment Name</th>
+                            <th>Total Borrowed</th>
+                            <th>Borrowed by Students</th>
+                            <th>Borrowed by Faculty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>{selectedEquipmentForReport.name || selectedEquipmentForReport.equipmentName}</td>
                             <td>{usageData.total} times</td>
                             <td>{usageData.students}</td>
                             <td>{usageData.faculty}</td>
                           </tr>
+                        </tbody>
+                      </table>
+                      
+                      {/* Show breakdown if manual records exist */}
+                      {(usageData.manualTotal > 0 || usageData.systemTotal > 0) && (
+                        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                          <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>Usage Breakdown</h4>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '12px' }}>
+                            <div>
+                              <strong>System Records:</strong> {usageData.systemTotal} total
+                              ({usageData.systemStudents} students, {usageData.systemFaculty} faculty)
+                            </div>
+                            {usageData.manualTotal > 0 && (
+                              <div>
+                                <strong>Manual Records:</strong> {usageData.manualTotal} total
+                                ({usageData.manualStudents} students, {usageData.manualFaculty} faculty)
+                              </div>
+                            )}
+                          </div>
+                          {usageData.lastUpdated && (
+                            <div style={{ marginTop: '10px', fontSize: '11px', color: '#6b7280' }}>
+                              Last updated: {new Date(usageData.lastUpdated).toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="usage-summary">
+                      {(() => {
+                        const usageStats = calculateUsageStatistics(selectedEquipmentForReport.name || selectedEquipmentForReport.equipmentName);
+                        return (
+                          <>
+                            <div className="summary-card">
+                              <div className="summary-title">Most Active Period</div>
+                              <div className="summary-value">{usageStats.mostActivePeriod}</div>
+                            </div>
+                            <div className="summary-card">
+                              <div className="summary-title">Average Usage</div>
+                              <div className="summary-value">{usageStats.averageUsage}</div>
+                            </div>
+                            <div className="summary-card">
+                              <div className="summary-title">Utilization Rate</div>
+                              <div className="summary-value">{usageStats.utilizationRate}</div>
+                            </div>
+                          </>
                         );
                       })()}
-                    </tbody>
-                  </table>
-                </div>
-                
-                <div className="usage-summary">
-                  {(() => {
-                    const usageStats = calculateUsageStatistics(selectedEquipmentForReport.name);
-                    return (
-                      <>
-                        <div className="summary-card">
-                          <div className="summary-title">Most Active Period</div>
-                          <div className="summary-value">{usageStats.mostActivePeriod}</div>
-                        </div>
-                        <div className="summary-card">
-                          <div className="summary-title">Average Usage</div>
-                          <div className="summary-value">{usageStats.averageUsage}</div>
-                        </div>
-                        <div className="summary-card">
-                          <div className="summary-title">Utilization Rate</div>
-                          <div className="summary-value">{usageStats.utilizationRate}</div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <p>No usage data available</p>
+                  </div>
+                )}
               </div>
             </div>
 
