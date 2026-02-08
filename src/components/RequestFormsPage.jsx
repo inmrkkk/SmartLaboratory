@@ -1,6 +1,6 @@
 // src/components/RequestFormsPage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 import { ref, onValue, update, remove, get, push } from "firebase/database";
 
@@ -53,6 +53,8 @@ export default function RequestFormsPage() {
   const [equipmentData, setEquipmentData] = useState([]);
 
   const [laboratories, setLaboratories] = useState([]);
+
+  const [categories, setCategories] = useState([]);
 
   const [users, setUsers] = useState([]);
 
@@ -114,31 +116,14 @@ export default function RequestFormsPage() {
 
   const statuses = [
 
-    "pending",
+    "Pending",
 
-    "approved",
+    "Approved",
 
-    "released",
-
-    "rejected",
-
-    "in_progress",
-
-    "returned",
+    "Released",
 
   ];
 
-  const requestTypes = [
-
-    "Alcohol",
-
-    "Laboratory Equipment",
-
-    "Chemicals",
-
-    "Other",
-
-  ];
 
 
 
@@ -177,6 +162,72 @@ export default function RequestFormsPage() {
     }
 
   };
+
+
+
+  // Load categories data for laboratory-specific filtering
+
+  const loadCategories = useCallback(async () => {
+
+    try {
+
+      const categoriesRef = ref(database, "equipment_categories");
+
+      const snapshot = await get(categoriesRef);
+
+
+
+      if (snapshot.exists()) {
+
+        const categoriesData = snapshot.val();
+
+        const categoryList = Object.keys(categoriesData).map((key) => ({
+
+          id: key,
+
+          ...categoriesData[key],
+
+        }));
+
+        
+
+        // Filter categories based on user role and lab assignment
+
+        let filteredCategories = categoryList;
+
+        if (!isAdmin()) {
+
+          const assignedLabIds = getAssignedLaboratoryIds();
+
+          if (assignedLabIds) {
+
+            // Filter categories to only show those from assigned laboratories
+
+            filteredCategories = categoryList.filter(category => {
+
+              const lab = laboratories.find(l => l.labId === category.labId);
+
+              return lab && assignedLabIds.includes(lab.id);
+
+            });
+
+          }
+
+        }
+
+        
+
+        setCategories(filteredCategories);
+
+      }
+
+    } catch (error) {
+
+      console.error("Error loading categories:", error);
+
+    }
+
+  }, [isAdmin, getAssignedLaboratoryIds, laboratories]);
 
 
 
@@ -296,7 +347,7 @@ export default function RequestFormsPage() {
 
   // Helper function to get borrower name from userId
 
-  const getBorrowerName = (userId) => {
+  const getBorrowerName = useCallback((userId) => {
 
     if (!userId) return "Unknown";
 
@@ -316,13 +367,13 @@ export default function RequestFormsPage() {
 
     );
 
-  };
+  }, [users]);
 
 
 
   // Check for new requests and create notifications
 
-  const checkForNewRequests = async (requestsList) => {
+  const checkForNewRequests = useCallback(async (requestsList) => {
 
     if (!equipmentData.length || !laboratories.length) return;
 
@@ -410,7 +461,7 @@ export default function RequestFormsPage() {
 
     );
 
-  };
+  }, [equipmentData, laboratories, getBorrowerName]);
 
 
 
@@ -420,11 +471,25 @@ export default function RequestFormsPage() {
 
     loadLaboratories();
 
+    loadCategories();
+
     loadEquipmentData();
 
     loadUsers();
 
-  }, []);
+  }, [loadCategories]);
+
+  // Reload categories when laboratories data is available
+
+  useEffect(() => {
+
+    if (laboratories.length > 0) {
+
+      loadCategories();
+
+    }
+
+  }, [laboratories, isAdmin, getAssignedLaboratoryIds, loadCategories]);
 
 
 
@@ -484,9 +549,7 @@ export default function RequestFormsPage() {
 
     }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  }, [allRequests, equipmentData, laboratories]);
+  }, [allRequests, equipmentData, laboratories, checkForNewRequests]);
 
 
 
@@ -2710,11 +2773,11 @@ export default function RequestFormsPage() {
 
           <option value="All">All Types</option>
 
-          {requestTypes.map((type) => (
+          {categories.map((category) => (
 
-            <option key={type} value={type}>
+            <option key={category.id} value={category.title}>
 
-              {type}
+              {category.title}
 
             </option>
 
