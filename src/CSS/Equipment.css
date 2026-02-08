@@ -477,34 +477,36 @@
 .category-stats {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 16px;
-  padding: 12px 0;
+  margin-bottom: 8px;
+  padding: 6px 0;
   border-top: 1px solid #14b8a6;
   border-bottom: 1px solid #14b8a6;
 }
 
 .stat-item {
+  flex: 1;
   text-align: center;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .stat-number {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #374151;
-  line-height: 1;
-}
-
-.stat-number.available {
-  color: #14b8a6;
+  font-size: clamp(0.85rem, 2vw, 1rem); /* smaller size */
+  font-weight: 600; /* reduced space between number and label */
+  margin-bottom: 2px;
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin-top: 4px;
+  /* font-size: clamp(0.35rem, 1vw, 0.45rem); */
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* pushes label to bottom */
 }
+
 
 .category-actions {
   display: flex;
@@ -606,20 +608,62 @@
   background-color: #f0fdfa;
 }
 
+.equipment-name-cell,
+.equipment-model-cell {
+  color: #374151 !important;
+  font-weight: 500;
+  font-size: 14px;
+  vertical-align: middle;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  max-width: 300px;
+}
+
+.equipment-name-cell {
+  font-weight: 600;
+}
+
+.equipment-model-cell {
+  font-weight: 400;
+  color: #6b7280 !important;
+}
+
 .equipment-cell {
-  min-width: 200px;
+   min-width: 200px !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
 .equipment-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  color: #374151 !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  height: auto !important;
+  min-height: auto !important;
 }
 
 .equipment-name {
-  font-weight: 500;
-  color: #374151;
-  font-size: 14px;
+  font-weight: 500 !important;
+  color: #111827 !important;
+  font-size: 14px !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  display: block !important;
+  line-height: 1.4 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .equipment-model {

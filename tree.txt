@@ -1,0 +1,101 @@
+SmartLaboratory
+    ├── public
+    │   ├── _redirects
+    │   ├── ABDnsc.jpg
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── LabDnsc.jpg
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   └── robots.txt
+    ├── src
+    │   ├── components
+    │   │   ├── equipment
+    │   │   │   ├── CategoriesTab.css
+    │   │   │   ├── CategoriesTab.jsx
+    │   │   │   ├── CategoryModal.jsx
+    │   │   │   ├── delete_confirm.css
+    │   │   │   ├── Equipment_page.css
+    │   │   │   ├── EquipmentMaintenance.css
+    │   │   │   ├── EquipmentMaintenance.jsx
+    │   │   │   ├── EquipmentModal.css
+    │   │   │   ├── EquipmentModal.jsx
+    │   │   │   ├── EquipmentsTab.jsx
+    │   │   │   ├── EquipmentTable.jsx
+    │   │   │   └── success_alert.css
+    │   │   ├── Analytics.jsx
+    │   │   ├── AnnouncementModal.jsx
+    │   │   ├── DamagedLostRecords.jsx
+    │   │   ├── Dashboard.jsx
+    │   │   ├── DataConsistencyAudit.jsx
+    │   │   ├── EquipmentPage.jsx
+    │   │   ├── HistoryPage.jsx
+    │   │   ├── HistoryPage.jsx.backup
+    │   │   ├── LaboratoryManagement.jsx
+    │   │   ├── Login.jsx
+    │   │   ├── ManualRecordIntegration.test.js
+    │   │   ├── NotificationModal.jsx
+    │   │   ├── RequestFormsPage.jsx
+    │   │   ├── Sidebar.jsx
+    │   │   └── UserManagement.jsx
+    │   ├── contexts
+    │   │   └── AuthContext.jsx
+    │   ├── CSS
+    │   │   ├── Analytics.css
+    │   │   ├── AnnouncementModal.css
+    │   │   ├── DamagedLostRecords.css
+    │   │   ├── Dashboard.css
+    │   │   ├── Equipment.css
+    │   │   ├── HistoryPage.css
+    │   │   ├── LaboratoryManagement.css
+    │   │   ├── Login.css
+    │   │   ├── NotificationModal.css
+    │   │   ├── RequestFormsPage.css
+    │   │   ├── Sidebar.css
+    │   │   └── UserManagement.css
+    │   ├── images
+    │   │   ├── approve.png
+    │   │   ├── delete.png
+    │   │   ├── eye.png
+    │   │   ├── rejected.png
+    │   │   ├── release.png
+    │   │   └── return.png
+    │   ├── utils
+    │   │   ├── __tests__
+    │   │   │   └── navigationUtils.test.js
+    │   │   ├── damagedLostUtils.js
+    │   │   ├── dataConsistencyUtils.js
+    │   │   ├── navigationUtils.js
+    │   │   ├── notificationUtils.js
+    │   │   └── pdfUtils.js
+    │   ├── App.css
+    │   ├── App.js
+    │   ├── App.test.js
+    │   ├── firebase.js
+    │   ├── index.css
+    │   ├── index.js
+    │   ├── logo.svg
+    │   ├── reportWebVitals.js
+    │   ├── setupTests.js
+    │   └── verifyManualRecordIntegration.js
+    ├── .gitattributes
+    ├── .gitignore
+    ├── .nvmrc
+    ├── COMMIT_MESSAGE.md
+    ├── COMMIT_MESSAGE.txt
+    ├── commit_messages.txt
+    ├── DAMAGED_LOST_IMPLEMENTATION.md
+    ├── FIREBASE_STORAGE_SETUP.md
+    ├── manual_lines.txt
+    ├── MOBILE_WEB_SYNC_REQUIREMENTS.md
+    ├── netlify.toml
+    ├── package-lock.json
+    ├── package.json
+    ├── QUICK_FIX.md
+    ├── README.md
+    ├── STORAGE_RULES_TO_COPY.md
+    ├── storage.rules
+    ├── SYNC_STATUS_CHECK.md
+    ├── TODO.md
+    └── WEB_ADMIN_IMPLEMENTATION_TASKS.md

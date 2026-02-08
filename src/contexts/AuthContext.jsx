@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { database } from '../firebase';
@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const hasRole = (requiredRole) => {
+  const hasRole = useCallback((requiredRole) => {
     if (!userRole) return false;
     
     // Admin has access to everything
@@ -142,26 +142,26 @@ export const AuthProvider = ({ children }) => {
     
     // Check specific role
     return userRole === requiredRole;
-  };
+  }, [userRole]);
 
-  const hasAnyRole = (roles) => {
+  const hasAnyRole = useCallback((roles) => {
     if (!userRole) return false;
     return roles.includes(userRole);
-  };
+  }, [userRole]);
 
-  const isAdmin = () => hasRole('admin');
-  const isLaboratoryManager = () => hasRole('laboratory_manager');
+  const isAdmin = useCallback(() => userRole === 'admin', [userRole]);
+  const isLaboratoryManager = useCallback(() => userRole === 'laboratory_manager', [userRole]);
   
-  const canAccessLaboratory = (laboratoryId) => {
-    if (isAdmin()) return true;
-    if (!isLaboratoryManager()) return false;
+  const canAccessLaboratory = useCallback((laboratoryId) => {
+    if (userRole === 'admin') return true;
+    if (userRole !== 'laboratory_manager') return false;
     return assignedLaboratories.some(lab => lab.id === laboratoryId);
-  };
+  }, [userRole, assignedLaboratories]);
   
-  const getAssignedLaboratoryIds = () => {
-    if (isAdmin()) return null; // Admin can access all labs
+  const getAssignedLaboratoryIds = useCallback(() => {
+    if (userRole === 'admin') return null; // Admin can access all labs
     return assignedLaboratories.map(lab => lab.id);
-  };
+  }, [userRole, assignedLaboratories]);
 
   const value = {
     user,

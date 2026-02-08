@@ -14,11 +14,13 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [laboratories, setLaboratories] = useState([]);
   const [equipments, setEquipments] = useState([]);
   const [users, setUsers] = useState([]);
+
   const [selectedCategory, setSelectedCategory] = useState("");
   const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
   const [showAddEquipmentForm, setShowAddEquipmentForm] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [isSubmittingEquipment, setIsSubmittingEquipment] = useState(false);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
@@ -28,7 +30,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [activeTab, setActiveTab] = useState("categories");
   const [searchTerm, setSearchTerm] = useState("");
   const [laboratoryFilter, setLaboratoryFilter] = useState("");
-  
+
   const [categoryFormData, setCategoryFormData] = useState({
     title: "",
     description: "",
@@ -55,7 +57,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     quantity: "1",
     imageUrl: ""
   });
-  
+
   const [equipmentImage, setEquipmentImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [historyData, setHistoryData] = useState([]);
@@ -64,11 +66,25 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [usageData, setUsageData] = useState(null);
   const [usageDataLoading, setUsageDataLoading] = useState(false);
 
+  const getEquipmentDisplayName = (equipment) => {
+    if (!equipment) return "Unnamed Equipment";
+    
+    // Safely handle each property
+    const name = equipment.name && typeof equipment.name === 'string' ? equipment.name.trim() : null;
+    const equipmentName = equipment.equipmentName && typeof equipment.equipmentName === 'string' ? equipment.equipmentName.trim() : null;
+    const title = equipment.title && typeof equipment.title === 'string' ? equipment.title.trim() : null;
+    const itemName = equipment.itemName && typeof equipment.itemName === 'string' ? equipment.itemName.trim() : null;
+    
+    const displayName = name || equipmentName || title || itemName || "Unnamed Equipment";
+    
+    return displayName;
+  };
+
   const fetchCategories = useCallback(() => {
     try {
       setLoading(true);
       const categoriesRef = ref(database, 'equipment_categories');
-      
+
       onValue(categoriesRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -76,7 +92,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             id: key,
             ...data[key]
           }));
-          
+
           const augmentedCategories = categoryList.map(category => {
             if (category.labRecordId && category.labName) {
               return category;
@@ -92,7 +108,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               labName: category.labName || matchingLab?.labName || ""
             };
           });
-          
+
           // Filter categories based on user role and lab assignment
           let filteredCategories = augmentedCategories;
           if (!isAdmin()) {
@@ -105,7 +121,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               });
             }
           }
-          
+
           setCategories(filteredCategories);
         } else {
           setCategories([]);
@@ -121,7 +137,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const fetchLaboratories = useCallback(() => {
     try {
       const laboratoriesRef = ref(database, 'laboratories');
-      
+
       onValue(laboratoriesRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -143,11 +159,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     try {
       const usersRef = ref(database, 'users');
       const snapshot = await get(usersRef);
-      
+
       if (snapshot.exists()) {
         const usersData = snapshot.val();
         const fetchedUsers = [];
-        
+
         // Convert the object to array with IDs
         Object.keys(usersData).forEach((userId) => {
           const userData = usersData[userId];
@@ -159,7 +175,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             ...userData
           });
         });
-        
+
         setUsers(fetchedUsers);
       } else {
         setUsers([]);
@@ -201,7 +217,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   // Load history data for usage reports
   useEffect(() => {
     const historyRef = ref(database, 'history');
-    
+
     const unsubscribe = onValue(historyRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -253,15 +269,22 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const fetchEquipments = (categoryId) => {
     try {
       const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
-      
+
       onValue(equipmentsRef, (snapshot) => {
         const data = snapshot.val();
+        console.log('[EquipmentPage] Raw equipment data from Firebase:', data);
         if (data) {
           const equipmentList = Object.keys(data).map(key => ({
             id: key,
             ...data[key]
           }));
-          
+          console.log('[EquipmentPage] Processed equipment list:', equipmentList);
+          // Log first equipment details
+          if (equipmentList.length > 0) {
+            console.log('[EquipmentPage] First equipment keys:', Object.keys(equipmentList[0]));
+            console.log('[EquipmentPage] First equipment full object:', equipmentList[0]);
+          }
+
           // Filter equipment based on user role and assigned laboratories
           let filteredEquipment = equipmentList;
           if (!isAdmin()) {
@@ -275,7 +298,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               });
             }
           }
-          
+
           setEquipments(filteredEquipment);
         } else {
           setEquipments([]);
@@ -300,7 +323,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       }));
       return;
     }
-    
+
     setCategoryFormData(prev => ({
       ...prev,
       [name]: value
@@ -309,9 +332,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const handleEquipmentInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     let updatedData = { [name]: value };
-    
+
     // Auto-populate Assigned To when laboratory is selected
     if (name === 'quantity') {
       const sanitizedValue = value.replace(/[^\d]/g, "");
@@ -327,7 +350,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       if (selectedLab && selectedLab.managerUserId) {
         // Find the manager user
         const managerUser = users.find(user => user.id === selectedLab.managerUserId);
-        
+
         if (managerUser) {
           updatedData.assignedTo = managerUser.name;
         }
@@ -336,13 +359,13 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         updatedData.assignedTo = "";
       }
     }
-    
+
     setEquipmentFormData(prev => ({
       ...prev,
       ...updatedData
     }));
   };
-  
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -351,15 +374,15 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         alert('Please select a valid image file');
         return;
       }
-      
+
       // Validate file size (max 2MB for base64 to avoid database bloat)
       if (file.size > 2 * 1024 * 1024) {
         alert('Image size should be less than 2MB for optimal performance');
         return;
       }
-      
+
       setEquipmentImage(file);
-      
+
       // Create preview and convert to base64
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -369,12 +392,12 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       reader.readAsDataURL(file);
     }
   };
-  
+
   const uploadEquipmentImage = async (file) => {
     try {
       // Convert image to base64 string for storing in database
       console.log("Converting image to base64...");
-      
+
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -396,7 +419,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!categoryFormData.title.trim()) {
       alert("Please enter a category title");
       return;
@@ -454,13 +477,13 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         setFeedbackMessage("Category added successfully!");
         setShowSuccessModal(true);
       }
-      
+
       // Close form after successful submission
       setTimeout(() => {
         resetCategoryForm();
         setShowSuccessModal(false);
       }, 1500);
-      
+
     } catch (error) {
       console.error("Error saving category:", error);
       setFeedbackMessage(`Error saving category: ${error.message}. Please try again.`);
@@ -472,7 +495,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const handleEquipmentSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!equipmentFormData.name.trim() || !selectedCategory) {
       setFeedbackMessage("Please fill in required fields and select a category");
       setShowErrorModal(true);
@@ -493,7 +516,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           console.warn("Image upload failed but continuing with equipment save");
         }
       }
-      
+
       const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
       const categoryLabId = selectedCategoryData?.labId || "";
       const categoryLabRecordId = selectedCategoryData?.labRecordId || "";
@@ -530,7 +553,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         labRecordId: resolvedLabRecordId,
         laboratory: resolvedLabName,
         categoryId: selectedCategory,
-        imageUrl: imageUrl || ""
+        imageUrl: imageUrl || "",
+        // Ensure both name and equipmentName are set for consistency
+        equipmentName: equipmentFormData.name || equipmentFormData.equipmentName
       };
 
       console.log("Saving equipment data:", equipmentData);
@@ -550,19 +575,19 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        
+
         await updateCategoryCounts(selectedCategory);
         setFeedbackMessage("Equipment added successfully!");
         setShowSuccessModal(true);
       }
-      
+
       // Close form after successful submission
       setTimeout(() => {
         resetEquipmentForm();
         setShowSuccessModal(false);
         setIsSubmittingEquipment(false);
       }, 1500);
-      
+
     } catch (error) {
       console.error("Error saving equipment:", error);
       setFeedbackMessage(`Error saving equipment: ${error.message}. Please try again.`);
@@ -585,7 +610,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               return (eq.status === 'Available' || eq.status === 'available') ? sum + quantity : sum;
             }, 0)
           : 0;
-        
+
         const categoryRef = ref(database, `equipment_categories/${categoryId}`);
         await update(categoryRef, {
           totalCount,
@@ -620,36 +645,36 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   // Determine if user is faculty or student
   const determineUserType = (entry) => {
     const userId = entry.userId || entry.details?.originalRequest?.userId || null;
-    
+
     if (userId) {
       const userRole = getUserRole(userId);
-      
+
       if (userRole === 'admin' || userRole === 'laboratory_manager') {
         return true; // Faculty
       }
-      
+
       if (userRole === 'student') {
         return false; // Student
       }
     }
-    
+
     return false; // Default to student
   };
 
   // Calculate usage data for equipment
   const calculateUsageData = async (equipmentName) => {
-    const equipmentHistory = historyData.filter(entry => 
+    const equipmentHistory = historyData.filter(entry =>
       entry.equipmentName === equipmentName
     );
 
     // Count system-generated records
-    const systemBorrowings = equipmentHistory.filter(entry => 
+    const systemBorrowings = equipmentHistory.filter(entry =>
       entry.action === "Item Released"
     ).length;
 
     // Count manual records with valid borrowing lifecycle (Returned status)
-    const manualReturnedRecords = equipmentHistory.filter(entry => 
-      entry.isManualEntry && 
+    const manualReturnedRecords = equipmentHistory.filter(entry =>
+      entry.isManualEntry &&
       (entry.status === "Returned" || entry.status === "returned")
     );
 
@@ -661,9 +686,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     manualReturnedRecords.forEach(entry => {
       const quantity = parseInt(entry.quantity) || 1;
       const borrowerType = entry.borrowerType || 'student';
-      
+
       manualTotalQuantity += quantity;
-      
+
       if (borrowerType === 'student' || borrowerType === 'Student') {
         manualStudentQuantity += quantity;
       } else if (borrowerType === 'faculty' || borrowerType === 'Faculty / Instructor' || borrowerType === 'laboratory_manager') {
@@ -678,7 +703,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     equipmentHistory.forEach(entry => {
       if (entry.action === "Item Released" && !entry.isManualEntry) {
         const isFaculty = determineUserType(entry);
-        
+
         if (isFaculty) {
           systemFacultyBorrowings++;
         } else {
@@ -691,11 +716,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     try {
       const analyticsRef = ref(database, `equipment_usage_analytics/${equipmentName}`);
       const analyticsSnapshot = await get(analyticsRef);
-      
+
       if (analyticsSnapshot.exists()) {
         const analyticsData = analyticsSnapshot.val();
         console.log('[EquipmentPage] Using analytics data for', equipmentName, analyticsData);
-        
+
         return {
           total: analyticsData.totalBorrowed || (systemBorrowings + manualTotalQuantity),
           students: analyticsData.borrowedByStudents || (systemStudentBorrowings + manualStudentQuantity),
@@ -758,7 +783,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   // Calculate usage statistics
   const calculateUsageStatistics = (equipmentName) => {
-    const equipmentHistory = historyData.filter(entry => 
+    const equipmentHistory = historyData.filter(entry =>
       entry.equipmentName === equipmentName
     );
 
@@ -780,8 +805,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       }
     });
 
-    const mostActiveMonth = Object.entries(monthlyData).reduce((max, [month, count]) => 
-      count > max.count ? { month, count } : max, 
+    const mostActiveMonth = Object.entries(monthlyData).reduce((max, [month, count]) =>
+      count > max.count ? { month, count } : max,
       { month: "No data", count: 0 }
     );
 
@@ -802,7 +827,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     // Calculate utilization rate (percentage of months with activity)
     const allMonths = Object.keys(monthlyData);
     const monthsWithActivity = allMonths.filter(month => monthlyData[month] > 0).length;
-    const utilizationRate = allMonths.length > 0 
+    const utilizationRate = allMonths.length > 0
       ? ((monthsWithActivity / allMonths.length) * 100).toFixed(0)
       : "0";
 
@@ -817,9 +842,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     setSelectedEquipmentForReport(equipment);
     setShowUsageReportModal(true);
     setUsageDataLoading(true);
-    
+
     try {
-      const data = await calculateUsageData(equipment.name || equipment.equipmentName);
+      const data = await calculateUsageData(getEquipmentDisplayName(equipment));
       setUsageData(data);
     } catch (error) {
       console.error('[EquipmentPage] Error loading usage data:', error);
@@ -847,7 +872,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const handleEditEquipment = (equipment) => {
     setEditingEquipment(equipment);
-    
+
     // Auto-populate assignedTo if labId exists and has a manager
     let assignedTo = equipment.assignedTo || "";
     if (equipment.labId && !assignedTo) {
@@ -859,9 +884,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         }
       }
     }
-    
+
     setEquipmentFormData({
-      name: equipment.name || "",
+      name: equipment.name || equipment.equipmentName || "",
       model: equipment.model || "",
       serialNumber: equipment.serialNumber || "",
       status: equipment.status || "Available",
@@ -965,11 +990,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const getWarrantyStatus = (warrantyExpiry) => {
     if (!warrantyExpiry) return null;
-    
+
     const today = new Date();
     const warranty = new Date(warrantyExpiry);
     const diffDays = Math.ceil((warranty - today) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) return { status: 'expired', text: 'Expired', color: '#ef4444' };
     if (diffDays <= 30) return { status: 'warning', text: `${diffDays}d left`, color: '#f59e0b' };
     return { status: 'valid', text: 'Valid', color: '#10b981' };
@@ -977,14 +1002,19 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   // Filter equipments based on search term and laboratory filter
   const filteredEquipments = equipments.filter(equipment => {
-    const matchesSearch = equipment.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      equipment.assignedTo?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const normalizedSearch = (searchTerm || "").trim().toLowerCase();
+    const displayName = getEquipmentDisplayName(equipment);
+
+    const matchesSearch =
+      !normalizedSearch ||
+      displayName?.toLowerCase().includes(normalizedSearch) ||
+      equipment.model?.toLowerCase().includes(normalizedSearch) ||
+      equipment.serialNumber?.toLowerCase().includes(normalizedSearch) ||
+      equipment.location?.toLowerCase().includes(normalizedSearch) ||
+      equipment.assignedTo?.toLowerCase().includes(normalizedSearch);
+
     const matchesLaboratory = !laboratoryFilter || equipment.labId === laboratoryFilter;
-    
+
     return matchesSearch && matchesLaboratory;
   });
 
@@ -1039,7 +1069,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       return `
         <tr>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.name || ""}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${getEquipmentDisplayName(equipment)}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.model || ""}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.serialNumber || ""}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${laboratory ? laboratory.labName : ""}</td>
@@ -1193,14 +1223,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               const quantity = Number(item.quantity) || 1;
               return sum + quantity;
             }, 0);
-            
+
             const borrowedEquipment = equipments.reduce((sum, item) => {
               const quantityBorrowed = Number(item.quantity_borrowed) || 0;
               return sum + quantityBorrowed;
             }, 0);
-            
+
             const availableEquipment = totalEquipment - borrowedEquipment;
-            
+
             return (
               <>
                 <div style={{
@@ -1261,7 +1291,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         </div>
       )}
 
-      {/* Categories Tab */}
+      {/* Categories Tab */}  
       {activeTab === "categories" && (
         <div className="tab-content">
           <div className="section-header">
@@ -1342,11 +1372,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                       <>
                         <div className="stat-item">
                           <div className="stat-number">{totalEquipment}</div>
-                          <div className="stat-label">Total Equipment</div>
+                          <p style={{fontSize: "0.75rem", whiteSpace: "nowrap"}} >Total Equipments</p>
                         </div>
                         <div className="stat-item">
                           <div className="stat-number available">{availableEquipment}</div>
-                          <div className="stat-label">Available</div>
+                          <p style={{fontSize: "0.75rem"}}>Available</p>
                         </div>
                       </>
                     );
@@ -1471,10 +1501,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   </option>
                 ))}
               </select>
-              <span className="search-icon">🔍</span>
+              <span className="search-icon"></span>
             </div>
           )}
-
+          
           {/* Equipment Content */}
           {!selectedCategory ? (
             <div className="empty-state">
@@ -1486,10 +1516,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             <div className="empty-state">
               <div className="empty-icon">📋</div>
               <h3 className="empty-title">
-                {searchTerm ? "No equipment found" : "No equipment in this category"}
+                {searchTerm ? "No equipment found" : `No equipment in this category (total: ${equipments.length})`}
               </h3>
+              {console.log('[EquipmentPage] filteredEquipments:', filteredEquipments, 'equipments:', equipments)}
               <p className="empty-message">
-                {searchTerm 
+                {searchTerm
                   ? "Try adjusting your search terms or clear the search to see all equipment."
                   : "Add your first equipment to this category."
                 }
@@ -1529,16 +1560,28 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   </thead>
                   <tbody>
                     {filteredEquipments.map((equipment) => {
+                      console.log('[EquipmentPage] Rendering equipment:', equipment);
+                      console.log('[EquipmentPage] Equipment properties:', {
+                        name: equipment.name,
+                        equipmentName: equipment.equipmentName,
+                        title: equipment.title,
+                        itemName: equipment.itemName,
+                        displayName: getEquipmentDisplayName(equipment)
+                      });
                       const warrantyStatus = getWarrantyStatus(equipment.warrantyExpiry);
                       const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
                       return (
                         <tr key={equipment.id} className="equipment-row">
                           <td className="equipment-cell">
                             <div className="equipment-info">
-                              <div className="equipment-name">{equipment.name}</div>
-                              <div className="equipment-model">{equipment.model || "—"}</div>
+                              <div className="equipment-name">
+                                {equipment.name && equipment.name.trim() ? equipment.name : (equipment.equipmentName && equipment.equipmentName.trim() ? equipment.equipmentName : "⚠️ No Equipment Name")}
+                              </div>
+                              <div className="equipment-model">
+                                {equipment.model || equipment.equipmentModel || "—"}
+                              </div>
                               {warrantyStatus && (
-                                <div 
+                                <div
                                   className={`warranty-status ${warrantyStatus.status}`}
                                   style={{ color: warrantyStatus.color }}
                                 >
@@ -1548,7 +1591,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                             </div>
                           </td>
                           <td className="serial-cell">
-                            <span className="serial-number">{equipment.serialNumber}</span>
+                            <span className="serial-number">{equipment.serialNumber || "N/A"}</span>
                           </td>
                           <td className="laboratory-cell">
                             {laboratory ? (
@@ -1561,7 +1604,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                             )}
                           </td>
                           <td>
-                            <span 
+                            <span
                               className="status-badge"
                               style={{
                                 backgroundColor: getStatusColor(equipment.status) + "20",
@@ -1576,7 +1619,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {(() => {
                                 const originalTotal = Number(equipment.quantity) || 1;
-                                const lostCount = getLostOrMissingCount(equipment.name);
+                                const lostCount = getLostOrMissingCount(equipment.name || equipment.equipmentName);
                                 const effectiveTotal = Math.max(0, originalTotal - lostCount);
                                 const borrowed = Number(equipment.quantity_borrowed) || 0;
                                 const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
@@ -1587,10 +1630,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                                       Total: {effectiveTotal}
                                     </span>
                                     {equipment.quantity_borrowed !== undefined && equipment.quantity_borrowed !== null && (
-                                      <span style={{ 
+                                      <span style={{
                                         fontSize: '11px',
-                                        color: effectiveAvailable > 0 
-                                          ? '#10b981' 
+                                        color: effectiveAvailable > 0
+                                          ? '#10b981'
                                           : '#ef4444',
                                         fontWeight: '500'
                                       }}>
@@ -1923,7 +1966,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   className="form-input"
                 />
                 <small className="form-help">
-                  {equipmentFormData.assignedTo 
+                  {equipmentFormData.assignedTo
                     ? `Automatically assigned to Lab In Charge: ${equipmentFormData.assignedTo}`
                     : "Select a laboratory to automatically assign it to the Lab In Charge"
                   }
@@ -1953,7 +1996,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                 <small className="form-help">
                   Upload an image of the equipment (Max 2MB, stored in database)
                 </small>
-                
+
                 {imagePreview && (
                   <div className="image-preview-container">
                     <img src={imagePreview} alt="Equipment preview" className="image-preview" />
@@ -2013,8 +2056,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               <p>{feedbackMessage}</p>
             </div>
             <div className="modal-actions">
-              <button 
-                onClick={() => setShowSuccessModal(false)} 
+              <button
+                onClick={() => setShowSuccessModal(false)}
                 className="btn btn-primary"
               >
                 OK
@@ -2036,8 +2079,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               <p>{feedbackMessage}</p>
             </div>
             <div className="modal-actions">
-              <button 
-                onClick={() => setShowErrorModal(false)} 
+              <button
+                onClick={() => setShowErrorModal(false)}
                 className="btn btn-primary"
               >
                 OK
@@ -2053,7 +2096,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           <div className="loading-modal">
             <div className="loading-spinner-large"></div>
             <p>
-              {isSubmittingEquipment 
+              {isSubmittingEquipment
                 ? (editingEquipment ? "Updating equipment..." : "Adding equipment...")
                 : (editingCategory ? "Updating category..." : "Adding category...")
               }
@@ -2068,16 +2111,16 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           <div className="modal-content enhanced-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
-                📊 Usage Report - {selectedEquipmentForReport.name}
+                📊 Usage Report - {getEquipmentDisplayName(selectedEquipmentForReport)}
               </h2>
-              <button 
-                onClick={() => setShowUsageReportModal(false)} 
+              <button
+                onClick={() => setShowUsageReportModal(false)}
                 className="modal-close"
               >
                 ×
               </button>
             </div>
-            
+
             <div className="modal-body">
               <div className="usage-report">
                 {usageDataLoading ? (
@@ -2099,14 +2142,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                         </thead>
                         <tbody>
                           <tr>
-                            <td>{selectedEquipmentForReport.name || selectedEquipmentForReport.equipmentName}</td>
+                            <td>{getEquipmentDisplayName(selectedEquipmentForReport)}</td>
                             <td>{usageData.total} times</td>
                             <td>{usageData.students}</td>
                             <td>{usageData.faculty}</td>
                           </tr>
                         </tbody>
                       </table>
-                      
+
                       {/* Show breakdown if manual records exist */}
                       {(usageData.manualTotal > 0 || usageData.systemTotal > 0) && (
                         <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
@@ -2131,10 +2174,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="usage-summary">
                       {(() => {
-                        const usageStats = calculateUsageStatistics(selectedEquipmentForReport.name || selectedEquipmentForReport.equipmentName);
+                        const usageStats = calculateUsageStatistics(getEquipmentDisplayName(selectedEquipmentForReport));
                         return (
                           <>
                             <div className="summary-card">

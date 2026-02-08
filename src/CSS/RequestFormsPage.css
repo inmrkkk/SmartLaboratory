@@ -472,6 +472,19 @@
 
 }
 
+.borrower-name {
+ font-weight: 500;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+/* Make instructor/adviser name visually match borrower name sizing */
+.adviser-name {
+  font-weight: 500;
+  color: #1e293b;
+  font-size: 14px;
+}
+
 
 
 .category-badge {

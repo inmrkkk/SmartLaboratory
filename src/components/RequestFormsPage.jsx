@@ -195,11 +195,13 @@ export default function RequestFormsPage() {
 
         let filteredCategories = categoryList;
 
-        if (!isAdmin()) {
+        const isAdminUser = isAdmin();
+
+        if (!isAdminUser) {
 
           const assignedLabIds = getAssignedLaboratoryIds();
 
-          if (assignedLabIds) {
+          if (assignedLabIds && assignedLabIds.length > 0) {
 
             // Filter categories to only show those from assigned laboratories
 
@@ -466,30 +468,26 @@ export default function RequestFormsPage() {
 
 
   // Load static data once on mount
-
   useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        await loadLaboratories();
+        await loadEquipmentData();
+        await loadUsers();
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+      }
+    };
+    
+    loadInitialData();
+  }, []);
 
-    loadLaboratories();
-
-    loadCategories();
-
-    loadEquipmentData();
-
-    loadUsers();
-
-  }, [loadCategories]);
-
-  // Reload categories when laboratories data is available
-
+  // Load categories when laboratories and auth settings are ready
   useEffect(() => {
-
     if (laboratories.length > 0) {
-
       loadCategories();
-
     }
-
-  }, [laboratories, isAdmin, getAssignedLaboratoryIds, loadCategories]);
+  }, [laboratories, loadCategories]);
 
 
 

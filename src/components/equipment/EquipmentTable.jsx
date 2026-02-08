@@ -2,6 +2,10 @@
 import React from "react";
 import "./Equipment_page.css";
 
+const getEquipmentDisplayName = (equipment) => {
+  return equipment?.name || equipment?.equipmentName || equipment?.title || "—";
+};
+
 export default function EquipmentTable({ equipments, laboratories, onEdit, onDelete }) {
   return (
     <div className="equipment-table-container">
@@ -13,7 +17,7 @@ export default function EquipmentTable({ equipments, laboratories, onEdit, onDel
         <table className="equipment-table">
           <thead>
             <tr>
-              <th>Equipment Name</th>
+              <th>Equipment Names</th>
               <th>Model</th>
               <th>Serial Number</th>
               <th>Laboratory</th>
@@ -26,8 +30,8 @@ export default function EquipmentTable({ equipments, laboratories, onEdit, onDel
               const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
               return (
                 <tr key={equipment.id}>
-                  <td>{equipment.name || "—"}</td>
-                  <td>{equipment.model || "—"}</td>
+                  <td className="equipment-name-cell">{getEquipmentDisplayName(equipment)}</td>
+                  <td className="equipment-model-cell">{equipment.model || "—"}</td>
                   <td>{equipment.serialNumber || "—"}</td>
                   <td>
                     {laboratory ? (

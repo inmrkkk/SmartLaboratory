@@ -242,7 +242,7 @@ function CategoryCard({ category, onEdit, onDelete, onSelect }) {
           }}
           className="category-btn category-btn-primary"
         >
-          View Equipment
+          Viewssssssssss
         </button>
         <button
           onClick={(e) => {
@@ -251,7 +251,7 @@ function CategoryCard({ category, onEdit, onDelete, onSelect }) {
           }}
           className="category-btn category-btn-secondary"
         >
-          Edit
+          Editsssss
         </button>
         <button
           onClick={(e) => {
