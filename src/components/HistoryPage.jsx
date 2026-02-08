@@ -935,11 +935,30 @@ export default function HistoryPage() {
                       required
                     >
                       <option value="">Select equipment...</option>
-                      {equipmentData.map((equipment) => (
-                        <option key={equipment.id} value={equipment.equipmentName || equipment.itemName || equipment.name || equipment.title}>
-                          {equipment.equipmentName || equipment.itemName || equipment.name || equipment.title} ({equipment.categoryName})
-                        </option>
-                      ))}
+                      {equipmentData
+                        .filter((equipment) => {
+                          // If admin, show all equipment
+                          if (isAdmin()) return true;
+                          
+                          // For lab managers, filter by assigned laboratories
+                          const assignedLabIds = getAssignedLaboratoryIds();
+                          if (!assignedLabIds || assignedLabIds.length === 0) return false;
+                          
+                          // Check if equipment belongs to an assigned laboratory
+                          const equipmentLab = laboratories.find(lab => 
+                            lab.labId === equipment.labId || 
+                            lab.id === equipment.labRecordId ||
+                            lab.labId === equipment.labRecordId ||
+                            lab.id === equipment.labId
+                          );
+                          
+                          return equipmentLab && assignedLabIds.includes(equipmentLab.id);
+                        })
+                        .map((equipment) => (
+                          <option key={equipment.id} value={equipment.equipmentName || equipment.itemName || equipment.name || equipment.title}>
+                            {equipment.equipmentName || equipment.itemName || equipment.name || equipment.title} ({equipment.categoryName})
+                          </option>
+                        ))}
                     </select>
                   </div>
 
