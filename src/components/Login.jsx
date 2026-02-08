@@ -145,7 +145,7 @@
             
             {success && (
               <div className="message success">
-                <span className="success-icon">✅</span>
+                <span className="success-icon"></span>
                 {success}
               </div>
             )}

@@ -306,7 +306,7 @@ export default function LaboratoryManagement() {
   });
 
   const getSortIcon = (column) => {
-    if (sortBy !== column) return "↕️";
+    if (sortBy !== column) return "↕";
     return sortOrder === "asc" ? "↑" : "↓";
   };
 

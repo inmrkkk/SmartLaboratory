@@ -390,7 +390,7 @@ export default function UserManagement({ onRedirectToUsers }) {
   };
 
   const getSortIcon = (field) => {
-    if (sortBy !== field) return "↕️";
+    if (sortBy !== field) return "↕";
     return sortOrder === "asc" ? "↑" : "↓";
   };
 
