@@ -41,7 +41,6 @@ export default function Dashboard() {
     borrowedByAdviser: 0,
     borrowedByStudents: 0
   });
-  const [borrowingData, setBorrowingData] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [allRequests, setAllRequests] = useState([]);
   const [equipmentData, setEquipmentData] = useState([]);
@@ -361,14 +360,6 @@ export default function Dashboard() {
           }
         });
 
-        const chartData = Object.entries(itemData).map(([name, value]) => ({
-          name,
-          value
-        }));
-
-        setBorrowingData(chartData);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-
         // Calculate adviser vs student borrowing statistics (released items only)
         let adviserBorrowings = 0;
         let studentBorrowings = 0;
@@ -427,7 +418,6 @@ export default function Dashboard() {
           borrowedByStudents: studentBorrowings
         }));
       } else {
-        setBorrowingData([]);
         setDashboardStats(prev => ({
           ...prev,
           pendingRequests: 0,

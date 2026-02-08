@@ -2210,6 +2210,7 @@ export default function RequestFormsPage() {
           return "Returned damaged";
 
         case "lost":
+          break;
 
         case "missing":
 

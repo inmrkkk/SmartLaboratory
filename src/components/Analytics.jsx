@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ref } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import "../CSS/Analytics.css";
 
 export default function Analytics() {
@@ -99,7 +99,6 @@ export default function Analytics() {
     );
   };
 
-  const chartGridStroke = "#e2e8f0";
   const chartTooltipLabelStyle = { color: "#0f172a", fontWeight: 600 };
   const chartTooltipItemStyle = { color: "#0f172a", fontWeight: 500 };
   const sharedTooltipProps = {
@@ -729,7 +728,7 @@ export default function Analytics() {
     const trendsArray = monthNames.map((_, index) => {
       const monthNumber = index + 1;
       const monthKey = Object.keys(monthlyReleaseTotals).find(key => {
-        const [year, month] = key.split('-').map(Number);
+        const [, month] = key.split('-').map(Number);
         return month === monthNumber;
       });
 
