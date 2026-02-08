@@ -8,7 +8,7 @@ import EquipmentMaintenance from "./equipment/EquipmentMaintenance";
 import "../CSS/Equipment.css";
 import "../CSS/HistoryPage.css";
 
-export default function EquipmentPage({ onMaintenanceComplete }) {
+export default function EquipmentPage() {
   const { isAdmin, getAssignedLaboratoryIds, assignedLaboratories, isLaboratoryManager } = useAuth();
   const [categories, setCategories] = useState([]);
   const [laboratories, setLaboratories] = useState([]);
@@ -595,19 +595,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     }
   };
 
-  // Keep category stored counts (totalCount, availableCount) in sync with
-  // the actual equipments data so the category cards immediately reflect
-  // the same numbers as the banner after login.
-  useEffect(() => {
-    if (!categories || categories.length === 0) return;
-
-    categories.forEach((category) => {
-      if (category && category.id) {
-        updateCategoryCounts(category.id);
-      }
-    });
-  }, [categories]);
-
   // Helper function to get user role from userId
   const getUserRole = (userId) => {
     if (!userId) return null;
@@ -664,31 +651,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       students: studentBorrowings,
       faculty: facultyBorrowings
     };
-  };
-
-  // Count how many times an equipment has been reported as lost/missing
-  const getLostOrMissingCount = (equipmentName) => {
-    if (!equipmentName || !historyData || historyData.length === 0) return 0;
-
-    const normalizedName = equipmentName.toLowerCase();
-
-    return historyData.filter(entry => {
-      const entryName = (entry.equipmentName || '').toLowerCase();
-      if (entryName !== normalizedName) return false;
-
-      const condition = (entry.condition || '').toLowerCase();
-      if (condition.includes('lost') || condition.includes('missing') || condition === 'item lost/missing') {
-        return true;
-      }
-
-      const notesText = (
-        entry.returnDetails?.notes ||
-        entry.details?.notes ||
-        ''
-      ).toLowerCase();
-
-      return notesText.includes('lost') || notesText.includes('missing');
-    }).length;
   };
 
   // Calculate usage statistics
@@ -942,92 +904,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleExportEquipmentToPDF = () => {
-    if (filteredEquipments.length === 0) {
-      alert("No equipment data to export");
-      return;
-    }
-
-    const title = "Laboratory Equipment List";
-    const dateStr = new Date().toLocaleString();
-
-    const rowsHtml = filteredEquipments.map((equipment, index) => {
-      const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
-      const warrantyStatus = getWarrantyStatus(equipment.warrantyExpiry);
-      const warrantyText = warrantyStatus ? warrantyStatus.text : "—";
-
-      return `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.name || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.model || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.serialNumber || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${laboratory ? laboratory.labName : ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.status || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.condition || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.location || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.quantity || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${warrantyText}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.assignedTo || ""}</td>
-        </tr>
-      `;
-    }).join("");
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charSet="utf-8" />
-        <title>${title}</title>
-        <style>
-          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; }
-          h1 { font-size: 20px; margin-bottom: 4px; }
-          p { font-size: 12px; color: #6b7280; margin-top: 0; margin-bottom: 16px; }
-          table { border-collapse: collapse; width: 100%; }
-          thead { background-color: #f3f4f6; }
-          th { text-align: left; padding: 8px; border: 1px solid #e5e7eb; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Generated on ${dateStr}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Model</th>
-              <th>Serial Number</th>
-              <th>Laboratory</th>
-              <th>Status</th>
-              <th>Condition</th>
-              <th>Location</th>
-              <th>Quantity</th>
-              <th>Warranty</th>
-              <th>Assigned To</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Unable to open print window. Please allow pop-ups and try again.");
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
-
   if (loading) {
     return (
       <div className="loading-container">
@@ -1041,33 +917,80 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   return (
     <div className="equipment-page">
-      {/* Header - Welcome Banner Style */}
-      <div className="equipment-welcome">
-        <div className="welcome-content">
-          <h1 className="welcome-title">Laboratory Equipment Management</h1>
-          <p className="welcome-subtitle">Manage equipment categories, individual laboratory equipment, and maintenance schedules.</p>
+      {/* Header */}
+      <div className="page-header">
+        <div style={{ flex: 1 }}>
+          <h1 className="page-title">Laboratory Equipment Management</h1>
+          <p className="page-subtitle">Manage equipment categories, individual laboratory equipment, and maintenance schedules.</p>
         </div>
         {isLaboratoryManager() && (
-          <div className="assigned-lab-container">
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'flex-end',
+            gap: '8px',
+            minWidth: '200px',
+            flexShrink: 0,
+            padding: '12px',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb'
+          }}>
             {assignedLaboratories && assignedLaboratories.length > 0 ? (
               <>
-                <div className="assigned-lab-label">
-                  ASSIGNED LABORATORY{assignedLaboratories.length > 1 ? 'IES' : ''}
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: '#6b7280', 
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '4px'
+                }}>
+                  Assigned Laboratory{assignedLaboratories.length > 1 ? 'ies' : ''}
                 </div>
-                <div className="assigned-lab-buttons">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', width: '100%' }}>
                   {assignedLaboratories.map((lab) => (
-                    <div key={lab.id} className="lab-button">
-                      <span className="lab-icon">🧪</span>
-                      <span className="lab-name">{lab.labName || lab.labId || 'Unknown Lab'}</span>
+                    <div key={lab.id} style={{
+                      backgroundColor: '#14b8a6',
+                      color: 'white',
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 4px rgba(20, 184, 166, 0.2)'
+                    }}>
+                      <span>🧪</span>
+                      <span>{lab.labName || lab.labId || 'Unknown Lab'}</span>
                       {lab.labId && (
-                        <span className="lab-code">{lab.labId}</span>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          opacity: 0.95,
+                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontWeight: '500'
+                        }}>
+                          {lab.labId}
+                        </span>
                       )}
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="no-lab-assignment">
+              <div style={{
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '500',
+                border: '1px solid #fde68a'
+              }}>
                 ⚠️ No laboratory assigned
               </div>
             )}
@@ -1216,61 +1139,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                 </div>
 
                 <div className="category-stats">
-                  {(() => {
-                    const isSelected = category.id === selectedCategory;
-
-                    // For the selected category, use the same equipments array
-                    // that the banner uses so counts match exactly.
-                    let equipmentsSource;
-                    if (isSelected && equipments.length > 0) {
-                      equipmentsSource = equipments;
-                    } else {
-                      // For other categories, derive from category.equipments
-                      // and apply the same lab-based filtering rules used in
-                      // fetchEquipments for non-admin users.
-                      let equipmentsInCategory = category.equipments
-                        ? Object.values(category.equipments)
-                        : [];
-
-                      if (!isAdmin()) {
-                        const assignedLabIds = getAssignedLaboratoryIds();
-                        if (assignedLabIds) {
-                          equipmentsInCategory = equipmentsInCategory.filter((equipment) => {
-                            const lab = laboratories.find((l) => l.labId === equipment.labId);
-                            return lab && assignedLabIds.includes(lab.id);
-                          });
-                        }
-                      }
-
-                      equipmentsSource = equipmentsInCategory;
-                    }
-
-                    const derivedTotal = equipmentsSource.reduce((sum, item) => {
-                      const quantity = Number(item.quantity) || 1;
-                      return sum + quantity;
-                    }, 0);
-
-                    const derivedBorrowed = equipmentsSource.reduce((sum, item) => {
-                      const quantityBorrowed = Number(item.quantity_borrowed) || 0;
-                      return sum + quantityBorrowed;
-                    }, 0);
-
-                    const totalEquipment = derivedTotal;
-                    const availableEquipment = Math.max(derivedTotal - derivedBorrowed, 0);
-
-                    return (
-                      <>
-                        <div className="stat-item">
-                          <div className="stat-number">{totalEquipment}</div>
-                          <div className="stat-label">Total Equipment</div>
-                        </div>
-                        <div className="stat-item">
-                          <div className="stat-number available">{availableEquipment}</div>
-                          <div className="stat-label">Available</div>
-                        </div>
-                      </>
-                    );
-                  })()}
+                  <div className="stat-item">
+                    <div className="stat-number">{category.totalCount || 0}</div>
+                    <div className="stat-label">Total Equipment</div>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-number available">{category.availableCount || 0}</div>
+                    <div className="stat-label">Available</div>
+                  </div>
                 </div>
 
                 <div className="category-actions">
@@ -1333,24 +1209,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               </div>
             </div>
             <div className="section-header-right">
-              {selectedCategory && filteredEquipments.length > 0 && (
-                <>
-                  <button
-                    onClick={handleExportEquipmentToPDF}
-                    className="btn btn-outline"
-                    style={{ marginRight: '8px' }}
-                  >
-                    <span className="btn-icon">🧾</span>
-                    Export PDF
-                  </button>
-                  <button
-                    onClick={exportEquipmentData}
-                    className="btn btn-outline"
-                  >
-                    <span className="btn-icon">📊</span>
-                    Export CSV
-                  </button>
-                </>
+              {selectedCategory && equipments.length > 0 && (
+                <button
+                  onClick={exportEquipmentData}
+                  className="btn btn-outline"
+                >
+                  <span className="btn-icon">📊</span>
+                  Export CSV
+                </button>
               )}
               <button
                 onClick={() => {
@@ -1494,32 +1360,20 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                           </td>
                           <td className="quantity-cell">
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {(() => {
-                                const originalTotal = Number(equipment.quantity) || 1;
-                                const lostCount = getLostOrMissingCount(equipment.name);
-                                const effectiveTotal = Math.max(0, originalTotal - lostCount);
-                                const borrowed = Number(equipment.quantity_borrowed) || 0;
-                                const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
-
-                                return (
-                                  <>
-                                    <span className="quantity-badge">
-                                      Total: {effectiveTotal}
-                                    </span>
-                                    {equipment.quantity_borrowed !== undefined && equipment.quantity_borrowed !== null && (
-                                      <span style={{ 
-                                        fontSize: '11px',
-                                        color: effectiveAvailable > 0 
-                                          ? '#10b981' 
-                                          : '#ef4444',
-                                        fontWeight: '500'
-                                      }}>
-                                        Available: {effectiveAvailable}
-                                      </span>
-                                    )}
-                                  </>
-                                );
-                              })()}
+                              <span className="quantity-badge">
+                                Total: {Number(equipment.quantity) || 1}
+                              </span>
+                              {equipment.quantity_borrowed !== undefined && equipment.quantity_borrowed !== null && (
+                                <span style={{ 
+                                  fontSize: '11px',
+                                  color: (Number(equipment.quantity) || 1) - (equipment.quantity_borrowed || 0) > 0 
+                                    ? '#10b981' 
+                                    : '#ef4444',
+                                  fontWeight: '500'
+                                }}>
+                                  Available: {(Number(equipment.quantity) || 1) - (equipment.quantity_borrowed || 0)}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>
@@ -1569,7 +1423,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           categories={categories}
           equipments={equipments}
           selectedCategory={selectedCategory}
-          onMaintenanceComplete={onMaintenanceComplete}
         />
       )}
 
