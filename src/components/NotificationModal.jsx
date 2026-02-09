@@ -173,23 +173,6 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
   //   }
   // };
 
-  const getNotificationColor = (type) => {
-    switch (type) {
-      case 'new_request':
-        return '#3b82f6'; // blue
-      case 'request_approved':
-        return '#10b981'; // green
-      case 'request_rejected':
-        return '#ef4444'; // red
-      case 'equipment_returned':
-        return '#8b5cf6'; // purple
-      case 'equipment_overdue':
-        return '#f59e0b'; // orange
-      default:
-        return '#6b7280'; // gray
-    }
-  };
-
   const filteredNotifications = notifications.filter(notification => {
     if (filter === 'unread') return !notification.isRead;
     if (filter === 'read') return notification.isRead;
