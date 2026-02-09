@@ -1009,6 +1009,28 @@ export default function RequestFormsPage() {
 
 
 
+      // Prevent Lab-in-Charge from canceling/downgrading an approved request
+
+      // (Approved items should only be allowed to move forward to Released by lab managers.)
+
+      if (
+
+        !isAdmin() &&
+
+        requestData.status === "approved" &&
+
+        ["pending", "in_progress"].includes(newStatus)
+
+      ) {
+
+        alert("Approved requests cannot be reset. Please Reject it first if you need to return it to Pending.");
+
+        return;
+
+      }
+
+
+
       // Check borrower eligibility for approval and release actions
 
       if (newStatus === "approved" || newStatus === "released") {
@@ -1359,10 +1381,6 @@ export default function RequestFormsPage() {
 
         const rejectedAt = new Date().toISOString();
 
-        const historyRef = ref(database, "history");
-
-
-
         // Find equipment data
 
         let equipment = null;
@@ -1495,7 +1513,19 @@ export default function RequestFormsPage() {
 
 
 
-        await push(historyRef, rejectionEntry);
+        // Defer writing to history until the rejected request is deleted
+
+        updateData.rejectionHistoryEntry = rejectionEntry;
+
+      }
+
+
+
+      // If a rejected request is reset, discard the deferred rejection history entry
+
+      if (requestData.status === "rejected" && newStatus === "pending") {
+
+        updateData.rejectionHistoryEntry = null;
 
       }
 
@@ -1716,6 +1746,138 @@ export default function RequestFormsPage() {
       try {
 
         const requestRef = ref(database, `borrow_requests/${requestId}`);
+
+        const snapshot = await get(requestRef);
+
+        const requestData = snapshot.exists() ? snapshot.val() : null;
+
+        if (requestData && requestData.status === "rejected") {
+
+          const historyRef = ref(database, "history");
+
+          if (requestData.rejectionHistoryEntry) {
+
+            await push(historyRef, requestData.rejectionHistoryEntry);
+
+          } else {
+
+            const rejectedAt = new Date().toISOString();
+
+            // Find equipment data
+
+            let equipment = null;
+
+            if (requestData.itemId && requestData.categoryId) {
+
+              equipment = equipmentData.find(
+
+                (eq) => eq.id === requestData.itemId && eq.categoryId === requestData.categoryId
+
+              );
+
+            }
+
+            if (!equipment) {
+
+              equipment = equipmentData.find(
+
+                (eq) =>
+
+                  eq.equipmentName === requestData.itemName ||
+
+                  eq.itemName === requestData.itemName ||
+
+                  eq.name === requestData.itemName ||
+
+                  eq.title === requestData.itemName
+
+              );
+
+            }
+
+            const laboratory = equipment
+
+              ? laboratories.find((lab) => lab.labId === equipment.labId)
+
+              : laboratories.find(
+
+                  (lab) =>
+
+                    lab.labName === requestData.laboratory || lab.labId === requestData.labId
+
+                );
+
+            const rejectionEntry = {
+
+              requestId: requestId,
+
+              itemId: requestData.itemId || "",
+
+              categoryId: requestData.categoryId || "",
+
+              categoryName: requestData.categoryName || "",
+
+              equipmentName: requestData.itemName || "Unknown item",
+
+              borrower: getBorrowerName(requestData.userId),
+
+              userId: requestData.userId || "",
+
+              borrowerEmail: requestData.userEmail || "",
+
+              adviserName: requestData.adviserName || "",
+
+              quantity: requestData.quantity || 1,
+
+              laboratory: requestData.laboratory || laboratory?.labName || "",
+
+              labId: laboratory?.labId || equipment?.labId || requestData.labId || "",
+
+              labRecordId: laboratory?.id || "",
+
+              batchId: requestData.batchId || null,
+
+              batchSize: requestData.batchSize || null,
+
+              status: "Rejected",
+
+              action: "Request Rejected",
+
+              releasedDate: null,
+
+              returnDate: null,
+
+              rejectedDate: new Date().toLocaleDateString('en-US', {
+
+                year: 'numeric',
+
+                month: 'long',
+
+                day: 'numeric',
+
+                hour: '2-digit',
+
+                minute: '2-digit'
+
+              }),
+
+              condition: "Request rejected by Lab in charge",
+
+              timestamp: rejectedAt,
+
+              processedBy: requestData.reviewedBy || "Admin",
+
+              returnDetails: null,
+
+              entryType: "rejection",
+
+            };
+
+            await push(historyRef, rejectionEntry);
+
+          }
+
+        }
 
         await remove(requestRef);
 
@@ -3304,6 +3466,30 @@ export default function RequestFormsPage() {
 
                                 </button>
 
+                                {request.status === "rejected" && (
+
+                                  <button
+
+                                  className="action-btn icon-btn approve-btn"
+
+                                  onClick={() =>
+
+                                    handleStatusUpdate(request.id, "pending")
+
+                                  }
+
+                                  title="Reset to Pending"
+
+                                  >
+
+                                    {/* ↩️ Back to Approved */}
+
+                                  <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                                  </button>
+
+                                )}
+
                                 {request.status === "pending" && (
 
                                   <>
@@ -3386,6 +3572,28 @@ export default function RequestFormsPage() {
 
                                 )}
 
+                                {request.status === "approved" && (
+
+                                  <button
+
+                                    className="action-btn icon-btn reject-btn"
+
+                                    onClick={() =>
+
+                                      handleStatusUpdate(request.id, "rejected")
+
+                                    }
+
+                                    title="Reject"
+
+                                  >
+
+                                    <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
+
+                                  </button>
+
+                                )}
+
                                 {(request.status === "released" ||
 
                                   request.status === "in_progress") && (
@@ -3423,30 +3631,6 @@ export default function RequestFormsPage() {
                                   </button>
 
                                 )}
-
-                            {request.status === "rejected" && (
-
-                              <button
-
-                              className="action-btn icon-btn approve-btn"
-
-                              onClick={() =>
-
-                                handleStatusUpdate(request.id, "approved")
-
-                              }
-
-                              title="Back to Approved"
-
-                              >
-
-                                {/* ↩️ Back to Approved */}
-
-                              <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
-
-                              </button>
-
-                            )}
 
                             {request.status === "rejected" && (
 
@@ -3685,6 +3869,30 @@ export default function RequestFormsPage() {
                               <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
 
                             </button>
+
+                            {request.status === "rejected" && (
+
+                              <button
+
+                              className="action-btn icon-btn approve-btn"
+
+                              onClick={() =>
+
+                                handleStatusUpdate(request.id, "pending")
+
+                              }
+
+                              title="Reset to Pending"
+
+                              >
+
+                                {/* ↩️ Back to Approved */}
+
+                              <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            )}
 
                             {request.status === "pending" && (
 
@@ -4638,11 +4846,11 @@ export default function RequestFormsPage() {
 
                     <button
 
-                      className="btn btn-secondary"
+                      className="btn btn-danger"
 
                       onClick={() => {
 
-                        handleStatusUpdate(selectedRequest.id, "pending");
+                        handleStatusUpdate(selectedRequest.id, "rejected");
 
                         closeDetailsModal();
 
@@ -4650,7 +4858,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                      🔄 Reset to Pending
+                      ❌ Reject Request
 
                     </button>
 
@@ -4722,23 +4930,45 @@ export default function RequestFormsPage() {
 
                 {selectedRequest.status === "rejected" && (
 
-                  <button
+                  <>
 
-                    className="btn btn-secondary"
+                    <button
 
-                    onClick={() => {
+                      className="btn btn-secondary"
 
-                      handleStatusUpdate(selectedRequest.id, "approved");
+                      onClick={() => {
 
-                      closeDetailsModal();
+                        handleStatusUpdate(selectedRequest.id, "pending");
 
-                    }}
+                        closeDetailsModal();
 
-                  >
+                      }}
 
-                    ↩️ Back to Approved
+                    >
 
-                  </button>
+                      Reset to Pending
+
+                    </button>
+
+                    <button
+
+                      className="btn btn-danger"
+
+                      onClick={() => {
+
+                        handleDeleteRequest(selectedRequest.id);
+
+                        closeDetailsModal();
+
+                      }}
+
+                    >
+
+                       Delete
+
+                    </button>
+
+                  </>
 
                 )}
 

@@ -296,8 +296,9 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
 
   // Find requests that are overdue
   requests.forEach(request => {
-    // Only check requests that are approved, released, or in_progress (not returned)
-    if (['approved', 'released', 'in_progress'].includes(request.status) && request.dateToReturn) {
+    // Only check requests that are actually released/borrowed (not returned)
+    // Items still in the laboratory (e.g., approved but not released) should NOT be counted as overdue.
+    if (['released'].includes(request.status) && request.dateToReturn) {
       const returnDate = new Date(request.dateToReturn);
       
       if (returnDate < today) {

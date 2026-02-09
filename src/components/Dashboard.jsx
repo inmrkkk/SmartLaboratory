@@ -317,7 +317,8 @@ export default function Dashboard() {
 
         const overdueCount = requests.filter(req => {
           const statusValue = (req.status || '').toString().trim().toLowerCase();
-          if (req.dateToReturn && (statusValue === 'approved' || statusValue === 'released' || statusValue === 'in_progress')) {
+          // Only released items can be overdue; items still in the laboratory should not be counted.
+          if (req.dateToReturn && statusValue === 'released') {
             return new Date(req.dateToReturn) < new Date();
           }
           return false;

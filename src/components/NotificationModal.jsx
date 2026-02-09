@@ -156,22 +156,22 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
     }
   };
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'new_request':
-        return '📋';
-      case 'request_approved':
-        return '✅';
-      case 'request_rejected':
-        return '❌';
-      case 'equipment_returned':
-        return '📦';
-      case 'equipment_overdue':
-        return '⚠️';
-      default:
-        return '🔔';
-    }
-  };
+  // const getNotificationIcon = (type) => {
+  //   switch (type) {
+  //     case 'new_request':
+  //       return '📋';
+  //     case 'request_approved':
+  //       return '✅';
+  //     case 'request_rejected':
+  //       return '❌';
+  //     case 'equipment_returned':
+  //       return '📦';
+  //     case 'equipment_overdue':
+  //       return '⚠️';
+  //     default:
+  //       return '🔔';
+  //   }
+  // };
 
   const getNotificationColor = (type) => {
     switch (type) {
@@ -261,9 +261,9 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
                   onClick={() => handleNotificationClick(notification)}
                   title={`Click to ${getNotificationRedirectDescription(notification.type)}`}
                 >
-                  <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
+                  {/* <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
                     {getNotificationIcon(notification.type)}
-                  </div>
+                  </div> */}
                   <div className="notification-body">
                     <div className="notification-title">{notification.title}</div>
                     <div className="notification-message">{notification.message}</div>
