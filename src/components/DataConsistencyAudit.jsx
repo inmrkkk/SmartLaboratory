@@ -160,7 +160,7 @@ export default function DataConsistencyAudit() {
 
           <div className="content-sections">
             <div className="content-section">
-              <h3 className="section-header">
+              <h3 className="data-consistency-section-header">
                 <span className="section-indicator findings"></span>
                 Findings
               </h3>
@@ -210,7 +210,7 @@ export default function DataConsistencyAudit() {
             </div>
 
             <div className="content-section">
-              <h3 className="section-header">
+              <h3 className="data-consistency-section-header">
                 <span className="section-indicator fixes"></span>
                 Proposed Fixes
               </h3>
