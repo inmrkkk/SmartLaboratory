@@ -11,7 +11,7 @@ const mockHistoryData = [
     action: 'Item Released',
     status: 'released',
     userId: 'user1',
-    timestamp: '2024-01-15T10:00:00Z',
+    timestamp: '2024-01-15T10:00:00Z',  
     isManualEntry: false
   },
   // Manual record - Student returned
