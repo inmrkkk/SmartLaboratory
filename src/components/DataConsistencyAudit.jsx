@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { applyDataConsistencyFixes, auditDataConsistency } from "../utils/dataConsistencyUtils";
+import "../CSS/DataConsistency.css";
 
 export default function DataConsistencyAudit() {
   const { isAdmin } = useAuth();
@@ -80,158 +81,91 @@ export default function DataConsistencyAudit() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Data Consistency</h1>
-          <p style={{ marginTop: 6, opacity: 0.8 }}>
+    <div className="data-consistency-container">
+      <div className="data-consistency-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Data Consistency</h1>
+          <p className="welcome-subtitle">
             Audits laboratory data across the database and suggests safe auto-fixes.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="data-consistency-controls">
+          <div className="checkbox-group">
             <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled />
             Dry run
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          </div>
+          <div className="checkbox-group">
             <input type="checkbox" checked={onlySafe} onChange={(e) => setOnlySafe(e.target.checked)} />
             Only safe fixes
-          </label>
-          <button className="btn btn-primary" onClick={runAudit} disabled={running}>
-            {running ? "Running..." : "Run Audit"}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={applyFixes}
-            disabled={applying || running || !result?.fixes?.length}
-            title={onlySafe ? "Applies only fixes marked safe" : "Applies all queued fixes"}
-          >
-            {applying ? "Applying..." : "Apply Fixes"}
-          </button>
+          </div>
+          <div className="action-buttons-group">
+            <button className="btn-run-audit" onClick={runAudit} disabled={running}>
+              {running ? "Running..." : "Run Audit"}
+            </button>
+            <button
+              className="btn-apply-fixes"
+              onClick={applyFixes}
+              disabled={applying || running || !result?.fixes?.length}
+              title={onlySafe ? "Applies only fixes marked safe" : "Applies all queued fixes"}
+            >
+              {applying ? "Applying..." : "Apply Fixes"}
+            </button>
+          </div>
         </div>
       </div>
 
       {error && (
-        <div style={{ marginTop: 12, padding: 12, border: "1px solid #f3c2c2", background: "#fff5f5", borderRadius: 8 }}>
+        <div className="error-message">
           {error}
         </div>
       )}
 
       {!result && (
-        <div style={{ marginTop: 16, padding: 16, border: "1px solid #eee", borderRadius: 10, background: "#fff" }}>
+        <div className="initial-state">
           Run an audit to see findings and suggested fixes.
         </div>
       )}
 
       {result && (
         <>
-          <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Laboratories</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>{result.summary.laboratories}</div>
+          <div className="summary-grid">
+            <div className="summary-card">
+              <div className="summary-label">Laboratories</div>
+              <div className="summary-value">{result.summary.laboratories}</div>
             </div>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Equipment Categories</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>{result.summary.equipmentCategories}</div>
+            <div className="summary-card">
+              <div className="summary-label">Equipment Categories</div>
+              <div className="summary-value">{result.summary.equipmentCategories}</div>
             </div>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Borrow Requests</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>{result.summary.borrowRequests}</div>
+            <div className="summary-card">
+              <div className="summary-label">Borrow Requests</div>
+              <div className="summary-value">{result.summary.borrowRequests}</div>
             </div>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Damaged/Lost Records</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>{result.summary.damagedLostRecords}</div>
+            <div className="summary-card">
+              <div className="summary-label">Damaged/Lost Records</div>
+              <div className="summary-value">{result.summary.damagedLostRecords}</div>
             </div>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Findings</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>{result.summary.findings}</div>
+            <div className="summary-card">
+              <div className="summary-label">Findings</div>
+              <div className="summary-value">{result.summary.findings}</div>
             </div>
-            <div style={{ 
-              padding: 16, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease"
-            }}>
-              <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Fixes (safe)</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1e293b", marginTop: 4 }}>
+            <div className="summary-card">
+              <div className="summary-label">Fixes (safe)</div>
+              <div className="summary-value">
                 {result.summary.safeFixes}/{result.summary.fixes}
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-            <div style={{ 
-              padding: 20, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
-            }}>
-              <h3 style={{ 
-                marginTop: 0, 
-                marginBottom: 16,
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#1e293b",
-                display: "flex",
-                alignItems: "center",
-                gap: 8
-              }}>
-                <span style={{ 
-                  width: 4, 
-                  height: 20, 
-                  background: "#3b82f6", 
-                  borderRadius: 2 
-                }}></span>
+          <div className="content-sections">
+            <div className="content-section">
+              <h3 className="section-header">
+                <span className="section-indicator findings"></span>
                 Findings
               </h3>
               {result.findings.length === 0 ? (
-                <div style={{ 
-                  opacity: 0.75, 
-                  textAlign: "center",
-                  padding: 24,
-                  background: "#f8fafc",
-                  borderRadius: 8,
-                  border: "1px dashed #cbd5e1"
-                }}>
+                <div className="empty-state">
                   ✅ No findings. Data looks consistent.
                 </div>
               ) : (
@@ -241,77 +175,29 @@ export default function DataConsistencyAudit() {
                     if (!items.length) return null;
                     const label = severity === "error" ? "Errors" : severity === "warning" ? "Warnings" : "Info";
                     return (
-                      <div key={severity} style={{ marginTop: 12 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label} ({items.length})</div>
-                        <div style={{ display: "grid", gap: 8 }}>
+                      <div key={severity} className="findings-group">
+                        <div className="findings-group-title">{label} ({items.length})</div>
+                        <div className="findings-list">
                           {items.slice(0, 50).map((item) => (
                             <div 
                               key={item.id} 
-                              style={{ 
-                                padding: 12, 
-                                border: `1px solid ${
-                                  severity === "error" ? "#fca5a5" : 
-                                  severity === "warning" ? "#fcd34d" : 
-                                  "#ddd6fe"
-                                }`, 
-                                borderRadius: 8,
-                                background: severity === "error" ? "#fef2f2" : 
-                                           severity === "warning" ? "#fffbeb" : 
-                                           "#faf5ff",
-                                borderLeft: `4px solid ${
-                                  severity === "error" ? "#dc2626" : 
-                                  severity === "warning" ? "#f59e0b" : 
-                                  "#7c3aed"
-                                }`
-                              }}
+                              className={`finding-item ${severity}`}
                             >
-                              <div style={{ 
-                                display: "flex", 
-                                justifyContent: "space-between", 
-                                alignItems: "flex-start",
-                                gap: 12
-                              }}>
-                                <div style={{ fontWeight: 600, fontSize: 14 }}>
+                              <div className="finding-header">
+                                <div className="finding-title">
                                   {item.title}
                                 </div>
-                                <div style={{
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.5px",
-                                  padding: "2px 8px",
-                                  borderRadius: "12px",
-                                  background: severity === "error" ? "#dc2626" : 
-                                             severity === "warning" ? "#f59e0b" : 
-                                             "#7c3aed",
-                                  color: "white"
-                                }}>
+                                <div className={`severity-badge ${severity}`}>
                                   {severity}
                                 </div>
                               </div>
-                              <pre style={{ 
-                                margin: "8px 0 0", 
-                                whiteSpace: "pre-wrap",
-                                fontSize: 12,
-                                color: "#475569",
-                                background: "rgba(0,0,0,0.02)",
-                                padding: 8,
-                                borderRadius: 4,
-                                border: "1px solid rgba(0,0,0,0.06)"
-                              }}>
+                              <pre className="finding-details">
                                 {JSON.stringify(item.details, null, 2)}
                               </pre>
                             </div>
                           ))}
                           {items.length > 50 && (
-                            <div style={{ 
-                              opacity: 0.7, 
-                              textAlign: "center",
-                              padding: 12,
-                              background: "#f8fafc",
-                              borderRadius: 8,
-                              border: "1px dashed #cbd5e1"
-                            }}>
+                            <div className="limit-message">
                               Showing 50 of {items.length}. Refine the rules if you need the full list in UI.
                             </div>
                           )}
@@ -323,121 +209,40 @@ export default function DataConsistencyAudit() {
               )}
             </div>
 
-            <div style={{ 
-              padding: 20, 
-              border: "1px solid #e2e8f0", 
-              borderRadius: 12, 
-              background: "#fff",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
-            }}>
-              <h3 style={{ 
-                marginTop: 0, 
-                marginBottom: 16,
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#1e293b",
-                display: "flex",
-                alignItems: "center",
-                gap: 8
-              }}>
-                <span style={{ 
-                  width: 4, 
-                  height: 20, 
-                  background: "#10b981", 
-                  borderRadius: 2 
-                }}></span>
+            <div className="content-section">
+              <h3 className="section-header">
+                <span className="section-indicator fixes"></span>
                 Proposed Fixes
               </h3>
               {fixesToShow.length === 0 ? (
-                <div style={{ 
-                  opacity: 0.75, 
-                  textAlign: "center",
-                  padding: 24,
-                  background: "#f8fafc",
-                  borderRadius: 8,
-                  border: "1px dashed #cbd5e1"
-                }}>
+                <div className="empty-state">
                   🔧 No fixes queued.
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className="fixes-list">
                   {fixesToShow.slice(0, 100).map((fix, idx) => (
                     <div 
                       key={`${fix.path}_${idx}`} 
-                      style={{ 
-                        padding: 12, 
-                        border: `1px solid ${fix.safe ? "#86efac" : "#fca5a5"}`, 
-                        borderRadius: 8,
-                        background: fix.safe ? "#f0fdf4" : "#fef2f2",
-                        borderLeft: `4px solid ${fix.safe ? "#16a34a" : "#dc2626"}`
-                      }}
+                      className={`fix-item ${fix.safe ? "safe" : "unsafe"}`}
                     >
-                      <div style={{ 
-                        display: "flex", 
-                        justifyContent: "space-between", 
-                        gap: 10, 
-                        flexWrap: "wrap",
-                        alignItems: "flex-start"
-                      }}>
-                        <div style={{ 
-                          fontWeight: 600, 
-                          fontSize: 14,
-                          flex: 1,
-                          minWidth: 200
-                        }}>
+                      <div className="fix-header">
+                        <div className="fix-reason">
                           {fix.reason}
                         </div>
-                        <div style={{ 
-                          fontSize: 11, 
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          padding: "4px 8px",
-                          borderRadius: "12px",
-                          background: fix.safe ? "#16a34a" : "#dc2626",
-                          color: "white",
-                          whiteSpace: "nowrap"
-                        }}>
+                        <div className={`safety-badge ${fix.safe ? "safe" : "unsafe"}`}>
                           {fix.safe ? "SAFE" : "REVIEW"}
                         </div>
                       </div>
-                      <div style={{ 
-                        marginTop: 8, 
-                        fontSize: 13,
-                        display: "grid",
-                        gap: 4
-                      }}>
-                        <div style={{ 
-                          display: "flex", 
-                          gap: 8,
-                          alignItems: "center"
-                        }}>
-                          <strong style={{ color: "#374151", minWidth: 50 }}>Path:</strong>
-                          <code style={{ 
-                            background: "rgba(0,0,0,0.05)", 
-                            padding: "2px 6px", 
-                            borderRadius: 4,
-                            fontSize: 11,
-                            color: "#1f2937",
-                            wordBreak: "break-all"
-                          }}>
+                      <div className="fix-details">
+                        <div className="fix-detail-row">
+                          <span className="fix-detail-label">Path:</span>
+                          <code className="fix-detail-value">
                             {fix.path}
                           </code>
                         </div>
-                        <div style={{ 
-                          display: "flex", 
-                          gap: 8,
-                          alignItems: "center"
-                        }}>
-                          <strong style={{ color: "#374151", minWidth: 50 }}>Value:</strong>
-                          <code style={{ 
-                            background: fix.safe ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)", 
-                            padding: "2px 6px", 
-                            borderRadius: 4,
-                            fontSize: 12,
-                            color: fix.safe ? "#166534" : "#991b1b",
-                            fontWeight: 600
-                          }}>
+                        <div className="fix-detail-row">
+                          <span className="fix-detail-label">Value:</span>
+                          <code className={`fix-detail-value ${fix.safe ? "safe" : "unsafe"}`}>
                             {String(fix.value)}
                           </code>
                         </div>
@@ -445,14 +250,7 @@ export default function DataConsistencyAudit() {
                     </div>
                   ))}
                   {fixesToShow.length > 100 && (
-                    <div style={{ 
-                      opacity: 0.7, 
-                      textAlign: "center",
-                      padding: 12,
-                      background: "#f8fafc",
-                      borderRadius: 8,
-                      border: "1px dashed #cbd5e1"
-                    }}>
+                    <div className="limit-message">
                       Showing 100 of {fixesToShow.length} fixes.
                     </div>
                   )}

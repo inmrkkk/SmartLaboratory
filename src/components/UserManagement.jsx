@@ -515,7 +515,7 @@ export default function UserManagement({ onRedirectToUsers }) {
                 </td>
                 <td>
                   <span className={`profile-badge ${user.profile_setup ? 'setup-complete' : 'setup-pending'}`}>
-                    {user.profile_setup ? '✅ Complete' : '⏳ Pending'}
+                    {user.profile_setup ? ' Complete' : ' Pending'}
                   </span>
                 </td>
                 <td>
@@ -525,14 +525,14 @@ export default function UserManagement({ onRedirectToUsers }) {
                       onClick={() => handleEdit(user)}
                       title="Edit User"
                     >
-                      ✏️ Edit
+                       Edit
                     </button>
                     <button
                       className="btn btn-sm btn-danger"
                       onClick={() => handleDelete(user)}
                       title="Delete User"
                     >
-                      🗑️ Delete
+                       Delete
                     </button>
                   </div>
                 </td>

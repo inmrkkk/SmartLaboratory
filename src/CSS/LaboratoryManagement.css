@@ -6,6 +6,47 @@
   width: 100%;
 }
 
+/* Laboratory Management Welcome Banner - Matching SmartLab Dashboard Design */
+.laboratory-welcome {
+  margin-bottom: 40px;
+  padding: 30px;
+  background: #2aa59d;
+  border-radius: 16px;
+  color: white;
+  box-shadow: 0 8px 32px rgba(42, 165, 157, 0.3);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.welcome-content {
+  flex: 1;
+}
+
+.welcome-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 12px 0;
+  line-height: 1.2;
+}
+
+.welcome-subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.laboratory-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-left: 20px;
+}
+
 /* Header */
 .laboratory-header {
   display: flex;
@@ -405,39 +446,56 @@
 }
 
 /* Table Actions */
-.table-actions {
+.action-buttons {
   display: flex;
   gap: 8px;
   justify-content: center;
 }
 
-.btn-edit,
-.btn-delete {
-  padding: 8px;
+/* Scoped button styles for table action buttons (Edit/Delete) */
+.laboratory-table .btn {
+  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 600;
   transition: all 0.3s ease;
-  background: transparent;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
 }
 
-.btn-edit {
-  color: #3b82f6;
+.laboratory-table .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.btn-edit:hover {
-  background: #dbeafe;
-  transform: scale(1.1);
+.laboratory-table .btn-sm {
+  padding: 10px 22px;
 }
 
-.btn-delete {
-  color: #ef4444;
+.laboratory-table .btn-secondary {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
 }
 
-.btn-delete:hover {
-  background: #fee2e2;
-  transform: scale(1.1);
+.laboratory-table .btn-secondary:hover {
+  background: linear-gradient(135deg, #4b5563, #374151);
+}
+
+.laboratory-table .btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.laboratory-table .btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
 }
 
 /* Empty State */
@@ -765,6 +823,46 @@ form {
 .success-modal-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(42, 165, 157, 0.3);
+}
+
+/* Responsive Design for Laboratory Welcome Banner */
+@media (max-width: 768px) {
+  .laboratory-welcome {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px 20px;
+    margin-bottom: 30px;
+  }
+
+  .welcome-title {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+  }
+
+  .welcome-subtitle {
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .laboratory-controls {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .laboratory-welcome {
+    padding: 20px 16px;
+  }
+
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.9rem;
+  }
 }
 
 /* Responsive Design */

@@ -362,20 +362,22 @@ export default function LaboratoryManagement() {
 
   return (
     <div className="laboratory-management-container">
-      {/* Header */}
-      <div className="laboratory-header">
-        <div className="header-content">
-          <h1>Laboratory Management</h1>
-          <p>Manage laboratory information, capacity, and supervisors</p>
+      {/* Laboratory Management Welcome Banner */}
+      <div className="laboratory-welcome">
+        <div className="welcome-content">
+          <h1 className="welcome-title">Laboratory Management</h1>
+          <p className="welcome-subtitle">Manage laboratory information, capacity, and supervisors</p>
         </div>
         {isAdmin() && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="btn btn-primary add-laboratory-btn"
-          >
-            <span className="btn-icon">+</span>
-            Add Laboratory
-          </button>
+          <div className="laboratory-controls">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="add-laboratory-btn"
+            >
+              <span className="btn-icon">+</span>
+              Add Laboratory
+            </button>
+          </div>
         )}
       </div>
 
@@ -507,22 +509,22 @@ export default function LaboratoryManagement() {
                         {laboratory.createdAt ? new Date(laboratory.createdAt).toLocaleDateString() : "—"}
                       </td>
                     <td className="center">
-                      <div className="table-actions">
+                      <div className="action-buttons">
                         {isAdmin() && (
                           <>
                             <button
                               onClick={() => handleEdit(laboratory)}
-                              className="btn-edit"
+                              className="btn btn-sm btn-secondary"
                               title="Edit laboratory"
                             >
-                              ✏️
+                              Edit
                             </button>
                             <button
                               onClick={() => confirmDelete(laboratory)}
-                              className="btn-delete"
+                              className="btn btn-sm btn-danger"
                               title="Delete laboratory"
                             >
-                              🗑️
+                              Delete
                             </button>
                           </>
                         )}
