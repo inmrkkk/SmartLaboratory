@@ -166,7 +166,7 @@ export default function DataConsistencyAudit() {
               </h3>
               {result.findings.length === 0 ? (
                 <div className="empty-state">
-                  ✅ No findings. Data looks consistent.
+                   No findings. Data looks consistent.
                 </div>
               ) : (
                 <>
@@ -216,7 +216,7 @@ export default function DataConsistencyAudit() {
               </h3>
               {fixesToShow.length === 0 ? (
                 <div className="empty-state">
-                  🔧 No fixes queued.
+                   No fixes queued.
                 </div>
               ) : (
                 <div className="fixes-list">
