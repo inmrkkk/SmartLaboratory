@@ -521,7 +521,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
             onClick={() => setShowScheduleForm(true)}
             className="btn btn-outline"
           >
-            <span className="btn-icon">📅</span>
+            <span className="btn-icon">+</span>
             Schedule Maintenance
           </button>
           <button
@@ -540,21 +540,21 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
           onClick={() => setActiveSubTab("records")}
           className={`nav-tab ${activeSubTab === "records" ? "active" : ""}`}
         >
-          <span className="nav-tab-icon">📋</span>
+          <span className="nav-tab-icon"></span>
           Maintenance Records ({maintenanceRecords.length})
         </button>
         <button
           onClick={() => setActiveSubTab("scheduled")}
           className={`nav-tab ${activeSubTab === "scheduled" ? "active" : ""}`}
         >
-          <span className="nav-tab-icon">📅</span>
+          <span className="nav-tab-icon"></span>
           Scheduled Maintenance ({scheduledForToday.length})
         </button>
         <button
           onClick={() => setActiveSubTab("upcoming")}
           className={`nav-tab ${activeSubTab === "upcoming" ? "active" : ""}`}
         >
-          <span className="nav-tab-icon">⚠️</span>
+          <span className="nav-tab-icon"></span>
           Upcoming ({upcomingMaintenance.length})
         </button>
       </div>
@@ -581,7 +581,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
             top: '50%',
             transform: 'translateY(-50%)',
             color: '#9ca3af'
-          }}>🔍</span>
+          }}></span>
         </div>
         
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>

@@ -4528,9 +4528,9 @@ export default function RequestFormsPage() {
 
                         {showSignature
 
-                          ? "🔼 Hide Signature"
+                          ? "Hide Signature"
 
-                          : "✍️ View Signature"}
+                          : "View Signature"}
 
                       </button>
 
@@ -4812,7 +4812,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                      ❌ Reject Request
+                      Reject Request
 
                     </button>
 
@@ -4840,7 +4840,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                      🚀 Release Item
+                       Release Item
 
                     </button>
 
@@ -4858,7 +4858,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                      ❌ Reject Request
+                      Reject Request
 
                     </button>
 
@@ -4868,9 +4868,7 @@ export default function RequestFormsPage() {
 
 
 
-                {(selectedRequest.status === "released" ||
-
-                  selectedRequest.status === "in_progress") && (
+                {selectedRequest.status === "released" && (
 
                   <>
 
@@ -4882,25 +4880,35 @@ export default function RequestFormsPage() {
 
                     >
 
-                      📦 Process Return
+                      Process Return
 
                     </button>
 
+                  </>
+
+                )}
+
+
+
+                {selectedRequest.status === "in_progress" && (
+
+                  <>
+
                     <button
 
-                      className="btn btn-success"
+                      className="btn btn-primary"
 
                       onClick={() => {
 
-                        handleStatusUpdate(selectedRequest.id, "approved");
+                        setRequestToRelease(selectedRequest);
 
-                        closeDetailsModal();
+                        setShowReleaseConfirmation(true);
 
                       }}
 
                     >
 
-                      ✅ Mark as Completed
+                       Release Item
 
                     </button>
 
@@ -4918,7 +4926,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                      ❌ Reject Request
+                       Reject Request
 
                     </button>
 
@@ -5290,7 +5298,7 @@ export default function RequestFormsPage() {
 
               <button className="btn btn-success" onClick={handleReturnSubmit}>
 
-                ✅ Confirm Return
+                Confirm Return
 
               </button>
 
@@ -5390,7 +5398,7 @@ export default function RequestFormsPage() {
 
               >
 
-                🚀 Release Item
+                Release Item
 
               </button>
 

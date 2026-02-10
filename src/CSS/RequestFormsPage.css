@@ -919,7 +919,7 @@
 
 .modal-close:hover {
 
-  background-color: #ef4444;
+  background-color: #5c5c5cd0;
 
   color: white;
 
@@ -3165,7 +3165,7 @@
 
 .action-btn.return-btn {
 
-  background: linear-gradient(135deg, #4299e1, #3182ce);
+  /* background: linear-gradient(135deg, #4299e1, #3182ce); */
 
   color: white;
 
@@ -3175,7 +3175,7 @@
 
 .action-btn.return-btn:hover {
 
-  background: linear-gradient(135deg, #3182ce, #2c5282);
+  background: #2563eb;
 
   transform: translateY(-2px);
 
