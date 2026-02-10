@@ -1118,8 +1118,8 @@
 .close-btn {
   background: none;
   border: none;
-  color: white;
-  font-size: 2rem;
+  color: rgb(63, 63, 63);
+  /* font-size: 2rem; */
   cursor: pointer;
   padding: 0;
   width: 40px;

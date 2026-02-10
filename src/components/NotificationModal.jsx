@@ -187,7 +187,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
     <div className="notification-overlay">
       <div className="notification-modal">
         <div className="notification-header">
-          <h2>🔔 Notifications</h2>
+          <h2> Notifications</h2>
           <div className="notification-controls">
             <select 
               value={filter} 
@@ -222,7 +222,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
               onClick={onClose}
               title="Close"
             >
-              ✕
+                ✖
             </button>
           </div>
         </div>

@@ -1659,7 +1659,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                                 className="btn btn-info btn-xs"
                                 style={{ backgroundColor: '#3b82f6', color: 'white', marginRight: '4px' }}
                               >
-                                📊 Report
+                                Report
                               </button>
                               <button
                                 onClick={() => handleEditEquipment(equipment)}
