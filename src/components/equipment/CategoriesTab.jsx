@@ -10,7 +10,7 @@ function DeleteConfirmModal({ category, onConfirm, onCancel }) {
   return (
     <div className="delete-modal-overlay">
       <div className="delete-modal-container">
-        <div className="delete-modal-icon">⚠️</div>
+        <div className="delete-modal-icon"></div>
         <h2 className="delete-modal-title">Delete Category</h2>
         <p className="delete-modal-message">
           Are you sure you want to delete the category "{category.title}"?
@@ -37,7 +37,7 @@ function SuccessModal({ message, onClose }) {
   return (
     <div className="success-modal-overlay">
       <div className="success-modal-container">
-        <div className="success-modal-icon">✅</div>
+        <div className="success-modal-icon"></div>
         <h2 className="success-modal-title">Success</h2>
         <p className="success-modal-message">{message}</p>
         <button onClick={onClose} className="success-modal-button">

@@ -5,6 +5,8 @@ import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 // Import EquipmentMaintenance - adjust path as needed
 import EquipmentMaintenance from "./equipment/EquipmentMaintenance";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import ToastNotification from "./ToastNotification";
 import "../CSS/Equipment.css";
 import "../CSS/HistoryPage.css";
 
@@ -65,6 +67,13 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [selectedEquipmentForReport, setSelectedEquipmentForReport] = useState(null);
   const [usageData, setUsageData] = useState(null);
   const [usageDataLoading, setUsageDataLoading] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
 
   const getEquipmentDisplayName = (equipment) => {
     if (!equipment) return "Unnamed Equipment";
@@ -463,8 +472,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           ...submissionData,
           updatedAt: new Date().toISOString()
         });
-        setFeedbackMessage("Category updated successfully!");
-        setShowSuccessModal(true);
+        showToast("Category updated successfully!");
       } else {
         const categoriesRef = ref(database, 'equipment_categories');
         await push(categoriesRef, {
@@ -474,20 +482,17 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        setFeedbackMessage("Category added successfully!");
-        setShowSuccessModal(true);
+        showToast("Category added successfully!");
       }
 
       // Close form after successful submission
       setTimeout(() => {
         resetCategoryForm();
-        setShowSuccessModal(false);
-      }, 1500);
+      }, 1000);
 
     } catch (error) {
       console.error("Error saving category:", error);
-      setFeedbackMessage(`Error saving category: ${error.message}. Please try again.`);
-      setShowErrorModal(true);
+      showToast(`Error saving category: ${error.message}. Please try again.`, "error");
     } finally {
       setIsSubmittingCategory(false);
     }
@@ -566,8 +571,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           ...equipmentData,
           updatedAt: new Date().toISOString()
         });
-        setFeedbackMessage("Equipment updated successfully!");
-        setShowSuccessModal(true);
+        showToast("Equipment updated successfully!");
       } else {
         const equipmentsRef = ref(database, `equipment_categories/${selectedCategory}/equipments`);
         await push(equipmentsRef, {
@@ -577,21 +581,18 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         });
 
         await updateCategoryCounts(selectedCategory);
-        setFeedbackMessage("Equipment added successfully!");
-        setShowSuccessModal(true);
+        showToast("Equipment added successfully!");
       }
 
       // Close form after successful submission
       setTimeout(() => {
         resetEquipmentForm();
-        setShowSuccessModal(false);
         setIsSubmittingEquipment(false);
-      }, 1500);
+      }, 1000);
 
     } catch (error) {
       console.error("Error saving equipment:", error);
-      setFeedbackMessage(`Error saving equipment: ${error.message}. Please try again.`);
-      setShowErrorModal(true);
+      showToast(`Error saving equipment: ${error.message}. Please try again.`, "error");
       setIsSubmittingEquipment(false);
     }
   };
@@ -910,20 +911,28 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     setShowAddEquipmentForm(true);
   };
 
-  const handleDeleteCategory = async (categoryId) => {
-    if (window.confirm("Are you sure you want to delete this category? This will also delete all equipment in this category.")) {
-      try {
-        const categoryRef = ref(database, `equipment_categories/${categoryId}`);
-        await remove(categoryRef);
-        alert("Category deleted successfully!");
-        if (selectedCategory === categoryId) {
-          setSelectedCategory("");
-          setEquipments([]);
-        }
-      } catch (error) {
-        console.error("Error deleting category:", error);
-        alert("Error deleting category. Please try again.");
+  const handleDeleteCategory = (categoryId) => {
+    setCategoryToDelete(categoryId);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    
+    try {
+      const categoryRef = ref(database, `equipment_categories/${categoryToDelete}`);
+      await remove(categoryRef);
+      showToast("Category deleted successfully!");
+      if (selectedCategory === categoryToDelete) {
+        setSelectedCategory("");
+        setEquipments([]);
       }
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      showToast("Error deleting category. Please try again.", "error");
+    } finally {
+      setShowDeleteConfirmModal(false);
+      setCategoryToDelete(null);
     }
   };
 
@@ -933,10 +942,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         const equipmentRef = ref(database, `equipment_categories/${selectedCategory}/equipments/${equipmentId}`);
         await remove(equipmentRef);
         await updateCategoryCounts(selectedCategory);
-        alert("Equipment deleted successfully!");
+        showToast("Equipment deleted successfully!");
       } catch (error) {
         console.error("Error deleting equipment:", error);
-        alert("Error deleting equipment. Please try again.");
+        showToast("Error deleting equipment. Please try again.", "error");
       }
     }
   };
@@ -2215,6 +2224,29 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteConfirmModal}
+        onClose={() => {
+          setShowDeleteConfirmModal(false);
+          setCategoryToDelete(null);
+        }}
+        onConfirm={confirmDeleteCategory}
+        title="Delete Category"
+        message="Are you sure you want to delete this category? This will also delete all equipment in this category."
+        confirmText="Delete Category"
+        cancelText="Cancel"
+      />
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: "", type: "success" })}
+        />
       )}
     </div>
   );
