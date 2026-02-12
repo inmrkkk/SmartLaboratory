@@ -67,7 +67,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [selectedEquipmentForReport, setSelectedEquipmentForReport] = useState(null);
   const [usageData, setUsageData] = useState(null);
   const [usageDataLoading, setUsageDataLoading] = useState(false);
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showCategoryDeleteModal, setShowCategoryDeleteModal] = useState(false);
+  const [showEquipmentDeleteModal, setShowEquipmentDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [equipmentToDelete, setEquipmentToDelete] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -914,7 +915,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const handleDeleteCategory = (categoryId) => {
     setCategoryToDelete(categoryId);
-    setShowDeleteConfirmModal(true);
+    setShowCategoryDeleteModal(true);
   };
 
   const confirmDeleteCategory = async () => {
@@ -932,14 +933,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       console.error("Error deleting category:", error);
       showToast("Error deleting category. Please try again.", "error");
     } finally {
-      setShowDeleteConfirmModal(false);
+      setShowCategoryDeleteModal(false);
       setCategoryToDelete(null);
     }
   };
 
   const handleDeleteEquipment = (equipmentId) => {
     setEquipmentToDelete(equipmentId);
-    setShowDeleteConfirmModal(true);
+    setShowEquipmentDeleteModal(true);
   };
 
   const confirmDeleteEquipment = async () => {
@@ -954,7 +955,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       console.error("Error deleting equipment:", error);
       showToast("Error deleting equipment. Please try again.", "error");
     } finally {
-      setShowDeleteConfirmModal(false);
+      setShowEquipmentDeleteModal(false);
       setEquipmentToDelete(null);
     }
   };
@@ -2235,11 +2236,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Category Delete Confirmation Modal */}
       <DeleteConfirmationModal
-        isOpen={showDeleteConfirmModal}
+        isOpen={showCategoryDeleteModal}
         onClose={() => {
-          setShowDeleteConfirmModal(false);
+          setShowCategoryDeleteModal(false);
           setCategoryToDelete(null);
         }}
         onConfirm={confirmDeleteCategory}
@@ -2251,9 +2252,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
       {/* Equipment Delete Confirmation Modal */}
       <DeleteConfirmationModal
-        isOpen={showDeleteConfirmModal}
+        isOpen={showEquipmentDeleteModal}
         onClose={() => {
-          setShowDeleteConfirmModal(false);
+          setShowEquipmentDeleteModal(false);
           setEquipmentToDelete(null);
         }}
         onConfirm={confirmDeleteEquipment}
