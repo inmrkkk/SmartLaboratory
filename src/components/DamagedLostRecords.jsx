@@ -416,14 +416,14 @@ export default function DamagedLostRecords() {
                               onClick={() => viewBorrowerDetails(borrower)}
                               title="View Details"
                             >
-                              👁️ View
+                               View
                             </button>
                             <button 
                               className="btn-action btn-secondary"
                               onClick={() => viewSettledRecords(borrower)}
                               title="View Settled Records"
                             >
-                              📋 Settled
+                              Settled
                             </button>
                           </div>
                         </td>
