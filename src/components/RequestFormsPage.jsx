@@ -26,6 +26,8 @@ import { validateBorrowerEligibility } from "../utils/damagedLostUtils";
 
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 
+import ToastNotification from "./ToastNotification";
+
 import "../CSS/RequestFormsPage.css";
 
 import eyeIcon from '../images/eye.png';
@@ -111,6 +113,12 @@ export default function RequestFormsPage() {
   const [showReleaseConfirmation, setShowReleaseConfirmation] = useState(false);
 
   const [requestToRelease, setRequestToRelease] = useState(null);
+
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
 
 
 
@@ -1173,10 +1181,9 @@ export default function RequestFormsPage() {
 
             if (availableQuantity < requestedQuantity) {
 
-              alert(
-
-                `Cannot release: Only ${availableQuantity} available, but ${requestedQuantity} requested.`
-
+              showToast(
+                `Cannot release: Only ${availableQuantity} available, but ${requestedQuantity} requested.`,
+                "error"
               );
 
               return;
@@ -2655,11 +2662,9 @@ export default function RequestFormsPage() {
       closeDetailsModal();
 
       
-
       let successMessage = "Item marked as returned successfully!";
 
       
-
       if (hasInsufficientReturn) {
 
         const missingCount = requestedQuantity - adjustedReturnedQuantity;
@@ -2674,13 +2679,13 @@ export default function RequestFormsPage() {
 
       
 
-      alert(successMessage);
+      showToast(successMessage);
 
     } catch (error) {
 
       console.error("Error processing return:", error);
 
-      alert("Failed to process return. Please try again.");
+      showToast("Failed to process return. Please try again.", "error");
 
     }
 
@@ -5410,6 +5415,14 @@ export default function RequestFormsPage() {
 
       )}
 
+      {/* Toast Notification */}
+      {toast.show && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: "", type: "success" })}
+        />
+      )}
     </div>
 
   );
