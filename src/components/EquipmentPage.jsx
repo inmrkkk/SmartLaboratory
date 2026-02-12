@@ -69,6 +69,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [usageDataLoading, setUsageDataLoading] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [equipmentToDelete, setEquipmentToDelete] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const showToast = (message, type = "success") => {
@@ -936,17 +937,25 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     }
   };
 
-  const handleDeleteEquipment = async (equipmentId) => {
-    if (window.confirm("Are you sure you want to delete this equipment?")) {
-      try {
-        const equipmentRef = ref(database, `equipment_categories/${selectedCategory}/equipments/${equipmentId}`);
-        await remove(equipmentRef);
-        await updateCategoryCounts(selectedCategory);
-        showToast("Equipment deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting equipment:", error);
-        showToast("Error deleting equipment. Please try again.", "error");
-      }
+  const handleDeleteEquipment = (equipmentId) => {
+    setEquipmentToDelete(equipmentId);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteEquipment = async () => {
+    if (!equipmentToDelete) return;
+    
+    try {
+      const equipmentRef = ref(database, `equipment_categories/${selectedCategory}/equipments/${equipmentToDelete}`);
+      await remove(equipmentRef);
+      await updateCategoryCounts(selectedCategory);
+      showToast("Equipment deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting equipment:", error);
+      showToast("Error deleting equipment. Please try again.", "error");
+    } finally {
+      setShowDeleteConfirmModal(false);
+      setEquipmentToDelete(null);
     }
   };
 
@@ -2237,6 +2246,20 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         title="Delete Category"
         message="Are you sure you want to delete this category? This will also delete all equipment in this category."
         confirmText="Delete Category"
+        cancelText="Cancel"
+      />
+
+      {/* Equipment Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteConfirmModal}
+        onClose={() => {
+          setShowDeleteConfirmModal(false);
+          setEquipmentToDelete(null);
+        }}
+        onConfirm={confirmDeleteEquipment}
+        title="Delete Equipment"
+        message="Are you sure you want to delete this equipment? This action cannot be undone."
+        confirmText="Delete Equipment"
         cancelText="Cancel"
       />
 
