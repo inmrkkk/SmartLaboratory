@@ -37,6 +37,30 @@ const mockHistoryData = [
     quantity: '3',
     timestamp: '2024-01-17T09:00:00Z',
     isManualEntry: true
+  },
+  // Manual record - Student released (NEW TEST CASE)
+  {
+    id: '4',
+    equipmentName: 'Microscope',
+    action: 'Released',
+    status: 'Released',
+    borrowerName: 'Jane Student',
+    borrowerType: 'student',
+    quantity: '2',
+    timestamp: '2024-01-18T10:00:00Z',
+    isManualEntry: true
+  },
+  // Manual record - Faculty released (NEW TEST CASE)
+  {
+    id: '5',
+    equipmentName: 'Microscope',
+    action: 'Released',
+    status: 'Released',
+    borrowerName: 'Dr. Johnson',
+    borrowerType: 'faculty',
+    quantity: '4',
+    timestamp: '2024-01-19T11:00:00Z',
+    isManualEntry: true
   }
 ];
 
@@ -77,10 +101,10 @@ describe('Manual Record Integration Tests', () => {
         entry.action === "Item Released"
       ).length;
 
-      // Count manual records with valid borrowing lifecycle (Returned status)
+      // Count manual records with valid borrowing lifecycle (Returned or Released status)
       const manualReturnedRecords = equipmentHistory.filter(entry => 
         entry.isManualEntry && 
-        (entry.status === "Returned" || entry.status === "returned")
+        (entry.status === "Returned" || entry.status === "returned" || entry.status === "Released" || entry.status === "released")
       );
 
       // Calculate quantities for manual records
@@ -117,12 +141,12 @@ describe('Manual Record Integration Tests', () => {
     const result = await mockCalculateUsageData('Microscope');
 
     // Verify the results
-    expect(result.total).toBe(9); // 1 system + 5 student manual + 3 faculty manual
-    expect(result.students).toBe(5); // 5 from manual student record
-    expect(result.faculty).toBe(3); // 3 from manual faculty record
-    expect(result.manualTotal).toBe(8); // 5 + 3 from manual records
-    expect(result.manualStudents).toBe(5);
-    expect(result.manualFaculty).toBe(3);
+    expect(result.total).toBe(15); // 1 system + 5 student manual + 3 faculty manual + 2 student released + 4 faculty released
+    expect(result.students).toBe(7); // 5 + 2 from manual student records
+    expect(result.faculty).toBe(7); // 3 + 4 from manual faculty records
+    expect(result.manualTotal).toBe(14); // 5 + 3 + 2 + 4 from manual records
+    expect(result.manualStudents).toBe(7);
+    expect(result.manualFaculty).toBe(7);
     expect(result.systemTotal).toBe(1); // 1 system record
   });
 
@@ -132,13 +156,14 @@ describe('Manual Record Integration Tests', () => {
       const borrowerCounts = {};
 
       historyEntries.forEach(entry => {
-        // Include both system-generated "released" records and manual "returned" records
+        // Include both system-generated "released" records and manual "returned" and "released" records
         const status = (entry.status || '').toLowerCase();
         const action = (entry.action || '').toLowerCase();
         const isSystemReleased = status === 'released' || action === 'item released';
         const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+        const isManualReleased = entry.isManualEntry && (status === 'released' || action === 'released');
         
-        if (!isSystemReleased && !isManualReturned) return;
+        if (!isSystemReleased && !isManualReturned && !isManualReleased) return;
 
         const borrowerName = entry.borrowerName || 'Unknown';
 
@@ -162,8 +187,8 @@ describe('Manual Record Integration Tests', () => {
 
     const result = mockCalculateUserActivity(mockHistoryData, 30);
 
-    expect(result.totalActiveUsers).toBe(3); // Alice, John Doe, Dr. Smith
-    expect(result.topUsers).toHaveLength(3);
+    expect(result.totalActiveUsers).toBe(5); // Alice, John Doe, Dr. Smith, Jane Student, Dr. Johnson
+    expect(result.topUsers).toHaveLength(5);
     
     // Check that John Doe has 5 counts (from manual record quantity)
     const johnDoe = result.topUsers.find(u => u.user === 'John Doe');
@@ -174,6 +199,16 @@ describe('Manual Record Integration Tests', () => {
     const drSmith = result.topUsers.find(u => u.user === 'Dr. Smith');
     expect(drSmith).toBeDefined();
     expect(drSmith.count).toBe(3);
+    
+    // Check that Jane Student has 2 counts (from manual record with Released status)
+    const janeStudent = result.topUsers.find(u => u.user === 'Jane Student');
+    expect(janeStudent).toBeDefined();
+    expect(janeStudent.count).toBe(2);
+    
+    // Check that Dr. Johnson has 4 counts (from manual record with Released status)
+    const drJohnson = result.topUsers.find(u => u.user === 'Dr. Johnson');
+    expect(drJohnson).toBeDefined();
+    expect(drJohnson.count).toBe(4);
   });
 
   test('calculateMonthlyData includes manual records', () => {
@@ -185,11 +220,12 @@ describe('Manual Record Integration Tests', () => {
         const action = (entry.action || '').toLowerCase();
         const status = (entry.status || '').toLowerCase();
         
-        // Include both system-generated releases and manual returned records
+        // Include both system-generated releases and manual returned and released records
         const isSystemRelease = action.includes('release') || status === 'released';
         const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+        const isManualReleased = entry.isManualEntry && (status === 'released' || action === 'released');
         
-        if (!isSystemRelease && !isManualReturned) return;
+        if (!isSystemRelease && !isManualReturned && !isManualReleased) return;
 
         const dateSource = entry.timestamp;
         if (!dateSource) return;
@@ -211,10 +247,10 @@ describe('Manual Record Integration Tests', () => {
 
     const result = mockCalculateMonthlyData({}, mockHistoryData, 30);
 
-    // Should have 9 total in January 2024 (1 system + 5 student + 3 faculty)
+    // Should have 15 total in January 2024 (1 system + 5 student + 3 faculty + 2 student released + 4 faculty released)
     expect(result.monthlyTotals).toHaveLength(1);
     expect(result.monthlyTotals[0].month).toBe('2024-01');
-    expect(result.monthlyTotals[0].count).toBe(9);
+    expect(result.monthlyTotals[0].count).toBe(15);
   });
 
   test('calculateBorrowingTrends includes manual records', () => {
@@ -226,8 +262,8 @@ describe('Manual Record Integration Tests', () => {
       
       // Add manual records from history
       historyEntries.forEach(entry => {
-        // Only include manual records with valid borrowing lifecycle (Returned status)
-        if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned')) {
+        // Include manual records with valid borrowing lifecycle (Returned or Released status)
+        if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned' || entry.status === 'Released' || entry.status === 'released')) {
           const dateSource = entry.timestamp;
           if (dateSource) {
             const date = new Date(dateSource).toDateString();

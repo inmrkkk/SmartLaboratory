@@ -573,12 +573,24 @@ export default function Analytics() {
 
     // Add manual records from history
     historyEntries.forEach(entry => {
-      // Only include manual records with valid borrowing lifecycle (Returned status)
-      if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned')) {
+      // Include manual records with valid borrowing lifecycle (Released or Returned status)
+      if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned' || entry.status === 'Released' || entry.status === 'released')) {
         const dateSource = entry.returnDate || entry.releasedDate || entry.timestamp;
         if (dateSource) {
           const date = new Date(dateSource).toDateString();
           const quantity = parseInt(entry.quantity) || 1;
+          
+          // DEBUG: Log manual records for debugging
+          console.log('Adding manual record to borrowing trends:', {
+            id: entry.id,
+            equipmentName: entry.equipmentName,
+            status: entry.status,
+            quantity: entry.quantity,
+            dateSource: dateSource,
+            dateStr: date,
+            finalQuantity: quantity
+          });
+          
           dailyData[date] = (dailyData[date] || 0) + quantity;
         }
       }
@@ -604,13 +616,14 @@ export default function Analytics() {
     const cutoffDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
     historyEntries.forEach(entry => {
-      // Include both system-generated "released" records and manual "returned" records
+      // Include both system-generated "released" records and manual "returned" and "released" records
       const status = (entry.status || '').toLowerCase();
       const action = (entry.action || '').toLowerCase();
       const isSystemReleased = status === 'released' || action === 'item released';
       const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+      const isManualReleased = entry.isManualEntry && (status === 'released' || action === 'released');
       
-      if (!isSystemReleased && !isManualReturned) return;
+      if (!isSystemReleased && !isManualReturned && !isManualReleased) return;
 
       const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
       if (dateSource) {
@@ -692,13 +705,31 @@ export default function Analytics() {
       // Include both system-generated releases and manual returned records
       const isSystemRelease = entry.entryType === 'release' || action.includes('release') || status === 'released';
       const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
+      const isManualReleased = entry.isManualEntry && (status === 'released' || action === 'released');
       
-      if (!isSystemRelease && !isManualReturned) return;
+      if (!isSystemRelease && !isManualReturned && !isManualReleased) return;
 
       const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
       if (!dateSource) return;
       const date = new Date(dateSource);
-      if (isNaN(date) || date < cutoffDate) return;
+      
+      // DEBUG: Log manual records for debugging
+      if (entry.isManualEntry) {
+        console.log('Processing manual record:', {
+          id: entry.id,
+          equipmentName: entry.equipmentName,
+          status: entry.status,
+          action: entry.action,
+          quantity: entry.quantity,
+          dateSource: dateSource,
+          parsedDate: date.toISOString(),
+          cutoffDate: cutoffDate.toISOString(),
+          isAfterCutoff: date >= cutoffDate
+        });
+      }
+      
+      // Only apply date filtering for system records, include all manual records
+      if (!entry.isManualEntry && (isNaN(date) || date < cutoffDate)) return;
 
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const quantity =
@@ -707,6 +738,15 @@ export default function Analytics() {
         1;
 
       monthlyReleaseTotals[monthKey] = (monthlyReleaseTotals[monthKey] || 0) + quantity;
+      
+      // DEBUG: Log when manual record is added
+      if (entry.isManualEntry) {
+        console.log('Added manual record to monthly totals:', {
+          monthKey,
+          quantity,
+          runningTotal: monthlyReleaseTotals[monthKey]
+        });
+      }
     });
 
     if (Object.keys(monthlyReleaseTotals).length === 0) {
