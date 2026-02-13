@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { ref, push, onValue, remove, update } from "firebase/database";
 import { database } from "../../firebase";
+import ToastNotification from "../ToastNotification";
 
 export default function EquipmentMaintenance({ categories, equipments, selectedCategory, onMaintenanceComplete }) {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
@@ -10,6 +11,11 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState(null);
   const [completingScheduleId, setCompletingScheduleId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
 
   const [activeSubTab, setActiveSubTab] = useState("records");
   const [searchTerm, setSearchTerm] = useState("");
@@ -107,7 +113,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
     e.preventDefault();
     
     if (!maintenanceFormData.equipmentId || !maintenanceFormData.description.trim()) {
-      alert("Please select equipment and enter description");
+      showToast("Please select equipment and enter description", "warning");
       return;
     }
 
@@ -124,7 +130,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
           ...maintenanceData,
           updatedAt: new Date().toISOString()
         });
-        alert("Maintenance record updated successfully!");
+        showToast("Maintenance record updated successfully!");
       } else {
         const maintenanceRef = ref(database, `equipment_categories/${selectedCategory}/maintenance_records`);
         await push(maintenanceRef, {
@@ -141,7 +147,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
           });
         }
         
-        alert("Maintenance record added successfully!");
+        showToast("Maintenance record added successfully!");
         
         // Notify parent component that maintenance is complete
         if (onMaintenanceComplete) {
@@ -164,7 +170,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
       resetMaintenanceForm();
     } catch (error) {
       console.error("Error saving maintenance record:", error);
-      alert("Error saving maintenance record. Please try again.");
+      showToast("Error saving maintenance record. Please try again.", "error");
     }
   };
 
@@ -172,7 +178,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
     e.preventDefault();
     
     if (!scheduleFormData.equipmentId || !scheduleFormData.description.trim() || !scheduleFormData.scheduledDate) {
-      alert("Please fill in required fields");
+      showToast("Please fill in required fields", "warning");
       return;
     }
 
@@ -190,11 +196,11 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
         updatedAt: new Date().toISOString()
       });
       
-      alert("Maintenance scheduled successfully!");
+      showToast("Maintenance scheduled successfully!");
       resetScheduleForm();
     } catch (error) {
       console.error("Error scheduling maintenance:", error);
-      alert("Error scheduling maintenance. Please try again.");
+      showToast("Error scheduling maintenance. Please try again.", "error");
     }
   };
 
@@ -214,10 +220,10 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
       try {
         const maintenanceRef = ref(database, `equipment_categories/${selectedCategory}/maintenance_records/${recordId}`);
         await remove(maintenanceRef);
-        alert("Maintenance record deleted successfully!");
+        showToast("Maintenance record deleted successfully!");
       } catch (error) {
         console.error("Error deleting maintenance record:", error);
-        alert("Error deleting maintenance record. Please try again.");
+        showToast("Error deleting maintenance record. Please try again.", "error");
       }
     }
   };
@@ -227,10 +233,10 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
       try {
         const scheduleRef = ref(database, `equipment_categories/${selectedCategory}/scheduled_maintenance/${scheduleId}`);
         await remove(scheduleRef);
-        alert("Scheduled maintenance deleted successfully!");
+        showToast("Scheduled maintenance deleted successfully!");
       } catch (error) {
         console.error("Error deleting scheduled maintenance:", error);
-        alert("Error deleting scheduled maintenance. Please try again.");
+        showToast("Error deleting scheduled maintenance. Please try again.", "error");
       }
     }
   };
@@ -301,7 +307,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
 
   const handleExportMaintenanceToPDF = () => {
     if (filteredMaintenanceRecords.length === 0) {
-      alert("No maintenance records to export");
+      showToast("No maintenance records to export", "warning");
       return;
     }
 
@@ -365,7 +371,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      alert("Unable to open print window. Please allow pop-ups and try again.");
+      showToast("Unable to open print window. Please allow pop-ups and try again.", "warning");
       return;
     }
 
@@ -1203,6 +1209,15 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
             </div>
           </div>
         </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ show: false, message: "", type: "success" })}
+        />
       )}
     </div>
   );
