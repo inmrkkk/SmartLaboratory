@@ -341,7 +341,7 @@
 .borrowers-table th {
   background: linear-gradient(135deg, #2aa59d, #239089);
   color: white;
-  padding: 12px 8px;
+  padding: 16px 12px;
   text-align: left;
   font-weight: 600;
   font-size: 0.8rem;
@@ -349,13 +349,16 @@
   letter-spacing: 0.3px;
   border-bottom: 2px solid #239089;
   white-space: nowrap;
+  vertical-align: middle;
+  height: 56px;
 }
 
 .borrowers-table td {
-  padding: 10px 8px;
+  padding: 16px 12px;
   border-bottom: 1px solid #e5e7eb;
   vertical-align: middle;
   white-space: nowrap;
+  height: 56px;
 }
 
 .borrowers-table tr:hover {
@@ -397,6 +400,41 @@
   font-weight: 600;
 }
 
+.borrower-name-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+}
+
+.borrower-name-btn:hover {
+  background: rgba(42, 165, 157, 0.1);
+  transform: translateY(-1px);
+}
+
+.borrower-name-btn:hover strong {
+  color: #2aa59d;
+}
+
+.click-icon {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.borrower-name-btn:hover .click-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 .borrower-id {
   font-size: 0.7rem;
   color: #6b7280;
@@ -421,24 +459,32 @@
 }
 
 .course-cell {
-  min-width: 100px;
-  max-width: 120px;
+  min-width: 120px;
+  max-width: 140px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .borrower-type-cell {
-  min-width: 100px;
-  max-width: 120px;
+  min-width: 120px;
+  max-width: 140px;
   text-align: center;
+  vertical-align: middle;
 }
 
 .borrower-type-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 16px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  min-height: 32px;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .borrower-type-badge[data-type="student"] {
@@ -460,14 +506,19 @@
 }
 
 .course-badge {
-  display: inline-block;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
   background: #f3f4f6;
   color: #374151;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 0.75rem;
   font-weight: 500;
   border: 1px solid #d1d5db;
+  min-height: 32px;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .damaged-cell, .lost-cell, .total-cell {
@@ -1314,6 +1365,36 @@
     min-width: 120px;
     max-width: 140px;
   }
+  
+  .borrowers-table th {
+    padding: 14px 10px;
+    height: 52px;
+  }
+  
+  .borrowers-table td {
+    padding: 14px 10px;
+    height: 52px;
+  }
+  
+  .borrower-type-cell {
+    min-width: 110px;
+    max-width: 130px;
+  }
+  
+  .course-cell {
+    min-width: 110px;
+    max-width: 130px;
+  }
+  
+  .borrower-type-badge {
+    padding: 6px 10px;
+    min-height: 28px;
+  }
+  
+  .course-badge {
+    padding: 6px 10px;
+    min-height: 28px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1377,6 +1458,38 @@
   
   .borrowers-table {
     min-width: 700px;
+  }
+  
+  .borrowers-table th {
+    padding: 12px 8px;
+    height: 48px;
+  }
+  
+  .borrowers-table td {
+    padding: 12px 8px;
+    height: 48px;
+  }
+  
+  .borrower-type-cell {
+    min-width: 100px;
+    max-width: 120px;
+  }
+  
+  .course-cell {
+    min-width: 100px;
+    max-width: 120px;
+  }
+  
+  .borrower-type-badge {
+    padding: 6px 8px;
+    min-height: 26px;
+    font-size: 0.7rem;
+  }
+  
+  .course-badge {
+    padding: 6px 8px;
+    min-height: 26px;
+    font-size: 0.7rem;
   }
   
   .modal-content.large {
@@ -1443,5 +1556,79 @@
   .btn-action {
     font-size: 0.6rem;
     padding: 4px 6px;
+  }
+}
+
+@media (max-width: 320px) {
+  .damaged-lost-records {
+    padding: 4px;
+  }
+  
+  .page-header {
+    padding: 8px;
+  }
+  
+  .page-header h1 {
+    font-size: 1.2rem;
+  }
+  
+  .stat-card {
+    padding: 8px;
+  }
+  
+  .stat-number {
+    font-size: 1.1rem;
+  }
+  
+  .stat-label {
+    font-size: 0.7rem;
+  }
+  
+  .tab-button {
+    padding: 8px 10px;
+    font-size: 0.7rem;
+    gap: 4px;
+  }
+  
+  .restricted-tab, .settled-tab {
+    padding: 8px;
+  }
+  
+  .btn-action {
+    font-size: 0.6rem;
+  }
+  
+  .borrowers-table th {
+    padding: 10px 6px;
+    height: 44px;
+  }
+  
+  .borrowers-table td {
+    padding: 10px 6px;
+    height: 44px;
+  }
+  
+  .borrower-type-cell {
+    min-width: 90px;
+    max-width: 110px;
+  }
+  
+  .course-cell {
+    min-width: 90px;
+    max-width: 110px;
+  }
+  
+  .borrower-type-badge {
+    padding: 4px 6px;
+    min-height: 24px;
+    font-size: 0.65rem;
+    border-radius: 12px;
+  }
+  
+  .course-badge {
+    padding: 4px 6px;
+    min-height: 24px;
+    font-size: 0.65rem;
+    border-radius: 12px;
   }
 }

@@ -15,6 +15,9 @@ export default function DamagedLostRecords() {
   const [borrowerDetails, setBorrowerDetails] = useState(null);
   const [selectedSettledRecords, setSelectedSettledRecords] = useState([]);
   const [activeTab, setActiveTab] = useState('restricted');
+  const [showBorrowerSettledModal, setShowBorrowerSettledModal] = useState(false);
+  const [selectedBorrowerSettledRecords, setSelectedBorrowerSettledRecords] = useState([]);
+  const [selectedBorrowerInfo, setSelectedBorrowerInfo] = useState(null);
 
   const [users, setUsers] = useState([]);
   const [laboratories, setLaboratories] = useState([]);
@@ -281,6 +284,45 @@ export default function DamagedLostRecords() {
     }
   };
 
+  // Group settled records by borrower and get only the most recent record for each
+  const getGroupedSettledRecords = useMemo(() => {
+    const borrowerGroups = {};
+    
+    settledRecords.forEach(record => {
+      const borrowerKey = `${record.borrowerId}-${record.borrowerName}`;
+      if (!borrowerGroups[borrowerKey]) {
+        borrowerGroups[borrowerKey] = record;
+      } else {
+        // Compare settled dates to keep the most recent record
+        const existingDate = new Date(borrowerGroups[borrowerKey].settledAt);
+        const currentDate = new Date(record.settledAt);
+        if (currentDate > existingDate) {
+          borrowerGroups[borrowerKey] = record;
+        }
+      }
+    });
+    
+    // Convert to array and sort by settled date (newest first)
+    return Object.values(borrowerGroups).sort((a, b) => {
+      return new Date(b.settledAt) - new Date(a.settledAt);
+    });
+  }, [settledRecords]);
+
+  // View all settled records for specific borrower
+  const viewBorrowerSettledRecords = (record) => {
+    const borrowerRecords = settledRecords.filter(r => 
+      r.borrowerId === record.borrowerId && r.borrowerName === record.borrowerName
+    ).sort((a, b) => new Date(b.settledAt) - new Date(a.settledAt));
+    
+    setSelectedBorrowerSettledRecords(borrowerRecords);
+    setSelectedBorrowerInfo({
+      borrowerId: record.borrowerId,
+      borrowerName: record.borrowerName,
+      emailAddress: record.emailAddress
+    });
+    setShowBorrowerSettledModal(true);
+  };
+
   // View settled records for specific borrower
   const viewSettledRecords = async (borrower) => {
     try {
@@ -365,7 +407,7 @@ export default function DamagedLostRecords() {
                   <thead>
                     <tr>
                       <th>Borrower Information</th>
-                      <th>Course/Section</th>
+                      <th>Course/Set</th>
                       <th>Damaged Items</th>
                       <th>Lost Items</th>
                       <th>Total Items</th>
@@ -462,14 +504,21 @@ export default function DamagedLostRecords() {
                       </tr>
                     </thead>
                     <tbody>
-                      {settledRecords.slice(0, 15).map((record) => (
+                      {getGroupedSettledRecords.slice(0, 15).map((record) => (
                         <tr key={record.id} className="settled-row">
                           <td className="borrower-name-cell">
                             <div className="borrower-avatar">
                               {record.borrowerName.charAt(0).toUpperCase()}
                             </div>
                             <div className="borrower-name">
-                              <strong>{record.borrowerName}</strong>
+                              <button 
+                                className="borrower-name-btn"
+                                onClick={() => viewBorrowerSettledRecords(record)}
+                                title={`View all settled records for ${record.borrowerName}`}
+                              >
+                                <strong>{record.borrowerName}</strong>
+                                <span className="click-icon"></span>
+                              </button>
                             </div>
                           </td>
                           <td className="borrower-type-cell">
@@ -522,9 +571,9 @@ export default function DamagedLostRecords() {
                       ))}
                     </tbody>
                   </table>
-                  {settledRecords.length > 15 && (
+                  {getGroupedSettledRecords.length > 15 && (
                     <div className="show-more">
-                      <p>Showing 15 of {settledRecords.length} settled records.</p>
+                      <p>Showing 15 of {getGroupedSettledRecords.length} borrowers with settled records.</p>
                     </div>
                   )}
                 </div>
@@ -612,6 +661,76 @@ export default function DamagedLostRecords() {
                               Mark Settled
                             </button>
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Borrower Settled Records Modal */}
+      {showBorrowerSettledModal && (
+        <div className="modal-overlay">
+          <div className="modal-content large">
+            <div className="modal-header">
+              <h2>All Settled Records for {selectedBorrowerInfo?.borrowerName} ({selectedBorrowerSettledRecords.length})</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowBorrowerSettledModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="borrower-info-section">
+                <div className="info-grid">
+                  <div className="info-item">
+                    <label>Borrower Name:</label>
+                    <span>{selectedBorrowerInfo?.borrowerName}</span>
+                  </div>
+                  <div className="info-item">
+                    <label>Email:</label>
+                    <span>{selectedBorrowerInfo?.emailAddress}</span>
+                  </div>
+                  <div className="info-item">
+                    <label>Total Settled Records:</label>
+                    <span>{selectedBorrowerSettledRecords.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="records-section">
+                <h3>Settled Records History</h3>
+                <div className="records-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Item Name</th>
+                        <th>Status</th>
+                        <th>Transaction Date</th>
+                        <th>Settled Date</th>
+                        <th>Admin Remarks</th>
+                        <th>Settled By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedBorrowerSettledRecords.map((record) => (
+                        <tr key={record.id}>
+                          <td>{record.itemName}</td>
+                          <td>
+                            <span className={`status-badge ${record.itemStatus.toLowerCase()}`}>
+                              {record.itemStatus}
+                            </span>
+                          </td>
+                          <td>{new Date(record.transactionDate).toLocaleDateString()}</td>
+                          <td>{new Date(record.settledAt).toLocaleDateString()}</td>
+                          <td>{record.adminRemarks || 'N/A'}</td>
+                          <td>{getSettledByDisplay(record)}</td>
                         </tr>
                       ))}
                     </tbody>
