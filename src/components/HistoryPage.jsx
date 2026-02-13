@@ -46,6 +46,23 @@ export default function HistoryPage() {
   });
   const [isSubmittingManualRecord, setIsSubmittingManualRecord] = useState(false);
 
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // success or error
+
+  // Toast notification helper function
+  const showNotification = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
+
   // Load laboratories data
   const loadLaboratories = async () => {
     try {
@@ -486,10 +503,10 @@ export default function HistoryPage() {
         notes: ""
       });
       setShowManualRecordModal(false);
-      alert("Manual record added successfully!");
+      showNotification("Manual record added successfully!", "success");
     } catch (error) {
       console.error("Error adding manual record:", error);
-      alert("Failed to add manual record. Please try again.");
+      showNotification("Failed to add manual record. Please try again.", "error");
     } finally {
       setIsSubmittingManualRecord(false);
     }
@@ -1195,6 +1212,37 @@ export default function HistoryPage() {
           </div>
         </div>
       )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div 
+          className={`toast-notification ${toastType}`}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: toastType === 'success' ? '#10b981' : '#ef4444',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 9999,
+            fontSize: '14px',
+            fontWeight: '500',
+            minWidth: '250px',
+            maxWidth: '400px',
+            animation: 'slideIn 0.3s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>
+              {toastType === 'success' ? '✓' : '⚠'}
+            </span>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
