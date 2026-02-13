@@ -1,5 +1,5 @@
 // src/components/ToastNotification.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 export default function ToastNotification({ 
   message, 
@@ -9,6 +9,14 @@ export default function ToastNotification({
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      if (onClose) onClose();
+    }, 300); // Match the exit animation duration
+  }, [onClose]);
 
   useEffect(() => {
     // Trigger entrance animation
@@ -20,15 +28,7 @@ export default function ToastNotification({
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [duration]);
-
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(() => {
-      setIsVisible(false);
-      if (onClose) onClose();
-    }, 300); // Match the exit animation duration
-  };
+  }, [duration, handleClose]);
 
   if (!isVisible) return null;
 
