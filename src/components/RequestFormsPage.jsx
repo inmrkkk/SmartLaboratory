@@ -28,6 +28,8 @@ import { exportToPDF, printActivities } from "../utils/pdfUtils";
 
 import ToastNotification from "./ToastNotification";
 
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
+
 import "../CSS/RequestFormsPage.css";
 
 import eyeIcon from '../images/eye.png';
@@ -113,6 +115,10 @@ export default function RequestFormsPage() {
   const [showReleaseConfirmation, setShowReleaseConfirmation] = useState(false);
 
   const [requestToRelease, setRequestToRelease] = useState(null);
+
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+
+  const [requestToDelete, setRequestToDelete] = useState(null);
 
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
@@ -1742,17 +1748,21 @@ export default function RequestFormsPage() {
 
 
 
-  const handleDeleteRequest = async (requestId) => {
+  const handleDeleteRequest = (requestId) => {
 
-    if (
+    setRequestToDelete(requestId);
 
-      window.confirm("Are you sure you want to delete this borrow request?")
+    setShowDeleteConfirmation(true);
 
-    ) {
+  };
 
-      try {
 
-        const requestRef = ref(database, `borrow_requests/${requestId}`);
+
+  const confirmDeleteRequest = async () => {
+
+    try {
+
+      const requestRef = ref(database, `borrow_requests/${requestToDelete}`);
 
         const snapshot = await get(requestRef);
 
@@ -1816,7 +1826,7 @@ export default function RequestFormsPage() {
 
             const rejectionEntry = {
 
-              requestId: requestId,
+              requestId: requestToDelete,
 
               itemId: requestData.itemId || "",
 
@@ -1888,13 +1898,15 @@ export default function RequestFormsPage() {
 
         await remove(requestRef);
 
-      } catch (error) {
+      setShowDeleteConfirmation(false);
 
-        console.error("Error deleting request:", error);
+      setRequestToDelete(null);
 
-        alert("Failed to delete request. Please try again.");
+    } catch (error) {
 
-      }
+      console.error("Error deleting request:", error);
+
+      alert("Failed to delete request. Please try again.");
 
     }
 
@@ -4781,28 +4793,11 @@ export default function RequestFormsPage() {
 
                     >
 
-                      ✅ Approve Request
+                       Approve Request
 
                     </button>
 
-                    <button
-
-                      className="btn btn-warning"
-
-                      onClick={() => {
-
-                        handleStatusUpdate(selectedRequest.id, "in_progress");
-
-                        closeDetailsModal();
-
-                      }}
-
-                    >
-
-                      🔄 Mark In Progress
-
-                    </button>
-
+                    
                     <button
 
                       className="btn btn-danger"
@@ -5416,16 +5411,49 @@ export default function RequestFormsPage() {
       )}
 
       {/* Toast Notification */}
+
       {toast.show && (
+
         <ToastNotification
+
           message={toast.message}
+
           type={toast.type}
+
           onClose={() => setToast({ show: false, message: "", type: "success" })}
+
         />
+
       )}
+
+      {/* Delete Confirmation Modal */}
+
+      <DeleteConfirmationModal
+
+        isOpen={showDeleteConfirmation}
+
+        onClose={() => {
+
+          setShowDeleteConfirmation(false);
+
+          setRequestToDelete(null);
+
+        }}
+
+        onConfirm={confirmDeleteRequest}
+
+        title="Delete Borrow Request"
+
+        message="Are you sure you want to delete this borrow request?"
+
+        confirmText="Delete"
+
+        cancelText="Cancel"
+
+      />
+
     </div>
 
   );
 
 }
-
