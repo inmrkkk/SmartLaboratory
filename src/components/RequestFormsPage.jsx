@@ -94,6 +94,10 @@ export default function RequestFormsPage() {
 
   const [showSignature, setShowSignature] = useState(false);
 
+  const [showEligibilityModal, setShowEligibilityModal] = useState(false);
+
+  const [eligibilityMessage, setEligibilityMessage] = useState('');
+
   const [signatureCanvasRef, setSignatureCanvasRef] = useState(null);
 
   const [returnFormData, setReturnFormData] = useState({
@@ -1055,7 +1059,9 @@ export default function RequestFormsPage() {
 
         if (!eligibilityCheck.eligible) {
 
-          alert(`Cannot approve request: ${eligibilityCheck.message}`);
+          setEligibilityMessage(`Cannot approve request: ${eligibilityCheck.message}`);
+
+          setShowEligibilityModal(true);
 
           return;
 
@@ -5250,38 +5256,7 @@ export default function RequestFormsPage() {
 
 
 
-                <div className="form-group">
-
-                  <label htmlFor="returnNotes">Additional Notes:</label>
-
-                  <textarea
-
-                    id="returnNotes"
-
-                    value={returnFormData.notes}
-
-                    onChange={(e) =>
-
-                      setReturnFormData((prev) => ({
-
-                        ...prev,
-
-                        notes: e.target.value,
-
-                      }))
-
-                    }
-
-                    placeholder="Any additional notes about the return..."
-
-                    className="form-textarea"
-
-                    rows="3"
-
-                  />
-
-                </div>
-
+                
               </div>
 
             </div>
@@ -5451,6 +5426,34 @@ export default function RequestFormsPage() {
         cancelText="Cancel"
 
       />
+
+      {/* Eligibility Alert Modal */}
+      {showEligibilityModal && (
+        <div className="modal-overlay" onClick={() => setShowEligibilityModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Request Cannot Be Approved</h2>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowEligibilityModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>{eligibilityMessage}</p>
+            </div>
+            <div className="modal-actions" style={{ gap: '12px', padding: '20px' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setShowEligibilityModal(false)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
 
