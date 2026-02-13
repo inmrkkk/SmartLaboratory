@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ref, push, onValue, remove, update } from "firebase/database";
 import { database } from "../../firebase";
 import ToastNotification from "../ToastNotification";
+import DeleteConfirmationModal from "../DeleteConfirmationModal";
 
 export default function EquipmentMaintenance({ categories, equipments, selectedCategory, onMaintenanceComplete }) {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
@@ -12,6 +13,7 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
   const [editingMaintenance, setEditingMaintenance] = useState(null);
   const [completingScheduleId, setCompletingScheduleId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, recordId: null, type: 'maintenance' });
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -215,29 +217,45 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
     setShowAddMaintenanceForm(true);
   };
 
-  const handleDeleteMaintenance = async (recordId) => {
-    if (window.confirm("Are you sure you want to delete this maintenance record?")) {
-      try {
-        const maintenanceRef = ref(database, `equipment_categories/${selectedCategory}/maintenance_records/${recordId}`);
-        await remove(maintenanceRef);
-        showToast("Maintenance record deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting maintenance record:", error);
-        showToast("Error deleting maintenance record. Please try again.", "error");
-      }
+  const handleDeleteMaintenance = (recordId) => {
+    setDeleteModal({
+      isOpen: true,
+      recordId,
+      type: 'maintenance'
+    });
+  };
+
+  const confirmDeleteMaintenance = async () => {
+    try {
+      const maintenanceRef = ref(database, `equipment_categories/${selectedCategory}/maintenance_records/${deleteModal.recordId}`);
+      await remove(maintenanceRef);
+      showToast("Maintenance record deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting maintenance record:", error);
+      showToast("Error deleting maintenance record. Please try again.", "error");
+    } finally {
+      setDeleteModal({ isOpen: false, recordId: null, type: 'maintenance' });
     }
   };
 
-  const handleDeleteScheduled = async (scheduleId) => {
-    if (window.confirm("Are you sure you want to delete this scheduled maintenance?")) {
-      try {
-        const scheduleRef = ref(database, `equipment_categories/${selectedCategory}/scheduled_maintenance/${scheduleId}`);
-        await remove(scheduleRef);
-        showToast("Scheduled maintenance deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting scheduled maintenance:", error);
-        showToast("Error deleting scheduled maintenance. Please try again.", "error");
-      }
+  const handleDeleteScheduled = (scheduleId) => {
+    setDeleteModal({
+      isOpen: true,
+      recordId: scheduleId,
+      type: 'scheduled'
+    });
+  };
+
+  const confirmDeleteScheduled = async () => {
+    try {
+      const scheduleRef = ref(database, `equipment_categories/${selectedCategory}/scheduled_maintenance/${deleteModal.recordId}`);
+      await remove(scheduleRef);
+      showToast("Scheduled maintenance deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting scheduled maintenance:", error);
+      showToast("Error deleting scheduled maintenance. Please try again.", "error");
+    } finally {
+      setDeleteModal({ isOpen: false, recordId: null, type: 'scheduled' });
     }
   };
 
@@ -1219,6 +1237,19 @@ export default function EquipmentMaintenance({ categories, equipments, selectedC
           onClose={() => setToast({ show: false, message: "", type: "success" })}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, recordId: null, type: 'maintenance' })}
+        onConfirm={deleteModal.type === 'maintenance' ? confirmDeleteMaintenance : confirmDeleteScheduled}
+        title="Confirm Delete"
+        message={deleteModal.type === 'maintenance' 
+          ? "Are you sure you want to delete this maintenance record?" 
+          : "Are you sure you want to delete this scheduled maintenance?"}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
