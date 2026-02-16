@@ -151,7 +151,7 @@ export default function UserManagement({ onRedirectToUsers }) {
   // Load users when component mounts
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   // Filter and sort users
   const filteredUsers = users

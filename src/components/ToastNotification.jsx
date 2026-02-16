@@ -28,7 +28,7 @@ export default function ToastNotification({
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [duration]);
+  }, [duration, handleClose]);
 
   if (!isVisible) return null;
 
