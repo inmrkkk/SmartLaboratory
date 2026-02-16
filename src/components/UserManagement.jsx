@@ -1,5 +1,5 @@
 // src/components/UserManagement.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   ref, 
@@ -101,7 +101,7 @@ export default function UserManagement({ onRedirectToUsers }) {
   const statuses = ["Active", "Inactive", "Pending"];
 
   // Fetch users from Firebase Realtime Database
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const usersRef = ref(database, 'users');
@@ -146,7 +146,7 @@ export default function UserManagement({ onRedirectToUsers }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Load users when component mounts
   useEffect(() => {
