@@ -15,6 +15,7 @@ import {
 } from "firebase/auth";
 import { database, auth } from "../firebase";
 import "../CSS/UserManagement.css";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 export default function UserManagement({ onRedirectToUsers }) {
   const navigate = useNavigate();
@@ -32,6 +33,8 @@ export default function UserManagement({ onRedirectToUsers }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [emailValidation, setEmailValidation] = useState({ status: '', message: '' });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -51,20 +54,32 @@ export default function UserManagement({ onRedirectToUsers }) {
     student: "Student"
   };
 
-  const handleDelete = async (user) => {
-    const confirmDelete = window.confirm(`Delete ${user.name}? This action cannot be undone.`);
-    if (!confirmDelete) return;
+  const handleDelete = (user) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    
     try {
-      const userRef = ref(database, `users/${user.id}`);
+      const userRef = ref(database, `users/${userToDelete.id}`);
       await remove(userRef);
-      setUsers(prev => prev.filter(u => u.id !== user.id));
-      alert(`User ${user.name} deleted successfully.`);
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      alert(`User ${userToDelete.name} deleted successfully.`);
     } catch (error) {
       console.error("Error deleting user:", error);
       alert("Failed to delete user. Please try again.");
     }
   };
+
+  const cancelDelete = () => {
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+  };
+
   const getRoleLabel = (role) => roleLabels[role] || role;
   const statuses = ["Active", "Inactive", "Pending"];
 
@@ -709,6 +724,17 @@ export default function UserManagement({ onRedirectToUsers }) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Delete ${userToDelete?.name || 'this user'}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
