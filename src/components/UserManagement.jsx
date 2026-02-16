@@ -36,6 +36,23 @@ export default function UserManagement({ onRedirectToUsers }) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // success or error
+
+  // Toast notification helper function
+  const showNotification = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -68,10 +85,10 @@ export default function UserManagement({ onRedirectToUsers }) {
       setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
       setDeleteModalOpen(false);
       setUserToDelete(null);
-      alert(`User ${userToDelete.name} deleted successfully.`);
+      showNotification(`User ${userToDelete.name} deleted successfully.`, "success");
     } catch (error) {
       console.error("Error deleting user:", error);
-      alert("Failed to delete user. Please try again.");
+      showNotification("Failed to delete user. Please try again.", "error");
     }
   };
 
@@ -125,7 +142,7 @@ export default function UserManagement({ onRedirectToUsers }) {
       }
     } catch (error) {
       console.error("Error fetching users:", error);
-      alert("Error fetching users. Please try again.");
+      showNotification("Error fetching users. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -582,7 +599,7 @@ export default function UserManagement({ onRedirectToUsers }) {
               
               {success && (
                 <div className="alert alert-success">
-                  <span className="alert-icon">✅</span>
+                  <span className="alert-icon"></span>
                   {success}
                 </div>
               )}
@@ -735,6 +752,37 @@ export default function UserManagement({ onRedirectToUsers }) {
         confirmText="Delete"
         cancelText="Cancel"
       />
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div 
+          className={`toast-notification ${toastType}`}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: toastType === 'success' ? '#10b981' : '#ef4444',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 9999,
+            fontSize: '14px',
+            fontWeight: '500',
+            minWidth: '250px',
+            maxWidth: '400px',
+            animation: 'slideIn 0.3s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>
+              {toastType === 'success' ? '✓' : '⚠'}
+            </span>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

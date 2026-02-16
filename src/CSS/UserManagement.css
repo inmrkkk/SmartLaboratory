@@ -857,3 +857,19 @@
   border-color: #16a34a !important;
   box-shadow: 0 0 0 1px #16a34a !important;
 }
+
+/* Toast Notification Animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-notification {
+  animation: slideIn 0.3s ease-out;
+}
