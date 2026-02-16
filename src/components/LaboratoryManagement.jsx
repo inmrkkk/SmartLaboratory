@@ -681,7 +681,7 @@ export default function LaboratoryManagement() {
       {showSuccessModal && (
         <div className="success-modal-overlay">
           <div className="success-modal-container">
-            <div className="success-modal-icon">✅</div>
+            <div className="success-modal-icon"></div>
             <h2 className="success-modal-title">Success</h2>
             <p className="success-modal-message">{successMessage}</p>
             <button 
