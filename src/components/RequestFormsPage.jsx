@@ -1009,6 +1009,28 @@ export default function RequestFormsPage() {
 
 
 
+      if (newStatus === "released") {
+
+        const releaseQuantityValue =
+
+          parseInt(latestRequestData?.approvedQuantity) ||
+
+          parseInt(latestRequestData?.approvedQuantity) ||
+
+          parseInt(latestRequestData?.quantity) ||
+
+          parseInt(latestRequestData?.quantity) ||
+
+          1;
+
+        updateData.quantityReleased = releaseQuantityValue;
+
+        updateData.releasedAt = new Date().toISOString();
+
+      }
+
+
+
       // Add return details if provided
 
       if (returnDetails) {

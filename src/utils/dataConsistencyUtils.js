@@ -385,7 +385,34 @@ export const applyDataConsistencyFixes = async (fixesToApply) => {
 
 
 
-export const rebuildQuantityBorrowedFromReleasedRequests = async ({ dryRun = true } = {}) => {
+export const rebuildQuantityBorrowedFromReleasedRequests = async ({
+
+  dryRun = true,
+
+  autoRepair = false,
+
+  cooldownMs = 5 * 60 * 1000,
+
+  storageKey = "sl_auto_rebuild_quantity_borrowed"
+
+} = {}) => {
+  if (autoRepair && typeof window !== "undefined") {
+    try {
+      const lastRunRaw = window.localStorage.getItem(storageKey);
+      const lastRun = lastRunRaw ? Number(lastRunRaw) : 0;
+      if (Number.isFinite(lastRun) && lastRun > 0 && Date.now() - lastRun < cooldownMs) {
+        return {
+          success: true,
+          skipped: true,
+          reason: "cooldown",
+          summary: { dryRun }
+        };
+      }
+    } catch {
+      // ignore storage failures and continue
+    }
+  }
+
   const categoriesSnapshot = await get(ref(database, "equipment_categories"));
   const requestsSnapshot = await get(ref(database, "borrow_requests"));
 
@@ -470,6 +497,91 @@ export const rebuildQuantityBorrowedFromReleasedRequests = async ({ dryRun = tru
   }
 
   await applyDataConsistencyFixes(fixes);
+
+  if (autoRepair && typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(storageKey, String(Date.now()));
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  return { success: true, summary, fixesApplied: fixes.length };
+};
+
+
+
+export const backfillQuantityReleasedForReleasedRequests = async ({
+
+  dryRun = true,
+
+  autoBackfill = false,
+
+  cooldownMs = 5 * 60 * 1000,
+
+  storageKey = "sl_auto_backfill_quantity_released"
+
+} = {}) => {
+  if (autoBackfill && typeof window !== "undefined") {
+    try {
+      const lastRunRaw = window.localStorage.getItem(storageKey);
+      const lastRun = lastRunRaw ? Number(lastRunRaw) : 0;
+      if (Number.isFinite(lastRun) && lastRun > 0 && Date.now() - lastRun < cooldownMs) {
+        return {
+          success: true,
+          skipped: true,
+          reason: "cooldown",
+          summary: { dryRun }
+        };
+      }
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  const requestsSnapshot = await get(ref(database, "borrow_requests"));
+  const requestsData = requestsSnapshot.exists() ? requestsSnapshot.val() : {};
+
+  const fixes = [];
+  Object.entries(requestsData || {}).forEach(([requestId, req]) => {
+    const request = req || {};
+    const statusValue = normalizeText(request.status);
+    if (statusValue !== "released") return;
+
+    const existing = Number(request.quantityReleased);
+    if (Number.isFinite(existing) && existing > 0) return;
+
+    const fallback = Number(request.approvedQuantity ?? request.quantity);
+    const value = Number.isFinite(fallback) && fallback > 0 ? fallback : 1;
+    fixes.push({
+      path: `borrow_requests/${requestId}/quantityReleased`,
+      value,
+      reason: "Backfill missing quantityReleased for released request",
+      safe: true
+    });
+  });
+
+  const summary = {
+    releasedRequests: Object.values(requestsData || {}).filter((r) => normalizeText(r?.status) === "released").length,
+    fixes: fixes.length,
+    dryRun
+  };
+
+  if (dryRun) {
+    return { success: true, summary, fixes };
+  }
+
+  if (fixes.length) {
+    await applyDataConsistencyFixes(fixes);
+  }
+
+  if (autoBackfill && typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(storageKey, String(Date.now()));
+    } catch {
+      // ignore
+    }
+  }
 
   return { success: true, summary, fixesApplied: fixes.length };
 };
