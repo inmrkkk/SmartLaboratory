@@ -64,6 +64,37 @@ export default function RequestFormsPage() {
 
   const [loading, setLoading] = useState(true);
 
+  // Local function to update category counts (same logic as EquipmentPage)
+  const updateCategoryCountsLocal = async (categoryId) => {
+    try {
+      const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
+      const snapshot = await get(equipmentsRef);
+      const data = snapshot.val();
+      
+      const totalCount = data
+        ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity) || 1), 0)
+        : 0;
+      
+      // Calculate available count based on quantity_borrowed, not status
+      const availableCount = data
+        ? Object.values(data).reduce((sum, eq) => {
+            const totalQuantity = Number(eq.quantity) || 1;
+            const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
+            const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
+            return sum + availableQuantity;
+          }, 0)
+        : 0;
+
+      const categoryRef = ref(database, `equipment_categories/${categoryId}`);
+      await update(categoryRef, {
+        totalCount,
+        availableCount
+      });
+    } catch (error) {
+      console.error("Error updating category counts:", error);
+    }
+  };
+
   const [filterStatus, setFilterStatus] = useState("All");
 
   const [filterType, setFilterType] = useState("All");
@@ -1294,27 +1325,21 @@ export default function RequestFormsPage() {
 
 
           // Update quantity_borrowed if it changed
-
           const equipmentUpdates = {};
 
           if (newBorrowed !== currentBorrowed) {
-
             equipmentUpdates.quantity_borrowed = newBorrowed;
-
           }
 
           if (updatedQuantity !== totalQuantity) {
-
             equipmentUpdates.quantity = updatedQuantity;
-
           }
 
-
-
           if (Object.keys(equipmentUpdates).length > 0) {
-
             await update(equipmentRef, equipmentUpdates);
-
+            
+            // Update category counts to keep available counts in sync
+            await updateCategoryCountsLocal(categoryId);
           }
 
         }

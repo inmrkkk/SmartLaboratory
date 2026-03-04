@@ -45,7 +45,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     name: "",
     model: "",
     serialNumber: "",
-    status: "Available",
     condition: "Good",
     location: "",
     purchaseDate: "",
@@ -561,6 +560,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         laboratory: resolvedLabName,
         categoryId: selectedCategory,
         imageUrl: imageUrl || "",
+        // Always set status to Available - availability determined by quantity_borrowed
+        status: "Available",
         // Ensure both name and equipmentName are set for consistency
         equipmentName: equipmentFormData.name || equipmentFormData.equipmentName
       };
@@ -607,10 +608,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         const totalCount = data
           ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity) || 1), 0)
           : 0;
+        
+        // Calculate available count based on quantity_borrowed, not status
         const availableCount = data
           ? Object.values(data).reduce((sum, eq) => {
-              const quantity = Number(eq.quantity) || 1;
-              return (eq.status === 'Available' || eq.status === 'available') ? sum + quantity : sum;
+              const totalQuantity = Number(eq.quantity) || 1;
+              const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
+              const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
+              return sum + availableQuantity;
             }, 0)
           : 0;
 
@@ -628,15 +633,20 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   // Keep category stored counts (totalCount, availableCount) in sync with
   // the actual equipments data so the category cards immediately reflect
   // the same numbers as the banner after login.
+  // Only run this effect when categories are first loaded, not on every update
+  const [hasInitialCountsUpdate, setHasInitialCountsUpdate] = useState(false);
+  
   useEffect(() => {
-    if (!categories || categories.length === 0) return;
+    if (!categories || categories.length === 0 || hasInitialCountsUpdate) return;
 
     categories.forEach((category) => {
       if (category && category.id) {
         updateCategoryCounts(category.id);
       }
     });
-  }, [categories]);
+    
+    setHasInitialCountsUpdate(true);
+  }, [categories, hasInitialCountsUpdate]);
 
   // Helper function to get user role from userId
   const getUserRole = (userId) => {
@@ -892,7 +902,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       name: equipment.name || equipment.equipmentName || "",
       model: equipment.model || "",
       serialNumber: equipment.serialNumber || "",
-      status: equipment.status || "Available",
       condition: equipment.condition || "Good",
       location: equipment.location || "",
       purchaseDate: equipment.purchaseDate || "",
@@ -977,7 +986,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       name: "",
       model: "",
       serialNumber: "",
-      status: "Available",
       condition: "Good",
       location: "",
       purchaseDate: "",
@@ -1623,16 +1631,28 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                             )}
                           </td>
                           <td>
-                            <span
-                              className="status-badge"
-                              style={{
-                                backgroundColor: getStatusColor(equipment.status) + "20",
-                                color: getStatusColor(equipment.status),
-                                borderColor: getStatusColor(equipment.status) + "30"
-                              }}
-                            >
-                              {equipment.status}
-                            </span>
+                            {(() => {
+                              const originalTotal = Number(equipment.quantity) || 1;
+                              const lostCount = getLostOrMissingCount(equipment.name || equipment.equipmentName);
+                              const effectiveTotal = Math.max(0, originalTotal - lostCount);
+                              const borrowed = Number(equipment.quantity_borrowed) || 0;
+                              const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
+                              
+                              const isUnavailable = effectiveAvailable === 0;
+                              
+                              return (
+                                <span
+                                  className="status-badge"
+                                  style={{
+                                    backgroundColor: isUnavailable ? "#ef444420" : "#10b98120",
+                                    color: isUnavailable ? "#ef4444" : "#10b981",
+                                    borderColor: isUnavailable ? "#ef444430" : "#10b98130"
+                                  }}
+                                >
+                                  {isUnavailable ? "Unavailable" : "Available"}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="quantity-cell">
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1904,20 +1924,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                         {lab.labName} ({lab.labId})
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Status</label>
-                  <select
-                    name="status"
-                    value={equipmentFormData.status}
-                    onChange={handleEquipmentInputChange}
-                    className="form-select"
-                  >
-                    <option value="Available">Available</option>
-                    <option value="In Use">In Use</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Retired">Retired</option>
                   </select>
                 </div>
               </div>
