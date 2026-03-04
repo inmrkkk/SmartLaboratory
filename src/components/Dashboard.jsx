@@ -302,6 +302,21 @@ export default function Dashboard() {
 
         // Calculate statistics
         const pendingCount = requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length;
+        
+        // Debug: Log all request statuses to see what's in the data
+        console.log('[Dashboard] Request status breakdown:', {
+          totalRequests: requests.length,
+          pendingCount,
+          pendingLowerCase: requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length,
+          pendingUpperCase: requests.filter(req => (req.status || '').toString().trim() === 'Pending').length,
+          allStatuses: requests.map(req => ({
+            id: req.id,
+            status: req.status,
+            statusLower: (req.status || '').toString().trim().toLowerCase(),
+            itemName: req.itemName,
+            borrower: req.adviserName || req.userEmail
+          }))
+        });
 
         const getQuantity = (req) => {
           if (!req) return 1;
@@ -314,6 +329,18 @@ export default function Dashboard() {
           }
           return sum;
         }, 0);
+
+        // Verify borrowedCount matches equipment field calculation
+        const borrowedFromEquipment = equipmentData.reduce((sum, item) => {
+          const quantityBorrowed = Number(item.quantity_borrowed) || 0;
+          return sum + quantityBorrowed;
+        }, 0);
+
+        console.log('[Dashboard] Borrowed count verification:', {
+          borrowedFromRequests: borrowedCount,
+          borrowedFromEquipmentField: borrowedFromEquipment,
+          countsMatch: borrowedCount === borrowedFromEquipment
+        });
 
         const overdueCount = requests.filter(req => {
           const statusValue = (req.status || '').toString().trim().toLowerCase();
@@ -364,6 +391,7 @@ export default function Dashboard() {
         // Calculate adviser vs student borrowing statistics (released items only)
         let adviserBorrowings = 0;
         let studentBorrowings = 0;
+        const borrowingDetails = [];
         
         // Helper function to determine borrower role with fallbacks
         const getBorrowerRole = (request) => {
@@ -402,6 +430,17 @@ export default function Dashboard() {
               }
             }
 
+            // Store details for debugging
+            borrowingDetails.push({
+              id: req.id,
+              itemName: req.itemName,
+              borrower: req.adviserName || req.userEmail,
+              role: borrowerRole,
+              isFaculty,
+              quantity,
+              userId: req.userId
+            });
+
             if (isFaculty) {
               adviserBorrowings += quantity;
             } else {
@@ -410,13 +449,35 @@ export default function Dashboard() {
           }
         });
 
+        // Debug: Log instructor/student borrowing details
+        console.log('[Dashboard] Instructor/Student borrowing breakdown:', {
+          adviserBorrowings,
+          studentBorrowings,
+          totalReleasedRequests: borrowingDetails.length,
+          details: borrowingDetails,
+          hasAnyRequests: requests.length > 0,
+          hasReleasedRequests: requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')
+        });
+
+        // If there are no requests or no released requests, set counts to 0
+        const finalAdviserBorrowings = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : adviserBorrowings;
+        const finalStudentBorrowings = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : studentBorrowings;
+        const finalBorrowedCount = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : borrowedCount;
+
+        console.log('[Dashboard] Final counts after validation:', {
+          finalAdviserBorrowings,
+          finalStudentBorrowings,
+          finalBorrowedCount,
+          shouldAllBeZero: requests.length === 0
+        });
+
         setDashboardStats(prev => ({
           ...prev,
           pendingRequests: pendingCount,
-          borrowedItems: borrowedCount,
+          borrowedItems: finalBorrowedCount,
           overdueItems: overdueCount,
-          borrowedByAdviser: adviserBorrowings,
-          borrowedByStudents: studentBorrowings
+          borrowedByAdviser: finalAdviserBorrowings,
+          borrowedByStudents: finalStudentBorrowings
         }));
       } else {
         setDashboardStats(prev => ({
@@ -461,7 +522,6 @@ export default function Dashboard() {
       unsubscribeBorrowRequests();
       unsubscribeUsers();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, requestBelongsToAssignedLabs, users, borrowingTimeFilter]);
 
   useEffect(() => {
@@ -475,7 +535,7 @@ export default function Dashboard() {
       return sum + quantity;
     }, 0);
 
-    // Calculate borrowed items using quantity_borrowed field
+    // Calculate borrowed items using quantity_borrowed field (updated by RequestFormsPage when requests are released)
     const borrowedEquipment = equipmentList.reduce((sum, item) => {
       const quantityBorrowed = Number(item.quantity_borrowed) || 0;
       return sum + quantityBorrowed;

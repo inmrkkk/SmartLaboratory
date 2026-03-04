@@ -1276,12 +1276,28 @@ export default function RequestFormsPage() {
 
 
           // Handle quantity_borrowed updates based on status changes that affect released items
+          console.log('[RequestFormsPage] Status change:', {
+            requestId: requestId,
+            oldStatus: baseRequestData.status,
+            newStatus: newStatus,
+            currentBorrowed,
+            totalQuantity,
+            releasedQuantity,
+            wasCounted,
+            willBeCounted
+          });
 
           if (willBeCounted && !wasCounted) {
 
             // Increment when items are actually released
 
             const availableQuantity = totalQuantity - currentBorrowed;
+
+            console.log('[RequestFormsPage] Releasing items:', {
+              availableQuantity,
+              releasedQuantity,
+              canRelease: availableQuantity >= releasedQuantity
+            });
 
             if (availableQuantity < releasedQuantity) {
 
@@ -1296,33 +1312,45 @@ export default function RequestFormsPage() {
 
             newBorrowed = currentBorrowed + releasedQuantity;
 
+            console.log('[RequestFormsPage] Updated borrowed count:', {
+              old: currentBorrowed,
+              new: newBorrowed,
+              added: releasedQuantity
+            });
+
           } else if (!willBeCounted && wasCounted) {
 
             // Decrement when items leave the released state (returned/rejected/etc.)
 
-
             newBorrowed = Math.max(0, currentBorrowed - releasedQuantity);
 
+            console.log('[RequestFormsPage] Returned items:', {
+              old: currentBorrowed,
+              new: newBorrowed,
+              returned: releasedQuantity
+            });
+
+          } else {
+
+            console.log('[RequestFormsPage] No inventory change needed for this status transition');
+
+          }
+
+          // Handle quantity adjustments for returned items with shortages
+          if (newStatus === "returned") {
+
+            // If items were not fully returned, reflect the loss in total quantity
 
 
-            if (newStatus === "returned") {
+            const shortage = Math.max(0, releasedQuantity - returnedQuantityValue);
 
-              // If items were not fully returned, reflect the loss in total quantity
+            if (shortage > 0) {
 
-
-              const shortage = Math.max(0, releasedQuantity - returnedQuantityValue);
-
-              if (shortage > 0) {
-
-                updatedQuantity = Math.max(0, totalQuantity - shortage);
-
-              }
+              updatedQuantity = Math.max(0, totalQuantity - shortage);
 
             }
 
           }
-
-
 
           // Update quantity_borrowed if it changed
           const equipmentUpdates = {};
