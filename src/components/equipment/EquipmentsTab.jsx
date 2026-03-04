@@ -24,7 +24,16 @@ export default function EquipmentsTab({
       onValue(equipmentsRef, async (snapshot) => {
         const data = snapshot.val();
         const totalCount = data ? Object.keys(data).length : 0;
-        const availableCount = data ? Object.values(data).filter(eq => eq.status === 'Available').length : 0;
+        
+        // Calculate available count based on quantity_borrowed, not status
+        const availableCount = data 
+          ? Object.values(data).reduce((sum, eq) => {
+              const totalQuantity = Number(eq.quantity) || 1;
+              const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
+              const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
+              return sum + availableQuantity;
+            }, 0)
+          : 0;
         
         const categoryRef = ref(database, `equipment_categories/${categoryId}`);
         await update(categoryRef, {

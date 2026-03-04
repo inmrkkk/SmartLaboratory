@@ -601,10 +601,18 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   };
 
   const updateCategoryCounts = async (categoryId) => {
+    // Show visual notification
+    if (window.showToast) {
+      window.showToast(`🔧 EquipmentPage: Updating counts for category ${categoryId}`, "info");
+    }
+    
+    console.log('[EquipmentPage] updateCategoryCounts called for categoryId:', categoryId);
     try {
       const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
       onValue(equipmentsRef, async (snapshot) => {
         const data = snapshot.val();
+        console.log('[EquipmentPage] Equipment data changed, updating category counts for:', categoryId, data);
+        
         const totalCount = data
           ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity) || 1), 0)
           : 0;
@@ -615,18 +623,37 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               const totalQuantity = Number(eq.quantity) || 1;
               const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
               const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
+              console.log(`[EquipmentPage] Item ${eq.name || eq.equipmentName}: total=${totalQuantity}, borrowed=${borrowedQuantity}, available=${availableQuantity}`);
               return sum + availableQuantity;
             }, 0)
           : 0;
+
+        console.log('[EquipmentPage] Category count update:', {
+          categoryId,
+          totalCount,
+          availableCount
+        });
+
+        // Show visual notification with counts
+        if (window.showToast) {
+          window.showToast(`📊 EquipmentPage: Total=${totalCount}, Available=${availableCount}`, "warning");
+        }
 
         const categoryRef = ref(database, `equipment_categories/${categoryId}`);
         await update(categoryRef, {
           totalCount,
           availableCount
         });
+        
+        if (window.showToast) {
+          window.showToast(`✅ EquipmentPage: Category ${categoryId} updated`, "success");
+        }
       }, { onlyOnce: true });
     } catch (error) {
       console.error("Error updating category counts:", error);
+      if (window.showToast) {
+        window.showToast(`❌ EquipmentPage Error: ${error.message}`, "error");
+      }
     }
   };
 

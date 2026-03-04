@@ -503,24 +503,44 @@ export default function Analytics() {
 
     // Equipment Statistics
     console.log("Processing equipment stats for:", equipment.length, "equipment items");
-    console.log("Equipment status breakdown:", {
-      available: equipment.filter(eq => eq.status === 'Available' || eq.status === 'available').length,
-      inUse: equipment.filter(eq => eq.status === 'In Use' || eq.status === 'in_use' || eq.status === 'in use').length,
-      maintenance: equipment.filter(eq => eq.status === 'Maintenance' || eq.status === 'maintenance').length,
-      retired: equipment.filter(eq => eq.status === 'Retired' || eq.status === 'retired').length,
-      other: equipment.filter(eq => !['Available', 'available', 'In Use', 'in_use', 'in use', 'Maintenance', 'maintenance', 'Retired', 'retired'].includes(eq.status)).length
+    
+    // Calculate available and in-use counts based on quantity_borrowed, not status
+    let totalQuantity = 0;
+    let totalBorrowed = 0;
+    let maintenanceCount = 0;
+    let retiredCount = 0;
+    
+    equipment.forEach(eq => {
+      const qty = Number(eq.quantity) || 1;
+      const borrowed = Number(eq.quantity_borrowed) || 0;
+      totalQuantity += qty;
+      totalBorrowed += borrowed;
+      
+      const status = (eq.status || '').toLowerCase();
+      if (status === 'maintenance') maintenanceCount++;
+      else if (status === 'retired') retiredCount++;
+    });
+    
+    const availableQuantity = Math.max(0, totalQuantity - totalBorrowed);
+    
+    console.log("Equipment quantity breakdown:", {
+      totalQuantity,
+      totalBorrowed,
+      availableQuantity,
+      maintenanceCount,
+      retiredCount
     });
     
     const equipmentStats = {
       total: equipment.length,
-      available: equipment.filter(eq => eq.status === 'Available' || eq.status === 'available').length,
-      inUse: equipment.filter(eq => eq.status === 'In Use' || eq.status === 'in_use' || eq.status === 'in use').length,
-      maintenance: equipment.filter(eq => eq.status === 'Maintenance' || eq.status === 'maintenance').length,
+      available: availableQuantity,
+      inUse: totalBorrowed,
+      maintenance: maintenanceCount,
       utilizationRate: 0
     };
 
-    if (equipmentStats.total > 0) {
-      equipmentStats.utilizationRate = Math.round((equipmentStats.inUse / equipmentStats.total) * 100);
+    if (totalQuantity > 0) {
+      equipmentStats.utilizationRate = Math.round((totalBorrowed / totalQuantity) * 100);
     }
 
     // Borrowing Trends
@@ -786,13 +806,18 @@ export default function Analytics() {
 };
 
 const calculateUtilizationRates = (equipment, history, periodDays) => {
-  const totalEquipment = equipment.length;
-  const inUseEquipment = equipment.filter(
-    eq => eq.status === 'In Use' || eq.status === 'in_use' || eq.status === 'in use'
-  ).length;
+  let totalQuantity = 0;
+  let totalBorrowed = 0;
+  
+  equipment.forEach(eq => {
+    const qty = Number(eq.quantity) || 1;
+    const borrowed = Number(eq.quantity_borrowed) || 0;
+    totalQuantity += qty;
+    totalBorrowed += borrowed;
+  });
 
   return {
-    overall: totalEquipment > 0 ? Math.round((inUseEquipment / totalEquipment) * 100) : 0,
+    overall: totalQuantity > 0 ? Math.round((totalBorrowed / totalQuantity) * 100) : 0,
     byCategory: {}
   };
 };

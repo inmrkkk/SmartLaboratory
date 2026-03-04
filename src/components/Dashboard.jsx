@@ -320,7 +320,7 @@ export default function Dashboard() {
 
         const getQuantity = (req) => {
           if (!req) return 1;
-          return Number(req.quantityReleased ?? req.approvedQuantity ?? req.quantity) || 1;
+          return Number(req.quantityReleased ?? req.quantity) || 1;
         };
         // Count items that are actually released (physically borrowed)
         const borrowedCount = requests.reduce((sum, req) => {
@@ -699,9 +699,7 @@ export default function Dashboard() {
         const getHistoryEntryQuantity = (entry) => {
           const candidates = [
             entry.quantityReleased,
-            entry.approvedQuantity,
             entry.quantity,
-            entry.details?.originalRequest?.approvedQuantity,
             entry.details?.originalRequest?.quantity,
             entry.returnDetails?.requestedQuantity
           ];
@@ -968,6 +966,97 @@ export default function Dashboard() {
     }
   };
 
+  // Function to automatically mark old released items as returned
+  const autoMarkOldItemsAsReturned = async () => {
+    try {
+      alert('[Dashboard] Starting auto-mark old items as returned...');
+      
+      const borrowRequestsRef = ref(database, 'borrow_requests');
+      const snapshot = await get(borrowRequestsRef);
+      
+      if (!snapshot.exists()) {
+        alert('[Dashboard] No borrow requests found');
+        return;
+      }
+      
+      const data = snapshot.val();
+      const requests = Object.values(data);
+      
+      // Show total requests found
+      alert(`Found ${requests.length} total requests in database`);
+      
+      // Find ALL requests that are "released" (remove date filter for now)
+      const releasedRequests = requests.filter(req => {
+        const isReleased = (req.status || '').toString().trim().toLowerCase() === 'released';
+        return isReleased;
+      });
+      
+      // Show what we found
+      if (releasedRequests.length === 0) {
+        const statusCounts = {};
+        requests.forEach(req => {
+          const status = (req.status || 'No Status').toString().trim().toLowerCase();
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        const statusMessage = Object.entries(statusCounts)
+          .map(([status, count]) => `${count} items with status "${status}"`)
+          .join('\n');
+        
+        alert(`No "released" items found!\n\nTotal items by status:\n${statusMessage}`);
+        return;
+      }
+      
+      // Show details of released items
+      const releasedDetails = releasedRequests.map(req => 
+        `• ${req.itemName || 'Unknown'} (${req.quantity || 1}) by ${req.adviserName || 'Unknown'}`
+      ).join('\n');
+      
+      const confirmMessage = `Found ${releasedRequests.length} released items:\n\n${releasedDetails}\n\nMark all as returned?`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+      
+      // Update each released request to "returned" status
+      const updates = {};
+      releasedRequests.forEach(req => {
+        if (req.id) {
+          updates[`borrow_requests/${req.id}/status`] = 'returned';
+          updates[`borrow_requests/${req.id}/returnedDate`] = new Date().toISOString();
+          updates[`borrow_requests/${req.id}/autoReturned`] = true;
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        alert(`Updating ${releasedRequests.length} items in database...`);
+        
+        await update(ref(database), updates);
+        
+        alert(`Successfully marked ${releasedRequests.length} items as returned!\n\nClearing cache and refreshing...`);
+        
+        // Force clear any cached data and refresh
+        setDashboardStats(prev => ({
+          ...prev,
+          borrowedByAdviser: 0,
+          borrowedByStudents: 0,
+          borrowedItems: 0,
+          pendingRequests: 0,
+          overdueItems: 0
+        }));
+        
+        // Force refresh after a short delay to ensure Firebase updates are processed
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+      
+    } catch (error) {
+      alert(`Error updating items: ${error.message}\n\nPlease check your internet connection and try again.`);
+      console.error('[Dashboard] Error auto-marking old items:', error);
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -1022,6 +1111,14 @@ export default function Dashboard() {
                     {unreadNotificationCount > 0 && (
                       <span className="notification-badge">{unreadNotificationCount}</span>
                     )}
+                  </button>
+                  <button 
+                    className="notification-bell"
+                    onClick={autoMarkOldItemsAsReturned}
+                    title="Mark old items as returned"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    🔄
                   </button>
                 </div>
               )}
