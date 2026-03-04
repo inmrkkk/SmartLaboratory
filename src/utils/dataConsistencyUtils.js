@@ -382,3 +382,94 @@ export const applyDataConsistencyFixes = async (fixesToApply) => {
     applied: safeFixes.length
   };
 };
+
+
+
+export const rebuildQuantityBorrowedFromReleasedRequests = async ({ dryRun = true } = {}) => {
+  const categoriesSnapshot = await get(ref(database, "equipment_categories"));
+  const requestsSnapshot = await get(ref(database, "borrow_requests"));
+
+  const categoriesData = categoriesSnapshot.exists() ? categoriesSnapshot.val() : {};
+  const requestsData = requestsSnapshot.exists() ? requestsSnapshot.val() : {};
+
+  const { equipmentById, equipmentByName } = buildEquipmentIndex(categoriesData);
+
+  const releasedRequests = Object.entries(requestsData)
+    .map(([id, req]) => ({ id, ...(req || {}) }))
+    .filter((req) => normalizeText(req.status) === "released");
+
+  const releasedQuantityForRequest = (req) => {
+    const candidates = [req.quantityReleased, req.approvedQuantity, req.quantity];
+    for (const value of candidates) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 1;
+  };
+
+  const borrowedByEquipmentKey = new Map();
+
+  releasedRequests.forEach((req) => {
+    const qty = releasedQuantityForRequest(req);
+
+    const itemId = req.itemId ? String(req.itemId) : "";
+    const categoryId = req.categoryId ? String(req.categoryId) : "";
+
+    let resolvedEquipment = null;
+    if (itemId && equipmentById.has(itemId)) {
+      const eq = equipmentById.get(itemId);
+      if (!categoryId || String(eq.categoryId) === categoryId) {
+        resolvedEquipment = eq;
+      }
+    }
+    if (!resolvedEquipment && req.itemName) {
+      resolvedEquipment = equipmentByName.get(normalizeText(req.itemName)) || null;
+    }
+    if (!resolvedEquipment || !resolvedEquipment.id || !resolvedEquipment.categoryId) return;
+
+    const key = `${resolvedEquipment.categoryId}::${resolvedEquipment.id}`;
+    borrowedByEquipmentKey.set(key, (borrowedByEquipmentKey.get(key) || 0) + qty);
+  });
+
+  const fixes = [];
+  Object.values(categoriesData || {}).forEach((category) => {
+    const categoryId = category?.id;
+    return categoryId;
+  });
+
+  Object.entries(categoriesData || {}).forEach(([categoryId, category]) => {
+    const equipments = category?.equipments || {};
+    Object.entries(equipments).forEach(([equipmentId, equipment]) => {
+      const currentBorrowed = Number(equipment?.quantity_borrowed) || 0;
+      const key = `${categoryId}::${equipmentId}`;
+      const expectedBorrowed = Number(borrowedByEquipmentKey.get(key) || 0);
+
+      if (currentBorrowed !== expectedBorrowed) {
+        fixes.push({
+          path: `equipment_categories/${categoryId}/equipments/${equipmentId}/quantity_borrowed`,
+          value: expectedBorrowed,
+          reason: `Rebuild quantity_borrowed from released requests (was ${currentBorrowed}, expected ${expectedBorrowed})`,
+          safe: true
+        });
+      }
+    });
+  });
+
+  const summary = {
+    releasedRequests: releasedRequests.length,
+    equipmentChecked: Object.values(categoriesData || {}).reduce((sum, category) => {
+      const equipments = category?.equipments ? Object.keys(category.equipments).length : 0;
+      return sum + equipments;
+    }, 0),
+    fixes: fixes.length,
+    dryRun
+  };
+
+  if (dryRun) {
+    return { success: true, summary, fixes };
+  }
+
+  await applyDataConsistencyFixes(fixes);
+
+  return { success: true, summary, fixesApplied: fixes.length };
+};

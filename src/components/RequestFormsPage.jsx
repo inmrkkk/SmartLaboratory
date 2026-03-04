@@ -989,6 +989,14 @@ export default function RequestFormsPage() {
 
       const requestRef = ref(database, `borrow_requests/${requestId}`);
 
+      const latestRequestSnapshot = await get(requestRef);
+
+      const latestRequestData = latestRequestSnapshot.exists()
+
+        ? { id: requestId, ...latestRequestSnapshot.val() }
+
+        : null;
+
       const updateData = {
 
         status: newStatus,
@@ -1025,6 +1033,8 @@ export default function RequestFormsPage() {
 
       }
 
+      const baseRequestData = latestRequestData || requestData;
+
 
 
       // Prevent Lab-in-Charge from canceling/downgrading an approved request
@@ -1035,7 +1045,8 @@ export default function RequestFormsPage() {
 
         !isAdmin() &&
 
-        requestData.status === "approved" &&
+
+        baseRequestData.status === "approved" &&
 
         ["pending", "in_progress"].includes(newStatus)
 
@@ -1053,7 +1064,8 @@ export default function RequestFormsPage() {
 
       if (newStatus === "approved" || newStatus === "released") {
 
-        const eligibilityCheck = await validateBorrowerEligibility(requestData.userId);
+
+        const eligibilityCheck = await validateBorrowerEligibility(baseRequestData.userId);
 
         
 
@@ -1075,7 +1087,8 @@ export default function RequestFormsPage() {
 
       let equipment = null;
 
-      if (requestData.itemId && requestData.categoryId) {
+
+      if (baseRequestData.itemId && baseRequestData.categoryId) {
 
         // Try to find by itemId and categoryId
 
@@ -1083,9 +1096,11 @@ export default function RequestFormsPage() {
 
           (eq) =>
 
-            eq.id === requestData.itemId &&
 
-            eq.categoryId === requestData.categoryId
+            eq.id === baseRequestData.itemId &&
+
+
+            eq.categoryId === baseRequestData.categoryId
 
         );
 
@@ -1101,13 +1116,17 @@ export default function RequestFormsPage() {
 
           (eq) =>
 
-            eq.equipmentName === requestData.itemName ||
 
-            eq.itemName === requestData.itemName ||
+            eq.equipmentName === baseRequestData.itemName ||
 
-            eq.name === requestData.itemName ||
 
-            eq.title === requestData.itemName
+            eq.itemName === baseRequestData.itemName ||
+
+
+            eq.name === baseRequestData.itemName ||
+
+
+            eq.title === baseRequestData.itemName
 
         );
 
@@ -1121,17 +1140,22 @@ export default function RequestFormsPage() {
 
         equipment &&
 
-        requestData.categoryId &&
 
-        (requestData.itemId || equipment.id)
+        baseRequestData.categoryId &&
+
+
+        (baseRequestData.itemId || equipment.id)
 
       ) {
 
-        const equipmentId = requestData.itemId || equipment.id;
 
-        const categoryId = requestData.categoryId || equipment.categoryId;
+        const equipmentId = baseRequestData.itemId || equipment.id;
 
-        const requestedQuantity = parseInt(requestData.quantity) || 1;
+
+        const categoryId = baseRequestData.categoryId || equipment.categoryId;
+
+
+        const requestedQuantity = parseInt(baseRequestData.quantity) || 1;
 
         const returnedQuantityValue =
 
@@ -1177,9 +1201,24 @@ export default function RequestFormsPage() {
 
           const countedStatuses = ["released"];
 
-          const wasCounted = countedStatuses.includes(requestData.status);
+
+          const wasCounted = countedStatuses.includes(
+
+            (baseRequestData.status || '').toString().trim().toLowerCase()
+
+          );
 
           const willBeCounted = countedStatuses.includes(newStatus);
+
+          const releasedQuantity =
+
+
+            parseInt(baseRequestData.quantityReleased) ||
+
+
+            parseInt(baseRequestData.approvedQuantity) ||
+
+            requestedQuantity;
 
 
 
@@ -1191,10 +1230,10 @@ export default function RequestFormsPage() {
 
             const availableQuantity = totalQuantity - currentBorrowed;
 
-            if (availableQuantity < requestedQuantity) {
+            if (availableQuantity < releasedQuantity) {
 
               showToast(
-                `Cannot release: Only ${availableQuantity} available, but ${requestedQuantity} requested.`,
+                `Cannot release: Only ${availableQuantity} available, but ${releasedQuantity} requested.`,
                 "error"
               );
 
@@ -1202,13 +1241,14 @@ export default function RequestFormsPage() {
 
             }
 
-            newBorrowed = currentBorrowed + requestedQuantity;
+            newBorrowed = currentBorrowed + releasedQuantity;
 
           } else if (!willBeCounted && wasCounted) {
 
             // Decrement when items leave the released state (returned/rejected/etc.)
 
-            newBorrowed = Math.max(0, currentBorrowed - requestedQuantity);
+
+            newBorrowed = Math.max(0, currentBorrowed - releasedQuantity);
 
 
 
@@ -1216,7 +1256,8 @@ export default function RequestFormsPage() {
 
               // If items were not fully returned, reflect the loss in total quantity
 
-              const shortage = Math.max(0, requestedQuantity - returnedQuantityValue);
+
+              const shortage = Math.max(0, releasedQuantity - returnedQuantityValue);
 
               if (shortage > 0) {
 

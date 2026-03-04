@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { applyDataConsistencyFixes, auditDataConsistency } from "../utils/dataConsistencyUtils";
+import { applyDataConsistencyFixes, auditDataConsistency, rebuildQuantityBorrowedFromReleasedRequests } from "../utils/dataConsistencyUtils";
 import "../CSS/DataConsistency.css";
 
 export default function DataConsistencyAudit() {
@@ -11,6 +11,10 @@ export default function DataConsistencyAudit() {
   const [error, setError] = useState(null);
   const [dryRun, setDryRun] = useState(true);
   const [onlySafe, setOnlySafe] = useState(true);
+
+  const [rebuildRunning, setRebuildRunning] = useState(false);
+  const [rebuildApplying, setRebuildApplying] = useState(false);
+  const [rebuildResult, setRebuildResult] = useState(null);
 
   const groupedFindings = useMemo(() => {
     if (!result?.findings) return { error: [], warning: [], info: [] };
@@ -41,6 +45,43 @@ export default function DataConsistencyAudit() {
       setError(e?.message || "Failed to run audit");
     } finally {
       setRunning(false);
+    }
+  };
+
+  const runBorrowedRebuildPreview = async () => {
+    setRebuildRunning(true);
+    setError(null);
+    try {
+      const res = await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: true });
+      setRebuildResult(res);
+    } catch (e) {
+      setError(e?.message || "Failed to rebuild quantity_borrowed");
+    } finally {
+      setRebuildRunning(false);
+    }
+  };
+
+  const applyBorrowedRebuild = async () => {
+    const fixCount = rebuildResult?.fixes?.length || 0;
+    if (!fixCount) return;
+
+    const confirmed = window.confirm(
+      `Recalculate quantity_borrowed for all equipment from RELEASED requests only and apply ${fixCount} update(s)? This will modify your database.`
+    );
+    if (!confirmed) return;
+
+    setRebuildApplying(true);
+    setError(null);
+    try {
+      await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: false });
+      const res = await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: true });
+      setRebuildResult(res);
+      const rerun = await auditDataConsistency({ dryRun: true });
+      setResult(rerun);
+    } catch (e) {
+      setError(e?.message || "Failed to apply quantity_borrowed rebuild");
+    } finally {
+      setRebuildApplying(false);
     }
   };
 
@@ -115,6 +156,31 @@ export default function DataConsistencyAudit() {
         </div>
       </div>
 
+      <div className="data-consistency-welcome" style={{ marginTop: 16 }}>
+        <div className="welcome-content">
+          <h2 className="welcome-title" style={{ fontSize: 18 }}>Repair Inventory Counters</h2>
+          <p className="welcome-subtitle">
+            Rebuilds each equipment&apos;s quantity_borrowed by summing only borrow requests with status &quot;released&quot;.
+            Useful when availability has been reduced incorrectly.
+          </p>
+        </div>
+        <div className="data-consistency-controls">
+          <div className="action-buttons-group">
+            <button className="btn-run-audit" onClick={runBorrowedRebuildPreview} disabled={rebuildRunning || rebuildApplying}>
+              {rebuildRunning ? "Running..." : "Preview Rebuild"}
+            </button>
+            <button
+              className="btn-apply-fixes"
+              onClick={applyBorrowedRebuild}
+              disabled={rebuildApplying || rebuildRunning || !(rebuildResult?.fixes?.length > 0)}
+              title="Applies the rebuild updates to quantity_borrowed"
+            >
+              {rebuildApplying ? "Applying..." : "Apply Rebuild"}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {error && (
         <div className="error-message">
           {error}
@@ -129,6 +195,27 @@ export default function DataConsistencyAudit() {
 
       {result && (
         <>
+          {rebuildResult && (
+            <div className="summary-grid" style={{ marginBottom: 16 }}>
+              <div className="summary-card">
+                <div className="summary-label">Rebuild: Released Requests</div>
+                <div className="summary-value">{rebuildResult.summary?.releasedRequests ?? 0}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Rebuild: Equipment Checked</div>
+                <div className="summary-value">{rebuildResult.summary?.equipmentChecked ?? 0}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Rebuild: Updates Needed</div>
+                <div className="summary-value">{rebuildResult.summary?.fixes ?? 0}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Rebuild Mode</div>
+                <div className="summary-value">Preview</div>
+              </div>
+            </div>
+          )}
+
           <div className="summary-grid">
             <div className="summary-card">
               <div className="summary-label">Laboratories</div>
