@@ -66,9 +66,6 @@ export default function RequestFormsPage() {
 
   // Local function to update category counts (same logic as EquipmentPage)
   const updateCategoryCountsLocal = async (categoryId) => {
-    // Show visual notification when this is called
-    showToast(`🔍 Category counts updating for ${categoryId}`, "info");
-    
     try {
       const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
       const snapshot = await get(equipmentsRef);
@@ -79,28 +76,18 @@ export default function RequestFormsPage() {
         : 0;
       
       // Calculate available count based on quantity_borrowed, not status
-      const availableCount = data
-        ? Object.values(data).reduce((sum, eq) => {
-            const totalQuantity = Number(eq.quantity) || 1;
-            const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
-            const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
-            return sum + availableQuantity;
-          }, 0)
+      const borrowedCount = data
+        ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity_borrowed) || 0), 0)
         : 0;
-
-      // Show the actual counts
-      showToast(`📊 Category Update: Total=${totalCount}, Available=${availableCount}`, "info");
+      const availableCount = totalCount - borrowedCount;
 
       const categoryRef = ref(database, `equipment_categories/${categoryId}`);
       await update(categoryRef, {
         totalCount,
         availableCount
       });
-      
-      showToast(`✅ Category counts updated for ${categoryId}`, "success");
     } catch (error) {
       console.error("Error updating category counts:", error);
-      showToast(`❌ Error updating category counts: ${error.message}`, "error");
     }
   };
 
@@ -561,7 +548,6 @@ export default function RequestFormsPage() {
 
       // Show notification when borrow_requests change (detects mobile app requests)
       const requestCount = data ? Object.keys(data).length : 0;
-      showToast(`📱 Borrow requests updated: ${requestCount} total requests`, "info");
 
       if (data) {
 
@@ -581,9 +567,8 @@ export default function RequestFormsPage() {
         );
 
         if (newRequests.length > 0) {
-          showToast(`🆕 ${newRequests.length} new request(s) detected from mobile app!`, "warning");
           newRequests.forEach(req => {
-            showToast(`📋 New: ${req.itemName} by ${req.adviserName || req.userEmail}`, "info");
+            void req;
           });
         }
 
@@ -1290,21 +1275,10 @@ export default function RequestFormsPage() {
 
 
 
-          // Handle quantity_borrowed updates based on status changes that affect released items
-          showToast(`🔄 Status Change: ${baseRequestData.status} → ${newStatus}`, "info");
-          
           if (willBeCounted && !wasCounted) {
-            showToast(`📦 Items being RELEASED: ${releasedQuantity} units`, "warning");
-
             // Increment when items are actually released
 
             const availableQuantity = totalQuantity - currentBorrowed;
-
-            console.log('[RequestFormsPage] Releasing items:', {
-              availableQuantity,
-              releasedQuantity,
-              canRelease: availableQuantity >= releasedQuantity
-            });
 
             if (availableQuantity < releasedQuantity) {
 
@@ -1319,27 +1293,11 @@ export default function RequestFormsPage() {
 
             newBorrowed = currentBorrowed + releasedQuantity;
 
-            console.log('[RequestFormsPage] Updated borrowed count:', {
-              old: currentBorrowed,
-              new: newBorrowed,
-              added: releasedQuantity
-            });
-
           } else if (!willBeCounted && wasCounted) {
 
             // Decrement when items leave the released state (returned/rejected/etc.)
 
             newBorrowed = Math.max(0, currentBorrowed - releasedQuantity);
-
-            console.log('[RequestFormsPage] Returned items:', {
-              old: currentBorrowed,
-              new: newBorrowed,
-              returned: releasedQuantity
-            });
-
-          } else {
-
-            showToast(`✅ No inventory change needed for ${baseRequestData.status} → ${newStatus}`, "success");
 
           }
 
@@ -1371,14 +1329,10 @@ export default function RequestFormsPage() {
           }
 
           if (Object.keys(equipmentUpdates).length > 0) {
-            showToast(`⚙️ Equipment Updates: ${JSON.stringify(equipmentUpdates)}`, "warning");
             await update(equipmentRef, equipmentUpdates);
             
             // Update category counts to keep available counts in sync
-            showToast(`🔄 Updating category counts due to equipment changes...`, "info");
             await updateCategoryCountsLocal(categoryId);
-          } else {
-            showToast(`🚫 No equipment updates needed`, "success");
           }
 
         }
