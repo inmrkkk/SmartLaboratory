@@ -146,6 +146,33 @@ export default function DamagedLostRecords() {
 
     return 'N/A';
   };
+
+  const getRecordBorrowedQuantity = (record) => {
+    const qty = Number(record?.borrowedQuantity);
+    return Number.isFinite(qty) && qty > 0 ? qty : 1;
+  };
+
+  const getRecordLostQuantity = (record) => {
+    const missing = Number(record?.missingQuantity);
+    if (Number.isFinite(missing) && missing > 0) return missing;
+
+    if (record?.itemStatus === 'Lost') {
+      const borrowed = getRecordBorrowedQuantity(record);
+      const returned = Number(record?.returnedQuantity);
+      if (Number.isFinite(returned) && returned >= 0) {
+        const diff = borrowed - returned;
+        if (diff > 0) return diff;
+      }
+      return borrowed;
+    }
+
+    return 0;
+  };
+
+  const getRecordDamagedQuantity = (record) => {
+    if (record?.itemStatus !== 'Damaged') return 0;
+    return getRecordBorrowedQuantity(record);
+  };
   // Load damaged/lost records and restricted borrowers
   useEffect(() => {
     const damagedLostRef = ref(database, 'damaged_lost_records');
@@ -174,15 +201,14 @@ export default function DamagedLostRecords() {
                 courseYearSection: record.courseYearSection,
                 totalDamaged: 0,
                 totalLost: 0,
+                totalItems: 0,
                 items: []
               };
             }
-            
-            if (record.itemStatus === 'Damaged') {
-              borrowerGroups[borrowerId].totalDamaged += 1;
-            } else if (record.itemStatus === 'Lost') {
-              borrowerGroups[borrowerId].totalLost += 1;
-            }
+
+            borrowerGroups[borrowerId].totalDamaged += getRecordDamagedQuantity(record);
+            borrowerGroups[borrowerId].totalLost += getRecordLostQuantity(record);
+            borrowerGroups[borrowerId].totalItems += getRecordBorrowedQuantity(record);
             
             borrowerGroups[borrowerId].items.push(record);
           } else if (record.status === 'Settled') {
@@ -443,7 +469,7 @@ export default function DamagedLostRecords() {
                         </td>
                         <td className="total-cell">
                           <span className="total-count">
-                            {borrower.totalDamaged + borrower.totalLost}
+                            {borrower.totalItems ?? (borrower.totalDamaged + borrower.totalLost)}
                           </span>
                         </td>
                         <td className="status-cell">

@@ -342,11 +342,16 @@ export const getDamagedLostStatistics = async () => {
         } else if (record.status === 'Settled') {
           stats.settledRecords++;
         }
-        
+
+        const borrowedQuantity = Number(record?.borrowedQuantity);
+        const safeBorrowedQuantity = Number.isFinite(borrowedQuantity) && borrowedQuantity > 0 ? borrowedQuantity : 1;
+        const missingQuantity = Number(record?.missingQuantity);
+        const safeMissingQuantity = Number.isFinite(missingQuantity) && missingQuantity > 0 ? missingQuantity : 0;
+
         if (record.itemStatus === 'Damaged') {
-          stats.damagedItems++;
+          stats.damagedItems += safeBorrowedQuantity;
         } else if (record.itemStatus === 'Lost') {
-          stats.lostItems++;
+          stats.lostItems += safeMissingQuantity > 0 ? safeMissingQuantity : safeBorrowedQuantity;
         }
       });
     }

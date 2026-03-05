@@ -1210,70 +1210,41 @@ export default function RequestFormsPage() {
 
         const equipmentId = baseRequestData.itemId || equipment.id;
 
-
         const categoryId = baseRequestData.categoryId || equipment.categoryId;
 
-
         const requestedQuantity = parseInt(baseRequestData.quantity) || 1;
-
         const returnedQuantityValue =
-
           returnDetails && newStatus === "returned"
-
             ? parseInt(returnDetails.returnedQuantity) || requestedQuantity
-
             : requestedQuantity;
 
-
-
         const equipmentRef = ref(
-
           database,
-
           `equipment_categories/${categoryId}/equipments/${equipmentId}`
-
         );
 
         const equipmentSnapshot = await get(equipmentRef);
-
         const currentEquipment = equipmentSnapshot.exists()
-
           ? equipmentSnapshot.val()
-
           : null;
 
-
-
         if (currentEquipment) {
-
           const currentBorrowed = currentEquipment.quantity_borrowed || 0;
-
           const totalQuantity = parseInt(currentEquipment.quantity) || 0;
 
-
-
           let newBorrowed = currentBorrowed;
-
           let updatedQuantity = totalQuantity;
-
-
 
           const countedStatuses = ["released"];
 
-
           const wasCounted = countedStatuses.includes(
-
             (baseRequestData.status || '').toString().trim().toLowerCase()
-
           );
 
           const willBeCounted = countedStatuses.includes(newStatus);
 
           const releasedQuantity =
-
             parseInt(baseRequestData.quantityReleased) || requestedQuantity;
-
-
 
           if (willBeCounted && !wasCounted) {
             // Increment when items are actually released
@@ -1301,20 +1272,18 @@ export default function RequestFormsPage() {
 
           }
 
-          // Handle quantity adjustments for returned items with shortages
+          // Handle quantity adjustments for returned items with shortages/damage.
+          // Only reduce total stock by the number of items actually missing/damaged.
           if (newStatus === "returned") {
-
-            // If items were not fully returned, reflect the loss in total quantity
-
-
+            const condition = (returnDetails?.condition || '').toString().trim().toLowerCase();
             const shortage = Math.max(0, releasedQuantity - returnedQuantityValue);
-
-            if (shortage > 0) {
-
-              updatedQuantity = Math.max(0, totalQuantity - shortage);
-
+            const reduction =
+              (condition === 'damaged' || condition === 'lost' || condition === 'missing')
+                ? shortage
+                : shortage;
+            if (reduction > 0) {
+              updatedQuantity = Math.max(0, totalQuantity - reduction);
             }
-
           }
 
           // Update quantity_borrowed if it changed
@@ -2584,7 +2553,7 @@ export default function RequestFormsPage() {
 
       adjustedReturnedQuantity = Math.max(
 
-        1,
+        0,
 
         Math.min(requestedQuantity, adjustedReturnedQuantity)
 
