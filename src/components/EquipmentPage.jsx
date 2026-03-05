@@ -797,14 +797,24 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   };
 
   // Count how many times an equipment has been reported as lost/missing
-  const getLostOrMissingCount = (equipmentName) => {
-    if (!equipmentName || !historyData || historyData.length === 0) return 0;
+  const getLostOrMissingCount = (equipmentId, equipmentName) => {
+    if ((!equipmentId && !equipmentName) || !historyData || historyData.length === 0) return 0;
 
-    const normalizedName = equipmentName.toLowerCase();
+    const normalizedName = (equipmentName || '').toLowerCase();
+    const normalizedId = (equipmentId || '').toString().trim();
 
     return historyData.filter(entry => {
-      const entryName = (entry.equipmentName || '').toLowerCase();
-      if (entryName !== normalizedName) return false;
+      const entryItemId = (entry.itemId || entry.equipmentId || entry.equipmentDocId || '').toString().trim();
+      const entryName = (entry.equipmentName || entry.itemName || '').toLowerCase();
+
+      // Prefer stable id match. If a history entry doesn't have an id (legacy),
+      // we intentionally do NOT fall back to name matching to avoid old records
+      // impacting newly-created inventory items that share the same name.
+      if (normalizedId) {
+        if (!entryItemId || entryItemId !== normalizedId) return false;
+      } else {
+        return false;
+      }
 
       const condition = (entry.condition || '').toLowerCase();
       if (condition.includes('lost') || condition.includes('missing') || condition === 'item lost/missing') {
@@ -1660,7 +1670,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                           <td>
                             {(() => {
                               const originalTotal = Number(equipment.quantity) || 1;
-                              const lostCount = getLostOrMissingCount(equipment.name || equipment.equipmentName);
+                              const lostCount = getLostOrMissingCount(equipment.id, equipment.name || equipment.equipmentName);
                               const effectiveTotal = Math.max(0, originalTotal - lostCount);
                               const borrowed = Number(equipment.quantity_borrowed) || 0;
                               const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
@@ -1685,7 +1695,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {(() => {
                                 const originalTotal = Number(equipment.quantity) || 1;
-                                const lostCount = getLostOrMissingCount(equipment.name || equipment.equipmentName);
+                                const lostCount = getLostOrMissingCount(equipment.id, equipment.name || equipment.equipmentName);
                                 const effectiveTotal = Math.max(0, originalTotal - lostCount);
                                 const borrowed = Number(equipment.quantity_borrowed) || 0;
                                 const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
