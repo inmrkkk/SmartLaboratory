@@ -2370,33 +2370,15 @@ export default function RequestFormsPage() {
 
     const historyRef = ref(database, "history");
 
-    const matchingEquipment = equipmentData.find(
+    const requestItemId = (request?.itemId || '').toString().trim();
 
-      (eq) =>
+    const laboratory = laboratories.find(
 
-        eq.equipmentName === request.itemName ||
+      (lab) =>
 
-        eq.itemName === request.itemName ||
-
-        eq.name === request.itemName ||
-
-        eq.title === request.itemName
+        lab.labName === request.laboratory || lab.labId === request.labId
 
     );
-
-
-
-    const laboratory = matchingEquipment
-
-      ? laboratories.find((lab) => lab.labId === matchingEquipment.labId)
-
-      : laboratories.find(
-
-          (lab) =>
-
-            lab.labName === request.laboratory || lab.labId === request.labId
-
-        );
 
 
 
@@ -2465,7 +2447,7 @@ export default function RequestFormsPage() {
 
       requestId: request.id,
 
-      itemId: request.itemId || "",
+      itemId: requestItemId,
 
       categoryId: request.categoryId || "",
 
@@ -2487,7 +2469,7 @@ export default function RequestFormsPage() {
 
       labId:
 
-        laboratory?.labId || matchingEquipment?.labId || request.labId || "",
+        laboratory?.labId || request.labId || "",
 
       labRecordId: laboratory?.id || "",
 

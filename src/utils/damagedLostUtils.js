@@ -34,6 +34,8 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
       damageDescription = returnData.conditionNotes || 'Item returned damaged';
     }
 
+    const resolvedItemId = (itemData?.id || itemData?.itemId || returnData?.itemId || returnData?.equipmentId || '').toString().trim();
+
     const recordData = {
       borrowerId: returnData.userId || borrowerData.id,
       borrowerName: borrowerData.name || borrowerData.fullName || borrowerData.displayName,
@@ -42,7 +44,9 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
       course: borrowerData.course || null,
       yearLevel: borrowerData.yearLevel || null,
       section: borrowerData.section || null,
-      itemId: itemData.id || itemData.itemId,
+      // Stable linkage to the specific inventory record
+      equipment_id: resolvedItemId,
+      itemId: resolvedItemId,
       itemName: itemData.name || itemData.itemName || itemData.title,
       itemStatus: itemStatus,
       damageDescription: damageDescription,
