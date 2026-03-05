@@ -127,7 +127,7 @@ export default function DataConsistencyAudit() {
         <div className="welcome-content">
           <h1 className="welcome-title">Data Consistency</h1>
           <p className="welcome-subtitle">
-            Audits laboratory data across the database and suggests safe auto-fixes.
+            Run audits to detect inconsistencies and apply fixes to keep inventory counts accurate.
           </p>
         </div>
 
@@ -136,50 +136,17 @@ export default function DataConsistencyAudit() {
             <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled />
             Dry run
           </div>
-          <div className="checkbox-group">
-            <input type="checkbox" checked={onlySafe} onChange={(e) => setOnlySafe(e.target.checked)} />
-            Only safe fixes
-          </div>
           <div className="action-buttons-group">
-            <button className="btn-run-audit" onClick={runAudit} disabled={running}>
+            <button className="btn-run-audit" onClick={runAudit} disabled={running || applying}>
               {running ? "Running..." : "Run Audit"}
             </button>
-            <button
-              className="btn-apply-fixes"
-              onClick={applyFixes}
-              disabled={applying || running || !result?.fixes?.length}
-              title={onlySafe ? "Applies only fixes marked safe" : "Applies all queued fixes"}
-            >
+            <button className="btn-apply-fixes" onClick={applyFixes} disabled={applying || running || !result?.fixes?.length}>
               {applying ? "Applying..." : "Apply Fixes"}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="data-consistency-welcome" style={{ marginTop: 16 }}>
-        <div className="welcome-content">
-          <h2 className="welcome-title" style={{ fontSize: 18 }}>Repair Inventory Counters</h2>
-          <p className="welcome-subtitle">
-            Rebuilds each equipment&apos;s quantity_borrowed by summing only borrow requests with status &quot;released&quot;.
-            Useful when availability has been reduced incorrectly.
-          </p>
-        </div>
-        <div className="data-consistency-controls">
-          <div className="action-buttons-group">
-            <button className="btn-run-audit" onClick={runBorrowedRebuildPreview} disabled={rebuildRunning || rebuildApplying}>
-              {rebuildRunning ? "Running..." : "Preview Rebuild"}
-            </button>
-            <button
-              className="btn-apply-fixes"
-              onClick={applyBorrowedRebuild}
-              disabled={rebuildApplying || rebuildRunning || !(rebuildResult?.fixes?.length > 0)}
-              title="Applies the rebuild updates to quantity_borrowed"
-            >
-              {rebuildApplying ? "Applying..." : "Apply Rebuild"}
-            </button>
-          </div>
-        </div>
-      </div>
 
       {error && (
         <div className="error-message">
@@ -224,10 +191,6 @@ export default function DataConsistencyAudit() {
             <div className="summary-card">
               <div className="summary-label">Equipment Categories</div>
               <div className="summary-value">{result.summary.equipmentCategories}</div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-label">Borrow Requests</div>
-              <div className="summary-value">{result.summary.borrowRequests}</div>
             </div>
             <div className="summary-card">
               <div className="summary-label">Damaged/Lost Records</div>
