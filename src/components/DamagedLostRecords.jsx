@@ -1,5 +1,5 @@
 // src/components/DamagedLostRecords.jsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { ref, onValue, update, get, remove } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -147,12 +147,12 @@ export default function DamagedLostRecords() {
     return 'N/A';
   };
 
-  const getRecordBorrowedQuantity = (record) => {
+  const getRecordBorrowedQuantity = useCallback((record) => {
     const qty = Number(record?.borrowedQuantity);
     return Number.isFinite(qty) && qty > 0 ? qty : 1;
-  };
+  }, []);
 
-  const getRecordLostQuantity = (record) => {
+  const getRecordLostQuantity = useCallback((record) => {
     const missing = Number(record?.missingQuantity);
     if (Number.isFinite(missing) && missing > 0) return missing;
 
@@ -167,12 +167,12 @@ export default function DamagedLostRecords() {
     }
 
     return 0;
-  };
+  }, [getRecordBorrowedQuantity]);
 
-  const getRecordDamagedQuantity = (record) => {
+  const getRecordDamagedQuantity = useCallback((record) => {
     if (record?.itemStatus !== 'Damaged') return 0;
     return getRecordBorrowedQuantity(record);
-  };
+  }, [getRecordBorrowedQuantity]);
   // Load damaged/lost records and restricted borrowers
   useEffect(() => {
     const damagedLostRef = ref(database, 'damaged_lost_records');
@@ -234,7 +234,7 @@ export default function DamagedLostRecords() {
       unsubscribeDamagedLost();
       unsubscribeRestricted();
     };
-  }, []);
+  }, [getRecordDamagedQuantity, getRecordLostQuantity, getRecordBorrowedQuantity]);
 
   // View borrower details
   const viewBorrowerDetails = async (borrower) => {

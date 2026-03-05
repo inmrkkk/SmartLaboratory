@@ -10,10 +10,8 @@ export default function DataConsistencyAudit() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [dryRun, setDryRun] = useState(true);
-  const [onlySafe, setOnlySafe] = useState(true);
+  const [onlySafe] = useState(true);
 
-  const [rebuildRunning, setRebuildRunning] = useState(false);
-  const [rebuildApplying, setRebuildApplying] = useState(false);
   const [rebuildResult, setRebuildResult] = useState(null);
 
   const groupedFindings = useMemo(() => {
@@ -45,43 +43,6 @@ export default function DataConsistencyAudit() {
       setError(e?.message || "Failed to run audit");
     } finally {
       setRunning(false);
-    }
-  };
-
-  const runBorrowedRebuildPreview = async () => {
-    setRebuildRunning(true);
-    setError(null);
-    try {
-      const res = await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: true });
-      setRebuildResult(res);
-    } catch (e) {
-      setError(e?.message || "Failed to rebuild quantity_borrowed");
-    } finally {
-      setRebuildRunning(false);
-    }
-  };
-
-  const applyBorrowedRebuild = async () => {
-    const fixCount = rebuildResult?.fixes?.length || 0;
-    if (!fixCount) return;
-
-    const confirmed = window.confirm(
-      `Recalculate quantity_borrowed for all equipment from RELEASED requests only and apply ${fixCount} update(s)? This will modify your database.`
-    );
-    if (!confirmed) return;
-
-    setRebuildApplying(true);
-    setError(null);
-    try {
-      await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: false });
-      const res = await rebuildQuantityBorrowedFromReleasedRequests({ dryRun: true });
-      setRebuildResult(res);
-      const rerun = await auditDataConsistency({ dryRun: true });
-      setResult(rerun);
-    } catch (e) {
-      setError(e?.message || "Failed to apply quantity_borrowed rebuild");
-    } finally {
-      setRebuildApplying(false);
     }
   };
 

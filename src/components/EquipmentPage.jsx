@@ -1040,16 +1040,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     setEditingEquipment(null);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Available": return "#10b981";
-      case "In Use": return "#f59e0b";
-      case "Maintenance": return "#ef4444";
-      case "Retired": return "#6b7280";
-      default: return "#6b7280";
-    }
-  };
-
   const getWarrantyStatus = (warrantyExpiry) => {
     if (!warrantyExpiry) return null;
 
@@ -1585,7 +1575,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                 {searchTerm
                   ? "Try adjusting your search terms or clear the search to see all equipment."
                   : "Add your first equipment to this category."
-                }
+                } 
               </p>
               {searchTerm && (
                 <button

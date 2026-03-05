@@ -547,8 +547,6 @@ export default function RequestFormsPage() {
       const data = snapshot.val();
 
       // Show notification when borrow_requests change (detects mobile app requests)
-      const requestCount = data ? Object.keys(data).length : 0;
-
       if (data) {
 
         const requestsList = Object.keys(data).map((key) => ({
