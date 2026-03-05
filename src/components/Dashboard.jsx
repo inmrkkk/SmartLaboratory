@@ -522,7 +522,7 @@ export default function Dashboard() {
       unsubscribeBorrowRequests();
       unsubscribeUsers();
     };
-  }, [isAdmin, requestBelongsToAssignedLabs, users, borrowingTimeFilter]);
+  }, [isAdmin, requestBelongsToAssignedLabs, users, borrowingTimeFilter, equipmentData]);
 
   useEffect(() => {
     let equipmentList = equipmentData;

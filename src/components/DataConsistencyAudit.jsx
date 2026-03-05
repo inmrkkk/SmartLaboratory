@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { applyDataConsistencyFixes, auditDataConsistency, rebuildQuantityBorrowedFromReleasedRequests } from "../utils/dataConsistencyUtils";
+import { applyDataConsistencyFixes, auditDataConsistency } from "../utils/dataConsistencyUtils";
 import "../CSS/DataConsistency.css";
 
 export default function DataConsistencyAudit() {
@@ -12,7 +12,7 @@ export default function DataConsistencyAudit() {
   const [dryRun, setDryRun] = useState(true);
   const [onlySafe] = useState(true);
 
-  const [rebuildResult, setRebuildResult] = useState(null);
+  const [rebuildResult] = useState(null);
 
   const groupedFindings = useMemo(() => {
     if (!result?.findings) return { error: [], warning: [], info: [] };
