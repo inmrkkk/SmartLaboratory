@@ -105,12 +105,7 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
  * @returns {Promise<boolean>} - True if borrower is restricted
  */
 export const isBorrowerRestricted = async (borrowerId) => {
-  try {
-    return false;
-  } catch (error) {
-    console.error("Error checking borrower restriction:", error);
-    return false;
-  }
+  return false;
 };
 
 /**
@@ -129,7 +124,6 @@ export const updateItemSettlementStatus = async (recordId, newStatus, adminRemar
       throw new Error("Record not found");
     }
 
-    const recordData = recordSnapshot.val();
     const updateData = {
       status: newStatus,
       adminRemarks,
@@ -166,21 +160,11 @@ export const updateItemSettlementStatus = async (recordId, newStatus, adminRemar
  * @param {string} borrowerId - The borrower's user ID
  */
 export const checkAndClearBorrowerRestriction = async (borrowerId) => {
-  try {
-    return {
-      success: true,
-      cleared: false,
-      message: "Borrower restriction system disabled"
-    };
-
-  } catch (error) {
-    console.error("Error checking borrower restriction:", error);
-    return {
-      success: false,
-      error: error.message,
-      message: "Failed to check borrower restriction"
-    };
-  }
+  return {
+    success: true,
+    cleared: false,
+    message: "Borrower restriction system disabled"
+  };
 };
 
 /**
@@ -217,13 +201,7 @@ export const getBorrowerDamagedLostRecords = async (borrowerId) => {
  * @returns {Promise<Array>} - Array of restricted borrowers
  */
 export const getAllRestrictedBorrowers = async () => {
-  try {
-    return [];
-
-  } catch (error) {
-    console.error("Error getting restricted borrowers:", error);
-    return [];
-  }
+  return [];
 };
 
 /**
@@ -232,21 +210,11 @@ export const getAllRestrictedBorrowers = async () => {
  * @returns {Promise<Object>} - Validation result
  */
 export const validateBorrowerEligibility = async (borrowerId) => {
-  try {
-    return {
-      eligible: true,
-      reason: null,
-      message: "Borrower is eligible to request items"
-    };
-
-  } catch (error) {
-    console.error("Error validating borrower eligibility:", error);
-    return {
-      eligible: false,
-      reason: "System error",
-      message: "Unable to validate borrower eligibility"
-    };
-  }
+  return {
+    eligible: true,
+    reason: null,
+    message: "Borrower is eligible to request items"
+  };
 };
 
 /**

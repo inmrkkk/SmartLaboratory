@@ -1,6 +1,6 @@
 // src/components/Analytics.jsx
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ref, onValue, get, update } from "firebase/database";
+import React, { useState, useEffect } from "react";
+import { ref } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { getDueDateTimeAtFivePm, isReturnedLate } from "../utils/dueTimeUtils";
@@ -935,7 +935,7 @@ const categorizeDamage = (text) => {
 };
 
 const categorizeLostItem = (text) => {
-  if (!text) return 'Unknown';
+  if (!text || text.trim().length === 0) return 'Uncategorized';
   const lowerText = text.toLowerCase();
   
   // Check for Stolen (check first as it's more specific)
@@ -1132,15 +1132,60 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
   const historyValues = Object.values(history);
   const requests = Object.values(borrowRequests);
 
+  const resolveHistoryCondition = (entry) => {
+    return (entry?.returnDetails?.condition || entry?.condition || '').toString().trim().toLowerCase();
+  };
+
+  const resolveHistoryTransactionId = (entry) => {
+    return (entry?.transactionId || entry?.details?.transactionId || entry?.details?.originalRequest?.transactionId || '').toString().trim();
+  };
+
+  const resolveBorrowedQuantity = (entry) => {
+    const borrowed =
+      parseInt(entry?.borrowedQuantity, 10) ||
+      parseInt(entry?.details?.originalRequest?.quantity, 10) ||
+      parseInt(entry?.quantity, 10) ||
+      1;
+    return Number.isFinite(borrowed) && borrowed > 0 ? borrowed : 1;
+  };
+
+  const resolveEntryQuantity = (entry) => {
+    const condition = resolveHistoryCondition(entry);
+    const borrowedQty = resolveBorrowedQuantity(entry);
+    const returnedQtyRaw =
+      entry?.returnDetails?.returnedQuantity ??
+      entry?.returnedQuantity;
+    const returnedQty = parseInt(returnedQtyRaw, 10);
+
+    if (Number.isFinite(returnedQty) && returnedQty >= 0) {
+      if (condition === 'lost' || condition === 'missing' || condition === 'item lost/missing') {
+        return Math.max(1, borrowedQty - returnedQty);
+      }
+      if (condition === 'damaged' || condition === 'returned damaged') {
+        return Math.max(1, borrowedQty - returnedQty);
+      }
+    }
+
+    const parsedQuantity = parseInt(entry?.quantity, 10);
+    if (Number.isFinite(parsedQuantity) && parsedQuantity > 0) return parsedQuantity;
+
+    const parsedReturned = parseInt(entry?.returnDetails?.returnedQuantity, 10);
+    if (Number.isFinite(parsedReturned) && parsedReturned > 0) return parsedReturned;
+
+    return 1;
+  };
+
+  const processedTransactionKeys = new Set();
+
   // 1. Equipment Damage Analysis
   const damageEntries = historyValues.filter(h => {
     if (!h.timestamp || new Date(h.timestamp) < cutoffDate) return false;
-    const condition = (h.condition || '').toLowerCase();
+    const condition = resolveHistoryCondition(h);
     return condition.includes('damaged') || condition === 'returned damaged';
   });
 
     const equipmentDamageAnalysis = {
-      totalDamageIncidents: damageEntries.length,
+      totalDamageIncidents: 0,
       damageByEquipment: {},
       damageByCategory: {},
       damageByBorrower: {},
@@ -1158,31 +1203,26 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
     };
 
     damageEntries.forEach(entry => {
+      const transactionId = resolveHistoryTransactionId(entry);
+      if (transactionId) {
+        const key = `${transactionId}::DAMAGED`;
+        if (processedTransactionKeys.has(key)) return;
+        processedTransactionKeys.add(key);
+      }
       const equipmentName = entry.equipmentName || 'Unknown';
       const categoryName = entry.categoryName || 'Unknown';
       const borrower = entry.borrower || entry.adviserName || 'Unknown';
-      
-      // Get damage description from conditionNotes (primary) or notes (fallback)
-      // Don't use entry.condition as it's just "Returned damaged" and not descriptive
+
+      const entryQuantity = resolveEntryQuantity(entry);
+      equipmentDamageAnalysis.totalDamageIncidents += entryQuantity;
+
       const conditionNotes = entry.returnDetails?.conditionNotes || '';
       const notes = entry.returnDetails?.notes || '';
       const damageText = (conditionNotes || notes).trim().toLowerCase();
-      
-      // Debug: Log the extracted text for troubleshooting
-      if (damageText) {
-        console.log('Damage entry:', {
-          equipment: equipmentName,
-          conditionNotes: conditionNotes,
-          notes: notes,
-          extractedText: damageText
-        });
-      }
-      
-      // Categorize damage type - only if we have descriptive text
+
       let damageType = 'Other';
       if (damageText && damageText.length > 0) {
         damageType = categorizeDamage(damageText);
-        // If still categorized as Other, store details for review
         if (damageType === 'Other') {
           equipmentDamageAnalysis.otherItemsDetails.push({
             equipmentName,
@@ -1193,7 +1233,6 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
           });
         }
       } else {
-        // If no descriptive text, mark as uncategorized
         equipmentDamageAnalysis.uncategorizedCount += 1;
         equipmentDamageAnalysis.otherItemsDetails.push({
           equipmentName,
@@ -1203,18 +1242,17 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
           timestamp: entry.timestamp
         });
       }
-      
-      equipmentDamageAnalysis.damageByType[damageType] = 
-        (equipmentDamageAnalysis.damageByType[damageType] || 0) + 1;
 
-      equipmentDamageAnalysis.damageByEquipment[equipmentName] = 
-        (equipmentDamageAnalysis.damageByEquipment[equipmentName] || 0) + 1;
-      equipmentDamageAnalysis.damageByCategory[categoryName] = 
-        (equipmentDamageAnalysis.damageByCategory[categoryName] || 0) + 1;
-      equipmentDamageAnalysis.damageByBorrower[borrower] = 
-        (equipmentDamageAnalysis.damageByBorrower[borrower] || 0) + 1;
+      equipmentDamageAnalysis.damageByType[damageType] =
+        (equipmentDamageAnalysis.damageByType[damageType] || 0) + entryQuantity;
 
-      // Store recent reports
+      equipmentDamageAnalysis.damageByEquipment[equipmentName] =
+        (equipmentDamageAnalysis.damageByEquipment[equipmentName] || 0) + entryQuantity;
+      equipmentDamageAnalysis.damageByCategory[categoryName] =
+        (equipmentDamageAnalysis.damageByCategory[categoryName] || 0) + entryQuantity;
+      equipmentDamageAnalysis.damageByBorrower[borrower] =
+        (equipmentDamageAnalysis.damageByBorrower[borrower] || 0) + entryQuantity;
+
       equipmentDamageAnalysis.recentReports.push({
         equipmentName,
         categoryName,
@@ -1239,19 +1277,20 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
     // 2. Lost/Missing Items Analysis
     const lostEntries = historyValues.filter(h => {
       if (!h.timestamp || new Date(h.timestamp) < cutoffDate) return false;
-      const condition = (h.condition || '').toLowerCase();
+      const condition = resolveHistoryCondition(h);
       return condition.includes('lost') || condition.includes('missing') || condition === 'item lost/missing';
     });
 
     const lostItemsAnalysis = {
-      totalLostItems: lostEntries.length,
+      totalLostItems: 0,
       lostByEquipment: {},
       lostByCategory: {},
       lostByBorrower: {},
       causes: {
         'Forgotten / Misplaced': 0,
         'Stolen': 0,
-        'Unknown': 0
+        'Unknown': 0,
+        'Uncategorized': 0
       },
       mostLostEquipment: [],
       recentReports: [],
@@ -1259,32 +1298,41 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
     };
 
     lostEntries.forEach(entry => {
+      const transactionId = resolveHistoryTransactionId(entry);
+      if (transactionId) {
+        const key = `${transactionId}::LOST`;
+        if (processedTransactionKeys.has(key)) return;
+        processedTransactionKeys.add(key);
+      }
       const equipmentName = entry.equipmentName || 'Unknown';
       const categoryName = entry.categoryName || 'Unknown';
       const borrower = entry.borrower || entry.adviserName || 'Unknown';
+
+      const entryQuantity = resolveEntryQuantity(entry);
+      lostItemsAnalysis.totalLostItems += entryQuantity;
       
-      // Get description from notes or conditionNotes
-      const notesText = (entry.returnDetails?.conditionNotes || 
-                        entry.returnDetails?.notes || 
-                        entry.condition || '').toLowerCase();
+      const notesText = (
+        entry.returnDetails?.conditionNotes ||
+        entry.returnDetails?.notes ||
+        ''
+      )
+        .toString()
+        .trim();
 
       lostItemsAnalysis.lostByEquipment[equipmentName] = 
-        (lostItemsAnalysis.lostByEquipment[equipmentName] || 0) + 1;
+        (lostItemsAnalysis.lostByEquipment[equipmentName] || 0) + entryQuantity;
       lostItemsAnalysis.lostByCategory[categoryName] = 
-        (lostItemsAnalysis.lostByCategory[categoryName] || 0) + 1;
+        (lostItemsAnalysis.lostByCategory[categoryName] || 0) + entryQuantity;
       lostItemsAnalysis.lostByBorrower[borrower] = 
-        (lostItemsAnalysis.lostByBorrower[borrower] || 0) + 1;
+        (lostItemsAnalysis.lostByBorrower[borrower] || 0) + entryQuantity;
 
-      // Categorize cause using keyword matching
       const cause = categorizeLostItem(notesText);
-      lostItemsAnalysis.causes[cause] = (lostItemsAnalysis.causes[cause] || 0) + 1;
+      lostItemsAnalysis.causes[cause] = (lostItemsAnalysis.causes[cause] || 0) + entryQuantity;
 
-      // Track uncategorized
-      if (cause === 'Unknown' && !notesText) {
+      if (cause === 'Uncategorized') {
         lostItemsAnalysis.uncategorizedCount += 1;
       }
 
-      // Store recent reports
       lostItemsAnalysis.recentReports.push({
         equipmentName,
         categoryName,
@@ -1536,7 +1584,7 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
       lostItems: lostItemsAnalysis,
       lateReturns: lateReturnsAnalysis,
       approvalBottlenecks: approvalBottlenecksAnalysis,
-      totalIncidents: damageEntries.length + lostEntries.length + lateReturns.length,
+      totalIncidents: equipmentDamageAnalysis.totalDamageIncidents + lostItemsAnalysis.totalLostItems + lateReturns.length,
       uncategorizedIncidents: {
         total: totalUncategorized,
         damage: equipmentDamageAnalysis.uncategorizedCount,
@@ -1875,21 +1923,22 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                   <div className="chart-card">
                     <h3>Lost Items by Cause</h3>
                     {(() => {
-                      const lostData = Object.entries(analyticsData.diagnosticAnalytics.lostItems?.causes || {})
+                      const lostCauses = analyticsData.diagnosticAnalytics.lostItems?.causes || {};
+                      const chartData = Object.entries(lostCauses)
                         .filter(([, count]) => count > 0)
                         .map(([cause, count]) => ({
-                          key: cause,
-                          name: cause === 'Unknown' ? 'Other' : cause,
+                          name: cause,
                           value: count
                         }));
                       const COLORS = {
                         'Forgotten / Misplaced': '#f97316',
                         'Stolen': '#ef4444',
-                        'Unknown': chartPalette.neutral
+                        'Unknown': chartPalette.neutral,
+                        'Uncategorized': '#94a3b8'
                       };
-                      const total = lostData.reduce((sum, item) => sum + item.value, 0);
+                      const total = chartData.reduce((sum, item) => sum + item.value, 0);
 
-                      if (lostData.length === 0) {
+                      if (chartData.length === 0) {
                         return <p className="no-data-text">No lost items data available</p>;
                       }
 
@@ -1898,7 +1947,7 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                           <ResponsiveContainer width="100%" height={320}>
                             <PieChart>
                               <Pie
-                                data={lostData}
+                                data={chartData}
                                 cx="50%"
                                 cy="50%"
                                 innerRadius={60}
@@ -1907,8 +1956,8 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                                 cornerRadius={12}
                                 dataKey="value"
                               >
-                                {lostData.map((entry, index) => (
-                                  <Cell key={`lost-cell-${index}`} fill={COLORS[entry.key] || chartPalette.accent} />
+                                {chartData.map((entry, index) => (
+                                  <Cell key={`lost-cell-${index}`} fill={COLORS[entry.name] || chartPalette.accent} />
                                 ))}
                               </Pie>
                               <Tooltip
@@ -1966,14 +2015,20 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                         {
                           key: 'Stolen',
                           label: 'Stolen',
-                          description: 'Incident report indicates possible theft.',
+                          description: 'Item was taken by someone else without permission.',
                           badgeColor: '#ef4444'
                         },
                         {
-                          key: 'Unknown',
-                          label: 'Other / Unknown',
-                          description: 'Cause not specified; requires manual follow-up.',
+                          key: 'Uncategorized',
+                          label: 'Uncategorized',
+                          description: 'No reason/description was provided.',
                           badgeColor: '#94a3b8'
+                        },
+                        {
+                          key: 'Unknown',
+                          label: 'Unknown',
+                          description: 'No clear cause identified from the notes.',
+                          badgeColor: chartPalette.neutral
                         }
                       ];
 

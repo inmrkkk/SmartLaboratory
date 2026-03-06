@@ -702,7 +702,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   };
 
   // Calculate usage data for equipment
-  const calculateUsageData = async (equipmentName) => {
+  const fetchBorrowAnalyticsData = async (equipmentId, equipmentName) => {
     const equipmentHistory = historyData.filter(entry =>
       entry.equipmentName === equipmentName
     );
@@ -796,39 +796,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     };
   };
 
-  // Count how many times an equipment has been reported as lost/missing
-  const getLostOrMissingCount = (equipment) => {
-    if (!equipment || !historyData || historyData.length === 0) return 0;
-
-    const equipmentId = (equipment.id || equipment.itemId || equipment.equipmentId || '').toString().trim();
-    if (!equipmentId) return 0;
-
-    return historyData.filter((entry) => {
-      const entryItemId = (
-        entry.itemId ||
-        entry.equipmentId ||
-        entry.inventoryItemId ||
-        entry.item?.id ||
-        entry.equipment?.id ||
-        ''
-      )
-        .toString()
-        .trim();
-
-      // Strictly link by stable ID. Never query lost/damaged by item name.
-      if (!entryItemId) return false;
-      if (entryItemId !== equipmentId) return false;
-
-      const condition = (entry.condition || '').toLowerCase();
-      if (condition.includes('lost') || condition.includes('missing') || condition === 'item lost/missing') {
-        return true;
-      }
-
-      const notesText = (entry.conditionNotes || entry.notes || entry.remarks || '').toLowerCase();
-      return notesText.includes('lost') || notesText.includes('missing');
-    }).length;
-  };
-
   // Calculate usage statistics
   const calculateUsageStatistics = (equipmentName) => {
     const equipmentHistory = historyData.filter(entry =>
@@ -892,7 +859,9 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     setUsageDataLoading(true);
 
     try {
-      const data = await calculateUsageData(getEquipmentDisplayName(equipment));
+      const equipmentId = equipment?.id || equipment?.itemId || equipment?.equipmentId || '';
+      const equipmentName = getEquipmentDisplayName(equipment);
+      const data = await fetchBorrowAnalyticsData(equipmentId, equipmentName);
       setUsageData(data);
     } catch (error) {
       console.error('[EquipmentPage] Error loading usage data:', error);
