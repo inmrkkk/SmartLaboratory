@@ -153,25 +153,35 @@ export default function DamagedLostRecords() {
   }, []);
 
   const getRecordLostQuantity = useCallback((record) => {
-    const missing = Number(record?.missingQuantity);
-    if (Number.isFinite(missing) && missing > 0) return missing;
+    if (record?.itemStatus !== 'Lost') return 0;
 
-    if (record?.itemStatus === 'Lost') {
-      const borrowed = getRecordBorrowedQuantity(record);
-      const returned = Number(record?.returnedQuantity);
-      if (Number.isFinite(returned) && returned >= 0) {
-        const diff = borrowed - returned;
-        if (diff > 0) return diff;
-      }
-      return borrowed;
+    const explicitMissing = Number(record?.missingQuantity);
+    if (Number.isFinite(explicitMissing) && explicitMissing > 0) return explicitMissing;
+
+    const borrowed = getRecordBorrowedQuantity(record);
+    const returned = Number(record?.returnedQuantity);
+    if (Number.isFinite(returned) && returned >= 0) {
+      const diff = borrowed - returned;
+      if (diff > 0) return diff;
     }
 
-    return 0;
+    return borrowed;
   }, [getRecordBorrowedQuantity]);
 
   const getRecordDamagedQuantity = useCallback((record) => {
     if (record?.itemStatus !== 'Damaged') return 0;
-    return getRecordBorrowedQuantity(record);
+
+    const explicitDamaged = Number(record?.damagedQuantity);
+    if (Number.isFinite(explicitDamaged) && explicitDamaged > 0) return explicitDamaged;
+
+    const borrowed = getRecordBorrowedQuantity(record);
+    const returned = Number(record?.returnedQuantity);
+    if (Number.isFinite(returned) && returned >= 0) {
+      const diff = borrowed - returned;
+      if (diff > 0) return diff;
+    }
+
+    return borrowed;
   }, [getRecordBorrowedQuantity]);
   // Load damaged/lost records and borrowers with pending records
   useEffect(() => {
@@ -666,7 +676,7 @@ export default function DamagedLostRecords() {
                             </span>
                           </td>
                           <td>
-                            {record.missingQuantity > 0 ? (
+                            {(Number(record?.missingQuantity) > 0 || Number(record?.damagedQuantity) > 0) ? (
                               <span className="quantity-info">
                                 {record.returnedQuantity}/{record.borrowedQuantity}
                               </span>
@@ -727,6 +737,56 @@ export default function DamagedLostRecords() {
                     <label>Total Settled Records:</label>
                     <span>{selectedBorrowerSettledRecords.length}</span>
                   </div>
+                  <div className="info-item">
+                    <label>Total Lost Items:</label>
+                    <span>
+                      {selectedBorrowerSettledRecords.reduce((sum, record) => {
+                        const status = (record?.itemStatus || '').toString().trim().toUpperCase();
+                        if (status !== 'LOST') return sum;
+
+                        const missingQuantity = Number(record?.missingQuantity);
+                        if (Number.isFinite(missingQuantity) && missingQuantity > 0) return sum + missingQuantity;
+
+                        const borrowedQuantity = Number(record?.borrowedQuantity);
+                        const returnedQuantity = Number(record?.returnedQuantity);
+
+                        const safeBorrowed = Number.isFinite(borrowedQuantity) && borrowedQuantity > 0
+                          ? borrowedQuantity
+                          : 1;
+                        if (Number.isFinite(returnedQuantity) && returnedQuantity >= 0) {
+                          const diff = safeBorrowed - returnedQuantity;
+                          if (diff > 0) return sum + diff;
+                        }
+
+                        return sum + safeBorrowed;
+                      }, 0)}
+                    </span>
+                  </div>
+                  <div className="info-item">
+                    <label>Total Damaged Items:</label>
+                    <span>
+                      {selectedBorrowerSettledRecords.reduce((sum, record) => {
+                        const status = (record?.itemStatus || '').toString().trim().toUpperCase();
+                        if (status !== 'DAMAGED') return sum;
+
+                        const damagedQuantity = Number(record?.damagedQuantity);
+                        if (Number.isFinite(damagedQuantity) && damagedQuantity > 0) return sum + damagedQuantity;
+
+                        const borrowedQuantity = Number(record?.borrowedQuantity);
+                        const returnedQuantity = Number(record?.returnedQuantity);
+
+                        const safeBorrowed = Number.isFinite(borrowedQuantity) && borrowedQuantity > 0
+                          ? borrowedQuantity
+                          : 1;
+                        if (Number.isFinite(returnedQuantity) && returnedQuantity >= 0) {
+                          const diff = safeBorrowed - returnedQuantity;
+                          if (diff > 0) return sum + diff;
+                        }
+
+                        return sum + safeBorrowed;
+                      }, 0)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -738,6 +798,7 @@ export default function DamagedLostRecords() {
                       <tr>
                         <th>Item Name</th>
                         <th>Status</th>
+                        <th>Quantity</th>
                         <th>Transaction Date</th>
                         <th>Settled Date</th>
                         <th>Admin Remarks</th>
@@ -752,6 +813,39 @@ export default function DamagedLostRecords() {
                             <span className={`status-badge ${record.itemStatus.toLowerCase()}`}>
                               {record.itemStatus}
                             </span>
+                          </td>
+                          <td>
+                            {(() => {
+                              const status = (record?.itemStatus || '').toString().trim().toUpperCase();
+                              const borrowedQuantity = Number(record?.borrowedQuantity);
+                              const returnedQuantity = Number(record?.returnedQuantity);
+
+                              const safeBorrowed = Number.isFinite(borrowedQuantity) && borrowedQuantity > 0
+                                ? borrowedQuantity
+                                : 1;
+
+                              if (status === 'LOST') {
+                                const missingQuantity = Number(record?.missingQuantity);
+                                if (Number.isFinite(missingQuantity) && missingQuantity > 0) return missingQuantity;
+                                if (Number.isFinite(returnedQuantity) && returnedQuantity >= 0) {
+                                  const diff = safeBorrowed - returnedQuantity;
+                                  if (diff > 0) return diff;
+                                }
+                                return safeBorrowed;
+                              }
+
+                              if (status === 'DAMAGED') {
+                                const damagedQuantity = Number(record?.damagedQuantity);
+                                if (Number.isFinite(damagedQuantity) && damagedQuantity > 0) return damagedQuantity;
+                                if (Number.isFinite(returnedQuantity) && returnedQuantity >= 0) {
+                                  const diff = safeBorrowed - returnedQuantity;
+                                  if (diff > 0) return diff;
+                                }
+                                return safeBorrowed;
+                              }
+
+                              return '—';
+                            })()}
                           </td>
                           <td>{new Date(record.transactionDate).toLocaleDateString()}</td>
                           <td>{new Date(record.settledAt).toLocaleDateString()}</td>

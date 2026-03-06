@@ -17,20 +17,36 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
     // Determine item status based on condition and insufficient return
     let itemStatus = 'Damaged';
     let damageDescription = returnData.conditionNotes || '';
+
+    const normalizedCondition = (returnData?.condition || '').toString().trim().toLowerCase();
+    const hasInsufficientReturn = returnedQuantity < borrowedQuantity;
+    const shortage = Math.max(0, borrowedQuantity - returnedQuantity);
     
-    if (returnData.condition === 'lost' || returnData.condition === 'missing') {
+    if (normalizedCondition === 'lost' || normalizedCondition === 'missing') {
       itemStatus = 'Lost';
-      damageDescription = returnData.conditionNotes || 'Item reported as lost/missing';
-    } else if (returnedQuantity < borrowedQuantity) {
-      // Handle insufficient return case
-      const missingQuantity = borrowedQuantity - returnedQuantity;
-      itemStatus = 'Lost';
-      damageDescription = `Insufficient return: ${missingQuantity} item(s) missing out of ${borrowedQuantity} borrowed`;
+      damageDescription = 'Item reported as lost/missing';
       if (returnData.conditionNotes) {
-        damageDescription += `. Additional notes: ${returnData.conditionNotes}`;
+        damageDescription += `. ${returnData.conditionNotes}`;
       }
-    } else if (returnData.condition === 'damaged') {
-      damageDescription = returnData.conditionNotes || 'Item returned damaged';
+    } else if (hasInsufficientReturn) {
+      // Handle insufficient return case
+      itemStatus = normalizedCondition === 'damaged' ? 'Damaged' : 'Lost';
+      if (itemStatus === 'Damaged') {
+        damageDescription = 'Item reported as damaged';
+        if (returnData.conditionNotes) {
+          damageDescription += `. ${returnData.conditionNotes}`;
+        }
+      } else {
+        damageDescription = 'Item reported as lost/missing';
+        if (returnData.conditionNotes) {
+          damageDescription += `. ${returnData.conditionNotes}`;
+        }
+      }
+    } else if (normalizedCondition === 'damaged') {
+      damageDescription = 'Item reported as damaged';
+      if (returnData.conditionNotes) {
+        damageDescription += `. ${returnData.conditionNotes}`;
+      }
     }
 
     const resolvedItemId = (itemData?.id || itemData?.itemId || returnData?.itemId || returnData?.equipmentId || '').toString().trim();
@@ -59,7 +75,8 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
       categoryId: itemData.categoryId,
       borrowedQuantity: borrowedQuantity,
       returnedQuantity: returnedQuantity,
-      missingQuantity: Math.max(0, borrowedQuantity - returnedQuantity)
+      damagedQuantity: itemStatus === 'Damaged' ? (shortage > 0 ? shortage : borrowedQuantity) : 0,
+      missingQuantity: itemStatus === 'Lost' ? (shortage > 0 ? shortage : borrowedQuantity) : 0
     };
 
     // Create the damaged/lost record

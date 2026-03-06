@@ -143,6 +143,8 @@ export default function RequestFormsPage() {
 
   });
 
+  const [returnValidationError, setReturnValidationError] = useState("");
+
   const [showReleaseConfirmation, setShowReleaseConfirmation] = useState(false);
 
   const [requestToRelease, setRequestToRelease] = useState(null);
@@ -1276,9 +1278,11 @@ export default function RequestFormsPage() {
             const condition = (returnDetails?.condition || '').toString().trim().toLowerCase();
             const shortage = Math.max(0, releasedQuantity - returnedQuantityValue);
             const reduction =
-              (condition === 'damaged' || condition === 'lost' || condition === 'missing')
-                ? shortage
-                : shortage;
+              condition === 'damaged'
+                ? (shortage > 0 ? shortage : releasedQuantity)
+                : (condition === 'lost' || condition === 'missing')
+                  ? (shortage > 0 ? shortage : releasedQuantity)
+                  : 0;
             if (reduction > 0) {
               updatedQuantity = Math.max(0, totalQuantity - reduction);
             }
@@ -2332,6 +2336,8 @@ export default function RequestFormsPage() {
 
     });
 
+    setReturnValidationError("");
+
     setShowReturnModal(true);
 
   };
@@ -2359,6 +2365,8 @@ export default function RequestFormsPage() {
       returnedQuantity: "1",
 
     });
+
+    setReturnValidationError("");
 
   };
 
@@ -2425,7 +2433,7 @@ export default function RequestFormsPage() {
           return "Returned damaged";
 
         case "lost":
-          break;
+          return "Item lost/missing";
 
         case "missing":
 
@@ -2553,6 +2561,22 @@ export default function RequestFormsPage() {
 
       }
 
+      const hasInsufficientReturn = adjustedReturnedQuantity < requestedQuantity;
+      const normalizedCondition = (returnFormData.condition || "").toString().trim().toLowerCase();
+      const isAllowedConditionForInsufficient =
+        normalizedCondition === "damaged" ||
+        normalizedCondition === "lost" ||
+        normalizedCondition === "missing";
+
+      if (hasInsufficientReturn && !isAllowedConditionForInsufficient) {
+        setReturnValidationError(
+          "Returned quantity is less than borrowed. Please set Item Condition to Damaged or Lost/Missing."
+        );
+        return;
+      }
+
+      setReturnValidationError("");
+
 
 
       const lateReturnDescription =
@@ -2592,8 +2616,6 @@ export default function RequestFormsPage() {
 
 
       // Check if item is damaged, lost, or has insufficient return and create record
-
-      const hasInsufficientReturn = adjustedReturnedQuantity < requestedQuantity;
 
       const shouldCreateRecord = returnFormData.condition === "damaged" || 
 
@@ -5098,17 +5120,35 @@ export default function RequestFormsPage() {
 
                     value={returnFormData.returnedQuantity}
 
-                    onChange={(e) =>
+                    onChange={(e) => {
+
+                      const nextValue = e.target.value;
+                      const requestedQty = parseInt(selectedRequest.quantity, 10) || 1;
+                      const parsedNextReturned = parseInt(nextValue, 10);
+                      const nextReturnedQty = Number.isFinite(parsedNextReturned)
+                        ? Math.max(0, Math.min(requestedQty, parsedNextReturned))
+                        : 0;
+                      const nextHasInsufficient = nextReturnedQty < requestedQty;
 
                       setReturnFormData((prev) => ({
-
                         ...prev,
+                        returnedQuantity: nextValue,
+                      }));
 
-                        returnedQuantity: e.target.value,
+                      const normalizedCondition = (returnFormData.condition || "").toString().trim().toLowerCase();
+                      const isAllowedConditionForInsufficient =
+                        normalizedCondition === "damaged" ||
+                        normalizedCondition === "lost" ||
+                        normalizedCondition === "missing";
 
-                      }))
-
-                    }
+                      if (nextHasInsufficient && !isAllowedConditionForInsufficient) {
+                        setReturnValidationError(
+                          "Returned quantity is less than borrowed. Please set Item Condition to Damaged or Lost/Missing."
+                        );
+                      } else if (returnValidationError) {
+                        setReturnValidationError("");
+                      }
+                    }}
 
                     className="form-input"
 
@@ -5154,7 +5194,18 @@ export default function RequestFormsPage() {
 
                   >
 
-                    <option value="good">Good Condition</option>
+                    <option
+                      value="good"
+                      disabled={
+                        (() => {
+                          const requestedQty = parseInt(selectedRequest.quantity, 10) || 1;
+                          const returnedQty = parseInt(returnFormData.returnedQuantity, 10);
+                          return Number.isFinite(returnedQty) && returnedQty < requestedQty;
+                        })()
+                      }
+                    >
+                      Good Condition
+                    </option>
 
                     <option value="damaged">Damaged</option>
 
@@ -5163,6 +5214,16 @@ export default function RequestFormsPage() {
                   </select>
 
                 </div>
+
+                {returnValidationError && (
+
+                  <div className="form-group">
+
+                    <small style={{ color: "#c0392b" }}>{returnValidationError}</small>
+
+                  </div>
+
+                )}
 
 
 
