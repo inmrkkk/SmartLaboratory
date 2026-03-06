@@ -1,8 +1,9 @@
 // src/components/Analytics.jsx
-import React, { useState, useEffect } from "react";
-import { ref } from "firebase/database";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { ref, onValue, get, update } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { getDueDateTimeAtFivePm, isReturnedLate } from "../utils/dueTimeUtils";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import "../CSS/Analytics.css";
 
@@ -1327,11 +1328,14 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
       const dateToReturn = entry.dateToReturn;
       if (!dateToReturn) return;
 
-      const returnDate = new Date(entry.returnDate || entry.timestamp);
-      const dueDate = new Date(dateToReturn);
+      const returnedAt = entry.returnDate || entry.timestamp;
+      const returnDate = new Date(returnedAt);
+      const dueDateTime = getDueDateTimeAtFivePm(dateToReturn);
+      if (!dueDateTime) return;
       
-      if (returnDate > dueDate) {
-        const daysLate = Math.ceil((returnDate - dueDate) / (1000 * 60 * 60 * 24));
+      if (isReturnedLate({ dateToReturn, returnedAt })) {
+        const diffMs = returnDate.getTime() - dueDateTime.getTime();
+        const daysLate = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
         
         // Gather all potential text inputs that explain the delay
         const delayReasonRaw = entry.returnDetails?.delayReason || '';

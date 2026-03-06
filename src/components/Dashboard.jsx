@@ -16,6 +16,7 @@ import DamagedLostRecords from "./DamagedLostRecords";
 import DataConsistencyAudit from "./DataConsistencyAudit";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
+import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
 import "../CSS/Dashboard.css";
 
 export default function Dashboard() {
@@ -346,7 +347,9 @@ export default function Dashboard() {
           const statusValue = (req.status || '').toString().trim().toLowerCase();
           // Only released items can be overdue; items still in the laboratory should not be counted.
           if (req.dateToReturn && statusValue === 'released') {
-            return new Date(req.dateToReturn) < new Date();
+            const dueDateTime = getDueDateTimeAtFivePm(req.dateToReturn);
+            if (!dueDateTime) return false;
+            return dueDateTime.getTime() < Date.now();
           }
           return false;
         }).length;

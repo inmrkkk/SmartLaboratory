@@ -173,7 +173,7 @@ export default function DamagedLostRecords() {
     if (record?.itemStatus !== 'Damaged') return 0;
     return getRecordBorrowedQuantity(record);
   }, [getRecordBorrowedQuantity]);
-  // Load damaged/lost records and restricted borrowers
+  // Load damaged/lost records and borrowers with pending records
   useEffect(() => {
     const damagedLostRef = ref(database, 'damaged_lost_records');
     const restrictedUsersRef = ref(database, 'restricted_users');
@@ -186,7 +186,7 @@ export default function DamagedLostRecords() {
           ...data[key]
         }));
 
-        // Group by borrower and calculate totals for restricted borrowers
+        // Group by borrower and calculate totals for borrowers with pending records
         const borrowerGroups = {};
         const settledRecordsList = [];
         
@@ -385,7 +385,7 @@ export default function DamagedLostRecords() {
       <div className="stats-overview">
         <div className="stat-card">
           <div className="stat-number">{restrictedBorrowers.length}</div>
-          <div className="stat-label">Restricted Borrowers</div>
+          <div className="stat-label">Borrowers with Pending Damage and Loss Records</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{restrictedBorrowers.reduce((sum, b) => sum + b.totalDamaged, 0)}</div>
@@ -407,7 +407,7 @@ export default function DamagedLostRecords() {
           className={`tab-button ${activeTab === 'restricted' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('restricted')}
         >
-          Restricted Borrowers ({restrictedBorrowers.length})
+          Pending Damage and Loss Records ({restrictedBorrowers.length})
         </button>
         <button 
           className={`tab-button ${activeTab === 'settled' ? 'active' : ''}`}
@@ -424,8 +424,8 @@ export default function DamagedLostRecords() {
             {restrictedBorrowers.length === 0 ? (
               <div className="no-records">
                 <div className="no-records-icon"></div>
-                <h3>No Restricted Borrowers</h3>
-                <p>All borrowers have cleared their damaged/lost item records.</p>
+                <h3>No Pending Damage and Loss Records</h3>
+                <p>All damaged/lost item records have been settled.</p>
               </div>
             ) : (
               <div className="table-container">
@@ -437,7 +437,7 @@ export default function DamagedLostRecords() {
                       <th>Damaged Items</th>
                       <th>Lost Items</th>
                       <th>Total Items</th>
-                      <th>Status</th>
+                      <th>Record Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -474,7 +474,7 @@ export default function DamagedLostRecords() {
                         </td>
                         <td className="status-cell">
                           <span className="status-badge restricted">
-                            RESTRICTED
+                            PENDING
                           </span>
                         </td>
                         <td className="actions-cell">

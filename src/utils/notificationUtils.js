@@ -1,5 +1,6 @@
 import { ref, push } from "firebase/database";
 import { database } from "../firebase";
+import { getDueDateTimeAtFivePm } from "./dueTimeUtils";
 
 /**
  * Creates a notification for laboratory managers
@@ -299,10 +300,11 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
     // Only check requests that are actually released/borrowed (not returned)
     // Items still in the laboratory (e.g., approved but not released) should NOT be counted as overdue.
     if (['released'].includes(request.status) && request.dateToReturn) {
-      const returnDate = new Date(request.dateToReturn);
-      
-      if (returnDate < today) {
-        const daysOverdue = Math.ceil((today - returnDate) / (1000 * 60 * 60 * 24));
+      const dueDateTime = getDueDateTimeAtFivePm(request.dateToReturn);
+      if (!dueDateTime) return;
+
+      if (dueDateTime.getTime() < today.getTime()) {
+        const daysOverdue = Math.ceil((today.getTime() - dueDateTime.getTime()) / (1000 * 60 * 60 * 24));
         overdueRequests.push({ request, daysOverdue });
       }
     }

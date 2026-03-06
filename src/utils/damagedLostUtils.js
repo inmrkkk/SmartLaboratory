@@ -1,5 +1,5 @@
 // src/utils/damagedLostUtils.js
-import { ref, push, update, get, remove } from "firebase/database";
+import { ref, push, update, get } from "firebase/database";
 import { database } from "../firebase";
 
 /**
@@ -13,7 +13,6 @@ import { database } from "../firebase";
 export const createDamagedLostRecord = async (returnData, borrowerData, itemData, borrowedQuantity, returnedQuantity) => {
   try {
     const damagedLostRef = ref(database, 'damaged_lost_records');
-    const restrictedUsersRef = ref(database, 'restricted_users');
     
     // Determine item status based on condition and insufficient return
     let itemStatus = 'Damaged';
@@ -67,25 +66,10 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
     const newRecordRef = push(damagedLostRef);
     await update(newRecordRef, recordData);
 
-    // Add borrower to restricted users list
-    const restrictionData = {
-      borrowerId: recordData.borrowerId,
-      borrowerName: recordData.borrowerName,
-      emailAddress: recordData.emailAddress,
-      restrictionReason: `Unsettled ${itemStatus.toLowerCase()} item: ${recordData.itemName} (${recordData.damageDescription})`,
-      restrictedAt: new Date().toISOString(),
-      restrictedBy: returnData.processedBy || 'system',
-      status: 'active'
-    };
-
-    await update(restrictedUsersRef, {
-      [recordData.borrowerId]: restrictionData
-    });
-
     return {
       success: true,
       recordId: newRecordRef.key,
-      message: `${itemStatus} item record created and borrower restricted successfully`
+      message: `${itemStatus} item record created successfully`
     };
 
   } catch (error) {
@@ -105,14 +89,6 @@ export const createDamagedLostRecord = async (returnData, borrowerData, itemData
  */
 export const isBorrowerRestricted = async (borrowerId) => {
   try {
-    const restrictedUsersRef = ref(database, 'restricted_users');
-    const snapshot = await get(restrictedUsersRef);
-    
-    if (snapshot.exists()) {
-      const restrictedData = snapshot.val();
-      return restrictedData[borrowerId]?.status === 'active';
-    }
-    
     return false;
   } catch (error) {
     console.error("Error checking borrower restriction:", error);
@@ -153,9 +129,6 @@ export const updateItemSettlementStatus = async (recordId, newStatus, adminRemar
 
     await update(recordRef, updateData);
 
-    // Check if all items for this borrower are settled
-    await checkAndClearBorrowerRestriction(recordData.borrowerId);
-
     return {
       success: true,
       message: `Record status updated to ${newStatus}`
@@ -177,32 +150,10 @@ export const updateItemSettlementStatus = async (recordId, newStatus, adminRemar
  */
 export const checkAndClearBorrowerRestriction = async (borrowerId) => {
   try {
-    const damagedLostRef = ref(database, 'damaged_lost_records');
-    const snapshot = await get(damagedLostRef);
-    
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      const pendingRecords = Object.keys(data).filter(key => 
-        data[key].borrowerId === borrowerId && data[key].status === 'Pending'
-      );
-
-      // If no pending records, remove from restricted list
-      if (pendingRecords.length === 0) {
-        const restrictedUserRef = ref(database, `restricted_users/${borrowerId}`);
-        await remove(restrictedUserRef);
-        
-        return {
-          success: true,
-          cleared: true,
-          message: "Borrower restriction cleared - all items settled"
-        };
-      }
-    }
-
     return {
       success: true,
       cleared: false,
-      message: "Borrower still has pending records"
+      message: "Borrower restriction system disabled"
     };
 
   } catch (error) {
@@ -250,19 +201,6 @@ export const getBorrowerDamagedLostRecords = async (borrowerId) => {
  */
 export const getAllRestrictedBorrowers = async () => {
   try {
-    const restrictedUsersRef = ref(database, 'restricted_users');
-    const snapshot = await get(restrictedUsersRef);
-    
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      return Object.keys(data)
-        .map(key => ({
-          id: key,
-          ...data[key]
-        }))
-        .filter(borrower => borrower.status === 'active');
-    }
-    
     return [];
 
   } catch (error) {
@@ -278,25 +216,6 @@ export const getAllRestrictedBorrowers = async () => {
  */
 export const validateBorrowerEligibility = async (borrowerId) => {
   try {
-    const isRestricted = await isBorrowerRestricted(borrowerId);
-    
-    if (isRestricted) {
-      const restrictedUsersRef = ref(database, `restricted_users/${borrowerId}`);
-      const snapshot = await get(restrictedUsersRef);
-      
-      let restrictionReason = "Unsettled damaged or lost items";
-      if (snapshot.exists()) {
-        const restrictionData = snapshot.val();
-        restrictionReason = restrictionData.restrictionReason || restrictionReason;
-      }
-
-      return {
-        eligible: false,
-        reason: restrictionReason,
-        message: "Borrower is restricted from requesting items due to unsettled damaged or lost items"
-      };
-    }
-
     return {
       eligible: true,
       reason: null,
@@ -320,12 +239,8 @@ export const validateBorrowerEligibility = async (borrowerId) => {
 export const getDamagedLostStatistics = async () => {
   try {
     const damagedLostRef = ref(database, 'damaged_lost_records');
-    const restrictedUsersRef = ref(database, 'restricted_users');
-    
-    const [damagedSnapshot, restrictedSnapshot] = await Promise.all([
-      get(damagedLostRef),
-      get(restrictedUsersRef)
-    ]);
+
+    const damagedSnapshot = await get(damagedLostRef);
 
     const stats = {
       totalRecords: 0,
@@ -358,13 +273,6 @@ export const getDamagedLostStatistics = async () => {
           stats.lostItems += safeMissingQuantity > 0 ? safeMissingQuantity : safeBorrowedQuantity;
         }
       });
-    }
-
-    if (restrictedSnapshot.exists()) {
-      const restrictedData = restrictedSnapshot.val();
-      stats.restrictedBorrowers = Object.keys(restrictedData).filter(
-        key => restrictedData[key].status === 'active'
-      ).length;
     }
 
     return stats;

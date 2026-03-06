@@ -1657,14 +1657,12 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                           </td>
                           <td>
                             {(() => {
-                              const originalTotal = Number(equipment.quantity) || 1;
-                              const lostCount = getLostOrMissingCount(equipment);
-                              const effectiveTotal = Math.max(0, originalTotal - lostCount);
+                              const totalQuantity = Number(equipment.quantity) || 1;
                               const borrowed = Number(equipment.quantity_borrowed) || 0;
-                              const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
-                              
-                              const isUnavailable = effectiveAvailable === 0;
-                              
+                              const availableQuantity = Math.max(0, totalQuantity - borrowed);
+
+                              const isUnavailable = availableQuantity === 0;
+
                               return (
                                 <span
                                   className="status-badge"
@@ -1682,26 +1680,24 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                           <td className="quantity-cell">
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {(() => {
-                                const originalTotal = Number(equipment.quantity) || 1;
-                                const lostCount = getLostOrMissingCount(equipment);
-                                const effectiveTotal = Math.max(0, originalTotal - lostCount);
+                                const totalQuantity = Number(equipment.quantity) || 1;
                                 const borrowed = Number(equipment.quantity_borrowed) || 0;
-                                const effectiveAvailable = Math.max(0, effectiveTotal - borrowed);
+                                const availableQuantity = Math.max(0, totalQuantity - borrowed);
 
                                 return (
                                   <>
                                     <span className="quantity-badge">
-                                      Total: {effectiveTotal}
+                                      Total: {totalQuantity}
                                     </span>
                                     {equipment.quantity_borrowed !== undefined && equipment.quantity_borrowed !== null && (
                                       <span style={{
                                         fontSize: '11px',
-                                        color: effectiveAvailable > 0
+                                        color: availableQuantity > 0
                                           ? '#10b981'
                                           : '#ef4444',
                                         fontWeight: '500'
                                       }}>
-                                        Available: {effectiveAvailable}
+                                        Available: {availableQuantity}
                                       </span>
                                     )}
                                   </>
@@ -1711,8 +1707,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                           </td>
                           <td>
                             <span className={`condition-badge ${equipment.condition?.toLowerCase()}`}>
-                              {equipment.condition || "—"}
-                            </span>
+                              {equipment.condition || "—"}</span>
                           </td>
                           <td className="location-cell">{equipment.location || "—"}</td>
                           <td className="assigned-cell">{equipment.assignedTo || "—"}</td>
