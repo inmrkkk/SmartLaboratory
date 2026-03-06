@@ -2717,11 +2717,11 @@ export default function RequestFormsPage() {
 
         const missingCount = requestedQuantity - adjustedReturnedQuantity;
 
-        successMessage = `Item returned with insufficient quantity (${adjustedReturnedQuantity}/${requestedQuantity}). Missing ${missingCount} item(s). Record created and borrower restricted.`;
+        successMessage = `Item returned with insufficient quantity (${adjustedReturnedQuantity}/${requestedQuantity}). Missing ${missingCount} item(s). Record created and added to damaged/lost records.`;
 
       } else if (returnFormData.condition === "damaged" || returnFormData.condition === "lost" || returnFormData.condition === "missing") {
 
-        successMessage = `Item marked as returned with ${returnFormData.condition} status. Record created and borrower restricted.`;
+        successMessage = `Item marked as returned with ${returnFormData.condition} status. Record created and added to damaged/lost records.`;
 
       }
 
