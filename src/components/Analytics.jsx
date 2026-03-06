@@ -1955,6 +1955,8 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                                 paddingAngle={5}
                                 cornerRadius={12}
                                 dataKey="value"
+                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
                               >
                                 {chartData.map((entry, index) => (
                                   <Cell key={`lost-cell-${index}`} fill={COLORS[entry.name] || chartPalette.accent} />
@@ -1962,10 +1964,19 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                               </Pie>
                               <Tooltip
                                 {...sharedTooltipProps}
-                                formatter={(value) => {
+                                formatter={(value, name) => {
                                   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                  return [`${value} (${percentage}%)`, 'Lost Items'];
+                                  return [`${value} (${percentage}%)`, name];
                                 }}
+                              />
+                              <Legend
+                                verticalAlign="bottom"
+                                height={36}
+                                formatter={(value, entry) => (
+                                  <span style={{ color: entry.color }}>
+                                    {value}
+                                  </span>
+                                )}
                               />
                             </PieChart>
                           </ResponsiveContainer>
@@ -2123,9 +2134,9 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                               </Pie>
                               <Tooltip
                                 {...sharedTooltipProps}
-                                formatter={(value) => {
+                                formatter={(value, name) => {
                                   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                  return [`${value} (${percentage}%)`, 'Damage Incidents'];
+                                  return [`${value} (${percentage}%)`, name];
                                 }}
                               />
                             </PieChart>
