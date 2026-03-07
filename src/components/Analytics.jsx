@@ -39,7 +39,7 @@ export default function Analytics() {
         causes: {
           'Forgotten / Misplaced': 0,
           'Stolen': 0,
-          'Unknown': 0
+          'Uncategorized': 0
         }
       },
       lateReturns: {
@@ -114,9 +114,6 @@ export default function Analytics() {
     },
     'Stolen': {
       text: 'The most common cause is Stolen because some individuals see an opportunity to take equipment for personal use, banking on the fact that busy laboratory environments make it difficult to track who borrowed what or to notice when items quietly disappear.'
-    },
-    'Unknown': {
-      text: 'The most common cause is Other because insufficient documentation and vague incident reports consistently prevent laboratory staff from identifying specific patterns or understanding the true circumstances behind each missing item.'
     }
   };
 
@@ -936,7 +933,10 @@ const categorizeDamage = (text) => {
 
 const categorizeLostItem = (text) => {
   if (!text || text.trim().length === 0) return 'Uncategorized';
-  const lowerText = text.toLowerCase();
+  const lowerText = text
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .trim();
   
   // Check for Stolen (check first as it's more specific)
   if (
@@ -992,6 +992,20 @@ const categorizeLostItem = (text) => {
     lowerText.includes('missed') ||
     lowerText.includes('miss') ||
     lowerText.includes('missing') ||
+    lowerText.includes('misplace') ||
+    lowerText.includes('misplaced') ||
+    lowerText.includes('misplacing') ||
+    lowerText.includes('left it') ||
+    lowerText.includes('left it behind') ||
+    lowerText.includes('left behind') ||
+    lowerText.includes('left in') ||
+    lowerText.includes('left at') ||
+    lowerText.includes('forgot where') ||
+    lowerText.includes("can't find") ||
+    lowerText.includes('cannot find') ||
+    lowerText.includes('could not find') ||
+    lowerText.includes("can't remember") ||
+    lowerText.includes('cannot remember') ||
     lowerText.includes('unheeded') ||
     lowerText.includes('lost track of') ||
     lowerText.includes('losing track of') ||
@@ -1006,7 +1020,7 @@ const categorizeLostItem = (text) => {
     return 'Forgotten / Misplaced';
   }
 
-  return 'Unknown';
+  return 'Uncategorized';
 };
 
 const categorizeLateReturn = (text) => {
@@ -1289,7 +1303,6 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
       causes: {
         'Forgotten / Misplaced': 0,
         'Stolen': 0,
-        'Unknown': 0,
         'Uncategorized': 0
       },
       mostLostEquipment: [],
