@@ -2082,6 +2082,10 @@ export default function RequestFormsPage() {
 
         return "status-returned";
 
+      case "overdue":
+
+        return "status-overdue";
+
       default:
 
         return "status-pending";
@@ -3521,9 +3525,9 @@ export default function RequestFormsPage() {
 
                             </td>
 
-                            <td>
+                            <td className="actions-cell">
 
-                              <div className="table-actions">
+                              <div className="actions-buttons">
 
                                 <button
 
@@ -3560,6 +3564,24 @@ export default function RequestFormsPage() {
                                     {/* ↩️ Back to Approved */}
 
                                   <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                                  </button>
+
+                                )}
+
+                                {request.status === "overdue" && (
+
+                                  <button
+
+                                    className="action-btn icon-btn delete-btn"
+
+                                    onClick={() => handleDeleteRequest(request.id)}
+
+                                    title="Delete Overdue Request"
+
+                                  >
+
+                                    <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
 
                                   </button>
 
@@ -3720,6 +3742,24 @@ export default function RequestFormsPage() {
                                 }
 
                                 title="Delete"
+
+                              >
+
+                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            )}
+
+                            {request.status === "overdue" && (
+
+                              <button
+
+                                className="action-btn icon-btn delete-btn"
+
+                                onClick={() => handleDeleteRequest(request.id)}
+
+                                title="Delete Overdue Request"
 
                               >
 
@@ -3964,6 +4004,24 @@ export default function RequestFormsPage() {
                                 {/* ↩️ Back to Approved */}
 
                               <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            )}
+
+                            {request.status === "overdue" && (
+
+                              <button
+
+                                className="action-btn icon-btn delete-btn"
+
+                                onClick={() => handleDeleteRequest(request.id)}
+
+                                title="Delete Overdue Request"
+
+                              >
+
+                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
 
                               </button>
 

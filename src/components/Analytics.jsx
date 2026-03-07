@@ -1955,7 +1955,7 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                                 paddingAngle={5}
                                 cornerRadius={12}
                                 dataKey="value"
-                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                label={false}
                                 labelLine={false}
                               >
                                 {chartData.map((entry, index) => (
@@ -1968,15 +1968,6 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                                   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                   return [`${value} (${percentage}%)`, name];
                                 }}
-                              />
-                              <Legend
-                                verticalAlign="bottom"
-                                height={36}
-                                formatter={(value, entry) => (
-                                  <span style={{ color: entry.color }}>
-                                    {value}
-                                  </span>
-                                )}
                               />
                             </PieChart>
                           </ResponsiveContainer>
@@ -2034,12 +2025,6 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                           label: 'Uncategorized',
                           description: 'No reason/description was provided.',
                           badgeColor: '#94a3b8'
-                        },
-                        {
-                          key: 'Unknown',
-                          label: 'Unknown',
-                          description: 'No clear cause identified from the notes.',
-                          badgeColor: chartPalette.neutral
                         }
                       ];
 
@@ -2206,8 +2191,8 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                         },
                         {
                           key: 'Other',
-                          label: 'Other / Uncategorized',
-                          description: 'Does not fit mapped damage patterns.',
+                          label: 'Uncategorized',
+                          description: 'No reason/description was provided.',
                           badgeColor: '#94a3b8'
                         }
                       ];
@@ -2370,13 +2355,19 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                               {...sharedTooltipProps}
                               formatter={(value, _name, { payload }) => {
                                 const percentage = totalReasons > 0 ? ((value / totalReasons) * 100).toFixed(1) : 0;
+                                const label = payload?.name === 'Other' ? 'Uncategorized' : (payload?.name || 'Reason');
                                 return [
                                   `${value} (${percentage}%)`,
-                                  payload?.name || 'Reason'
+                                  label
                                 ];
                               }}
                             />
-                            <Legend verticalAlign="bottom" align="center" iconType="circle" />
+                            <Legend
+                              verticalAlign="bottom"
+                              align="center"
+                              iconType="circle"
+                              formatter={(value) => (value === 'Other' ? 'Uncategorized' : value)}
+                            />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -2410,8 +2401,8 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
                       },
                       {
                         key: 'Other',
-                        label: 'Other',
-                        description: 'Includes reasons like not available, lost track, transport issues, or unspecified text.',
+                        label: 'Uncategorized',
+                        description: 'No reason/description was provided.',
                         badgeColor: '#94a3b8'
                       }
                     ];
@@ -2456,57 +2447,6 @@ const calculateDiagnosticAnalytics = (borrowRequests, history, periodDays) => {
             </section>
 
             <div className="diagnostics-stack">
-              {/* Uncategorized Incidents Card */}
-              <div className="diagnostic-section uncategorized-section">
-                <h2>⚠️ Uncategorized Incidents for Review</h2>
-                <div className="uncategorized-card">
-                  <div className="uncategorized-header">
-                    <div className="uncategorized-count">
-                      <span className="count-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.total || 0}</span>
-                      <span className="count-label">Total Uncategorized</span>
-                    </div>
-                    <div className="uncategorized-percentage">
-                      {analyticsData.diagnosticAnalytics.totalIncidents > 0 
-                        ? Math.round((analyticsData.diagnosticAnalytics.uncategorizedIncidents?.total / analyticsData.diagnosticAnalytics.totalIncidents) * 100)
-                        : 0}% of all incidents
-                    </div>
-                  </div>
-                  <div className="uncategorized-breakdown">
-                    <div className="breakdown-item">
-                      <span className="breakdown-label">Damage:</span>
-                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.damage || 0}</span>
-                    </div>
-                    <div className="breakdown-item">
-                      <span className="breakdown-label">Lost:</span>
-                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lost || 0}</span>
-                    </div>
-                    <div className="breakdown-item">
-                      <span className="breakdown-label">Late Return:</span>
-                      <span className="breakdown-value">{analyticsData.diagnosticAnalytics.uncategorizedIncidents?.lateReturn || 0}</span>
-                    </div>
-                  </div>
-                  <div className="uncategorized-action">
-                    <button 
-                      className="review-button"
-                      onClick={() => {
-                        setShowReviewSection(!showReviewSection);
-                        // Scroll to review section if showing it
-                        if (!showReviewSection) {
-                          setTimeout(() => {
-                            const reviewSection = document.getElementById('review-section');
-                            if (reviewSection) {
-                              reviewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }
-                          }, 100);
-                        }
-                      }}
-                    >
-                      {showReviewSection ? 'Hide Review Section' : 'Review Incidents'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* Review Section - Show all uncategorized incidents */}
               {showReviewSection && (
                 <div id="review-section" className="diagnostic-section review-section">
