@@ -56,7 +56,7 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("30"); // days
   const [activeTab, setActiveTab] = useState("diagnostics");
-  const [showReviewSection, setShowReviewSection] = useState(false);
+  const [showReviewSection] = useState(false);
   
   // Pagination state for borrowers list
   const [borrowersCurrentPage, setBorrowersCurrentPage] = useState(1);
