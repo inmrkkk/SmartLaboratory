@@ -29,17 +29,21 @@ export default function HistoryPage() {
   // Manual record form state
   const [showManualRecordModal, setShowManualRecordModal] = useState(false);
   const [manualRecordData, setManualRecordData] = useState({
-    action: "Released",
-    equipmentName: "",
+    action: "Returned",
+    items: [
+      {
+        equipmentName: "",
+        quantity: "1",
+      },
+    ],
     borrowerType: "student",
     borrowerName: "",
     userId: "",
     adviserName: "",
-    status: "Released",
+    status: "Returned",
     releasedDate: "",
     returnDate: "",
     condition: "Good",
-    quantity: "1",
     batchId: "",
     batchSize: "",
     notes: ""
@@ -393,13 +397,8 @@ export default function HistoryPage() {
     try {
       const historyRef = ref(database, 'history');
 
-      const normalizedStatus = (manualRecordData.status || manualRecordData.action || '').toString().trim();
-      const normalizedAction = (manualRecordData.action || manualRecordData.status || '').toString().trim();
-
-      const selectedEquipment = equipmentData.find((equipment) => {
-        const equipmentName = equipment.equipmentName || equipment.itemName || equipment.name || equipment.title;
-        return equipmentName === manualRecordData.equipmentName;
-      });
+      const normalizedStatus = 'Returned';
+      const normalizedAction = 'Returned';
 
       const normalizeDateTimeLocalToIso = (value) => {
         if (!value) return null;
@@ -407,57 +406,81 @@ export default function HistoryPage() {
         if (Number.isNaN(parsed.getTime())) return null;
         return parsed.toISOString();
       };
-
       const resolvedReleasedDate =
         normalizeDateTimeLocalToIso(manualRecordData.releasedDate) || new Date().toISOString();
       const resolvedReturnDate = normalizeDateTimeLocalToIso(manualRecordData.returnDate);
 
-      let resolvedLabId = selectedEquipment?.labId || null;
-      const resolvedCategoryId = selectedEquipment?.categoryId || null;
-      const resolvedItemId = selectedEquipment?.id || null;
+      const sanitizedItems = (manualRecordData.items || [])
+        .map((item) => ({
+          equipmentName: (item?.equipmentName || '').toString().trim(),
+          quantity: item?.quantity,
+        }))
+        .filter((item) => item.equipmentName);
 
-      if (!resolvedLabId && resolvedCategoryId) {
-        try {
-          const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
-          if (categorySnapshot.exists()) {
-            const categoryData = categorySnapshot.val() || {};
-            resolvedLabId = categoryData.labId || resolvedLabId;
+      if (sanitizedItems.length === 0) {
+        throw new Error('Please add at least one equipment item.');
+      }
+
+      const parsedBatchSize = manualRecordData.batchSize ? parseInt(manualRecordData.batchSize) : null;
+      const derivedBatchSize = sanitizedItems.reduce((sum, item) => sum + (parseInt(item.quantity) || 1), 0);
+      const resolvedBatchSize = parsedBatchSize || derivedBatchSize;
+
+      const resolvedBatchId = (manualRecordData.batchId || '').toString().trim() || `MR-${Date.now()}`;
+
+      const getResolvedEquipmentMeta = async (equipmentName) => {
+        const selectedEquipment = equipmentData.find((equipment) => {
+          const name = equipment.equipmentName || equipment.itemName || equipment.name || equipment.title;
+          return name === equipmentName;
+        });
+
+        let resolvedLabId = selectedEquipment?.labId || null;
+        const resolvedCategoryId = selectedEquipment?.categoryId || null;
+        const resolvedItemId = selectedEquipment?.id || null;
+
+        if (!resolvedLabId && resolvedCategoryId) {
+          try {
+            const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
+            if (categorySnapshot.exists()) {
+              const categoryData = categorySnapshot.val() || {};
+              resolvedLabId = categoryData.labId || resolvedLabId;
+            }
+          } catch (error) {
+            console.error('Error resolving labId from category:', error);
           }
-        } catch (error) {
-          console.error('Error resolving labId from category:', error);
         }
-      }
 
-      let resolvedLabRecordId = null;
-      if (resolvedLabId) {
-        resolvedLabRecordId = laboratories.find((lab) => lab.labId === resolvedLabId || lab.id === resolvedLabId)?.id || null;
-      }
+        let resolvedLabRecordId = null;
+        if (resolvedLabId) {
+          resolvedLabRecordId = laboratories.find((lab) => lab.labId === resolvedLabId || lab.id === resolvedLabId)?.id || null;
+        }
 
-      if (!resolvedLabRecordId && resolvedCategoryId) {
-        try {
-          const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
-          if (categorySnapshot.exists()) {
-            const categoryData = categorySnapshot.val() || {};
-            resolvedLabRecordId = categoryData.labRecordId || resolvedLabRecordId;
+        if (!resolvedLabRecordId && resolvedCategoryId) {
+          try {
+            const categorySnapshot = await get(ref(database, `equipment_categories/${resolvedCategoryId}`));
+            if (categorySnapshot.exists()) {
+              const categoryData = categorySnapshot.val() || {};
+              resolvedLabRecordId = categoryData.labRecordId || resolvedLabRecordId;
+            }
+          } catch (error) {
+            console.error('Error resolving labRecordId from category:', error);
           }
-        } catch (error) {
-          console.error('Error resolving labRecordId from category:', error);
         }
-      }
 
-      const resolvedLabName = resolvedLabRecordId
-        ? (laboratories.find((lab) => lab.id === resolvedLabRecordId)?.labName || '')
-        : (laboratories.find((lab) => lab.labId === resolvedLabId)?.labName || '');
+        const resolvedLabName = resolvedLabRecordId
+          ? (laboratories.find((lab) => lab.id === resolvedLabRecordId)?.labName || '')
+          : (laboratories.find((lab) => lab.labId === resolvedLabId)?.labName || '');
 
-      const newRecord = {
+        return {
+          itemId: resolvedItemId,
+          categoryId: resolvedCategoryId,
+          labId: resolvedLabId,
+          labRecordId: resolvedLabRecordId,
+          laboratory: resolvedLabName,
+        };
+      };
+
+      const baseRecord = {
         action: normalizedAction,
-        equipmentName: manualRecordData.equipmentName,
-        itemName: manualRecordData.equipmentName,
-        itemId: resolvedItemId,
-        categoryId: resolvedCategoryId,
-        labId: resolvedLabId,
-        labRecordId: resolvedLabRecordId,
-        laboratory: resolvedLabName,
         borrowerType: manualRecordData.borrowerType,
         borrowerName: manualRecordData.borrowerName,
         userId: manualRecordData.userId || 'manual-entry',
@@ -466,38 +489,55 @@ export default function HistoryPage() {
         releasedDate: resolvedReleasedDate,
         returnDate: resolvedReturnDate,
         condition: manualRecordData.condition,
-        quantity: parseInt(manualRecordData.quantity) || 1,
-        batchId: manualRecordData.batchId || null,
-        batchSize: manualRecordData.batchSize ? parseInt(manualRecordData.batchSize) : null,
+        batchId: resolvedBatchId,
+        batchSize: resolvedBatchSize,
         notes: manualRecordData.notes,
         timestamp: new Date().toISOString(),
-        isManualEntry: true
+        isManualEntry: true,
       };
 
-      const createdHistoryRef = await push(historyRef, newRecord);
-      console.log('[HistoryPage] Manual history record created:', createdHistoryRef.key, newRecord);
+      for (const item of sanitizedItems) {
+        const quantity = parseInt(item.quantity) || 1;
+        const meta = await getResolvedEquipmentMeta(item.equipmentName);
 
-      // Add the record ID to the newRecord for analytics tracking
-      newRecord.id = createdHistoryRef.key;
+        const newRecord = {
+          ...baseRecord,
+          equipmentName: item.equipmentName,
+          itemName: item.equipmentName,
+          quantity,
+          items: sanitizedItems.map((i) => ({
+            equipmentName: i.equipmentName,
+            quantity: parseInt(i.quantity) || 1,
+          })),
+          ...meta,
+        };
 
-      // Update equipment usage analytics for returned records
-      await updateEquipmentUsageAnalytics(newRecord);
+        const createdHistoryRef = await push(historyRef, newRecord);
+        console.log('[HistoryPage] Manual history record created:', createdHistoryRef.key, newRecord);
+
+        newRecord.id = createdHistoryRef.key;
+        await updateEquipmentUsageAnalytics(newRecord);
+      }
 
       // Manual records are saved only to history, not to borrow_requests
 
       // Reset form and close modal
       setManualRecordData({
-        action: "Released",
-        equipmentName: "",
+        action: "Returned",
+        items: [
+          {
+            equipmentName: "",
+            quantity: "1",
+          },
+        ],
         borrowerType: "student",
         borrowerName: "",
         userId: "",
         adviserName: "",
-        status: "Released",
+        status: "Returned",
         releasedDate: "",
         returnDate: "",
         condition: "Good",
-        quantity: "1",
         batchId: "",
         batchSize: "",
         notes: ""
@@ -515,17 +555,21 @@ export default function HistoryPage() {
   const closeManualRecordModal = () => {
     setShowManualRecordModal(false);
     setManualRecordData({
-      action: "Released",
-      equipmentName: "",
+      action: "Returned",
+      items: [
+        {
+          equipmentName: "",
+          quantity: "1",
+        },
+      ],
       borrowerType: "student",
       borrowerName: "",
       userId: "",
       adviserName: "",
-      status: "Released",
+      status: "Returned",
       releasedDate: "",
       returnDate: "",
       condition: "Good",
-      quantity: "1",
       batchId: "",
       batchSize: "",
       notes: ""
@@ -986,62 +1030,92 @@ export default function HistoryPage() {
                       value={manualRecordData.action}
                       onChange={(e) => setManualRecordData({...manualRecordData, action: e.target.value})}
                       required
+                      disabled
                     >
-                      <option value="Released">Released</option>
                       <option value="Returned">Returned</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="status">Status *</label>
-                    <select
-                      id="status"
-                      value={manualRecordData.status}
-                      onChange={(e) => setManualRecordData({...manualRecordData, status: e.target.value})}
-                      required
-                    >
-                      <option value="Released">Released</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Rejected">Rejected</option>
                     </select>
                   </div>
 
                   <div className="form-group full-width">
-                    <label htmlFor="equipmentName">Equipment Name *</label>
-                    <select
-                      id="equipmentName"
-                      value={manualRecordData.equipmentName}
-                      onChange={(e) => setManualRecordData({...manualRecordData, equipmentName: e.target.value})}
-                      required
-                    >
-                      <option value="">Select equipment...</option>
-                      {equipmentData
-                        .filter((equipment) => {
-                          // If admin, show all equipment
-                          if (isAdmin()) return true;
-                          
-                          // For lab managers, filter by assigned laboratories
-                          const assignedLabIds = getAssignedLaboratoryIds();
-                          if (!assignedLabIds || assignedLabIds.length === 0) return false;
-                          
-                          // Check if equipment belongs to an assigned laboratory
-                          const equipmentLab = laboratories.find(lab => 
-                            lab.labId === equipment.labId || 
-                            lab.id === equipment.labRecordId ||
-                            lab.labId === equipment.labRecordId ||
-                            lab.id === equipment.labId
-                          );
-                          
-                          return equipmentLab && assignedLabIds.includes(equipmentLab.id);
-                        })
-                        .map((equipment) => (
-                          <option key={equipment.id} value={equipment.equipmentName || equipment.itemName || equipment.name || equipment.title}>
-                            {equipment.equipmentName || equipment.itemName || equipment.name || equipment.title} ({equipment.categoryName})
-                          </option>
-                        ))}
-                    </select>
+                    <label>Equipment Items *</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {(manualRecordData.items || []).map((item, idx) => (
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 40px', gap: '10px', alignItems: 'center' }}>
+                          <select
+                            value={item.equipmentName}
+                            onChange={(e) => {
+                              const next = [...(manualRecordData.items || [])];
+                              next[idx] = { ...next[idx], equipmentName: e.target.value };
+                              setManualRecordData({ ...manualRecordData, items: next });
+                            }}
+                            required
+                          >
+                            <option value="">Select equipment...</option>
+                            {equipmentData
+                              .filter((equipment) => {
+                                if (isAdmin()) return true;
+                                const assignedLabIds = getAssignedLaboratoryIds();
+                                if (!assignedLabIds || assignedLabIds.length === 0) return false;
+                                const equipmentLab = laboratories.find(lab => 
+                                  lab.labId === equipment.labId || 
+                                  lab.id === equipment.labRecordId ||
+                                  lab.labId === equipment.labRecordId ||
+                                  lab.id === equipment.labId
+                                );
+                                return equipmentLab && assignedLabIds.includes(equipmentLab.id);
+                              })
+                              .map((equipment) => (
+                                <option key={equipment.id} value={equipment.equipmentName || equipment.itemName || equipment.name || equipment.title}>
+                                  {equipment.equipmentName || equipment.itemName || equipment.name || equipment.title} ({equipment.categoryName})
+                                </option>
+                              ))}
+                          </select>
+
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const next = [...(manualRecordData.items || [])];
+                              next[idx] = { ...next[idx], quantity: e.target.value };
+                              setManualRecordData({ ...manualRecordData, items: next });
+                            }}
+                            required
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = manualRecordData.items || [];
+                              if (current.length <= 1) return;
+                              const next = current.filter((_, i) => i !== idx);
+                              setManualRecordData({ ...manualRecordData, items: next });
+                            }}
+                            className="manual-item-remove"
+                            disabled={(manualRecordData.items || []).length <= 1}
+                            aria-label="Remove item"
+                            title="Remove item"
+                          >
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        </div>
+                      ))}
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = [...(manualRecordData.items || [])];
+                            next.push({ equipmentName: "", quantity: "1" });
+                            setManualRecordData({ ...manualRecordData, items: next });
+                          }}
+                          className="manual-add-item-button"
+                        >
+                          <span className="manual-add-item-icon" aria-hidden="true">+</span>
+                          <span>Add another item</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -1109,18 +1183,6 @@ export default function HistoryPage() {
                           </option>
                         ))}
                     </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="quantity">Quantity *</label>
-                    <input
-                      type="number"
-                      id="quantity"
-                      min="1"
-                      value={manualRecordData.quantity}
-                      onChange={(e) => setManualRecordData({...manualRecordData, quantity: e.target.value})}
-                      required
-                    />
                   </div>
 
                   <div className="form-group">

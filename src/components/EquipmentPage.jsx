@@ -684,21 +684,47 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   // Determine if user is faculty or student
   const determineUserType = (entry) => {
+    const explicitBorrowerType = (entry?.borrowerType || entry?.borrower_type || '').toString().trim().toLowerCase();
+    if (explicitBorrowerType) {
+      if (explicitBorrowerType === 'faculty' || explicitBorrowerType === 'instructor' || explicitBorrowerType === 'teacher') {
+        return true;
+      }
+      if (explicitBorrowerType === 'student') {
+        return false;
+      }
+    }
+
+    const explicitRole = (entry?.userRole || entry?.role || entry?.userType || entry?.accountType || '').toString().trim().toLowerCase();
+    if (explicitRole) {
+      if (explicitRole === 'admin' || explicitRole === 'laboratory_manager' || explicitRole === 'faculty' || explicitRole === 'instructor' || explicitRole === 'teacher') {
+        return true;
+      }
+      if (explicitRole === 'student') {
+        return false;
+      }
+    }
+
     const userId = entry.userId || entry.details?.originalRequest?.userId || null;
 
     if (userId) {
       const userRole = getUserRole(userId);
 
-      if (userRole === 'admin' || userRole === 'laboratory_manager') {
+      const normalizedRole = (userRole || '').toString().trim().toLowerCase();
+
+      if (normalizedRole === 'admin' || normalizedRole === 'laboratory_manager' || normalizedRole === 'faculty' || normalizedRole === 'instructor' || normalizedRole === 'teacher') {
         return true; // Faculty
       }
 
-      if (userRole === 'student') {
+      if (normalizedRole === 'student') {
         return false; // Student
       }
+
+      // If role is unknown, default to student (not faculty)
+      return false;
     }
 
-    return false; // Default to student
+    // If userId is missing, default to student (not faculty)
+    return false;
   };
 
   // Calculate usage data for equipment
@@ -707,16 +733,34 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       entry.equipmentName === equipmentName
     );
 
-    // Count system-generated records
-    const systemBorrowings = equipmentHistory.filter(entry =>
-      entry.action === "Item Released"
-    ).length;
+    const getSystemReleaseQuantity = (entry) => {
+      if (!entry) return 0;
+      const raw = entry.quantityReleased ?? entry.quantity ?? 1;
+      const parsed = parseInt(raw);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    };
 
-    // Count manual records with valid borrowing lifecycle (Returned status)
-    const manualReturnedRecords = equipmentHistory.filter(entry =>
-      entry.isManualEntry &&
-      (entry.status === "Returned" || entry.status === "returned")
-    );
+    const isSystemReleaseEntry = (entry) => {
+      if (!entry || entry.isManualEntry) return false;
+      const action = (entry.action || '').toString().trim().toLowerCase();
+      const status = (entry.status || '').toString().trim().toLowerCase();
+      return action === 'item released' || status === 'released';
+    };
+
+    const isCountableManualEntry = (entry) => {
+      if (!entry || !entry.isManualEntry) return false;
+      const status = (entry.status || '').toString().trim().toLowerCase();
+      const action = (entry.action || '').toString().trim().toLowerCase();
+      return status === 'returned' || status === 'released' || action === 'returned' || action === 'released';
+    };
+
+    // Count system-generated records (borrowing system releases)
+    const systemBorrowings = equipmentHistory
+      .filter(isSystemReleaseEntry)
+      .reduce((sum, entry) => sum + getSystemReleaseQuantity(entry), 0);
+
+    // Count manual records with valid borrowing lifecycle (Returned/Released status)
+    const manualReturnedRecords = equipmentHistory.filter(isCountableManualEntry);
 
     // Calculate quantities for manual records
     let manualTotalQuantity = 0;
@@ -725,13 +769,13 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
     manualReturnedRecords.forEach(entry => {
       const quantity = parseInt(entry.quantity) || 1;
-      const borrowerType = entry.borrowerType || 'student';
+      const borrowerType = (entry.borrowerType || 'student').toString().trim().toLowerCase();
 
       manualTotalQuantity += quantity;
 
-      if (borrowerType === 'student' || borrowerType === 'Student') {
+      if (borrowerType === 'student') {
         manualStudentQuantity += quantity;
-      } else if (borrowerType === 'faculty' || borrowerType === 'Faculty / Instructor' || borrowerType === 'laboratory_manager') {
+      } else if (borrowerType === 'faculty' || borrowerType === 'instructor' || borrowerType === 'teacher' || borrowerType === 'laboratory_manager') {
         manualFacultyQuantity += quantity;
       }
     });
@@ -741,13 +785,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     let systemFacultyBorrowings = 0;
 
     equipmentHistory.forEach(entry => {
-      if (entry.action === "Item Released" && !entry.isManualEntry) {
+      if (isSystemReleaseEntry(entry)) {
         const isFaculty = determineUserType(entry);
+        const qty = getSystemReleaseQuantity(entry);
 
         if (isFaculty) {
-          systemFacultyBorrowings++;
+          systemFacultyBorrowings += qty;
         } else {
-          systemStudentBorrowings++;
+          systemStudentBorrowings += qty;
         }
       }
     });
@@ -761,10 +806,14 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         const analyticsData = analyticsSnapshot.val();
         console.log('[EquipmentPage] Using analytics data for', equipmentName, analyticsData);
 
+        const computedTotal = systemBorrowings + manualTotalQuantity;
+        const computedStudents = systemStudentBorrowings + manualStudentQuantity;
+        const computedFaculty = systemFacultyBorrowings + manualFacultyQuantity;
+
         return {
-          total: analyticsData.totalBorrowed || (systemBorrowings + manualTotalQuantity),
-          students: analyticsData.borrowedByStudents || (systemStudentBorrowings + manualStudentQuantity),
-          faculty: analyticsData.borrowedByFaculty || (systemFacultyBorrowings + manualFacultyQuantity),
+          total: computedTotal,
+          students: computedStudents,
+          faculty: computedFaculty,
           systemTotal: systemBorrowings,
           systemStudents: systemStudentBorrowings,
           systemFaculty: systemFacultyBorrowings,
@@ -810,13 +859,40 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       };
     }
 
+    const getSystemReleaseQuantity = (entry) => {
+      if (!entry) return 0;
+      const raw = entry.quantityReleased ?? entry.quantity ?? 1;
+      const parsed = parseInt(raw);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    };
+
+    const isSystemReleaseEntry = (entry) => {
+      if (!entry || entry.isManualEntry) return false;
+      const action = (entry.action || '').toString().trim().toLowerCase();
+      const status = (entry.status || '').toString().trim().toLowerCase();
+      return action === 'item released' || status === 'released';
+    };
+
+    const isCountableManualEntry = (entry) => {
+      if (!entry || !entry.isManualEntry) return false;
+      const status = (entry.status || '').toString().trim().toLowerCase();
+      const action = (entry.action || '').toString().trim().toLowerCase();
+      return status === 'returned' || status === 'released' || action === 'returned' || action === 'released';
+    };
+
     // Calculate most active period (month with most borrowings)
     const monthlyData = {};
     equipmentHistory.forEach(entry => {
-      if (entry.action === "Item Released" && entry.timestamp) {
-        const date = new Date(entry.timestamp);
+      const isSystem = isSystemReleaseEntry(entry);
+      const isManual = isCountableManualEntry(entry);
+      if (!isSystem && !isManual) return;
+
+      const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
+      if (dateSource) {
+        const date = new Date(dateSource);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + 1;
+        const qty = isSystem ? getSystemReleaseQuantity(entry) : (parseInt(entry.quantity) || 1);
+        monthlyData[monthKey] = (monthlyData[monthKey] || 0) + qty;
       }
     });
 
@@ -839,11 +915,37 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     const totalBorrowings = Object.values(monthlyData).reduce((sum, count) => sum + count, 0);
     const averageUsage = totalMonths > 0 ? (totalBorrowings / totalMonths).toFixed(1) : "0";
 
-    // Calculate utilization rate (percentage of months with activity)
-    const allMonths = Object.keys(monthlyData);
-    const monthsWithActivity = allMonths.filter(month => monthlyData[month] > 0).length;
-    const utilizationRate = allMonths.length > 0
-      ? ((monthsWithActivity / allMonths.length) * 100).toFixed(0)
+    // Calculate utilization rate based on active days
+    // Active day = any countable usage happened on that calendar day
+    const activeDays = new Set();
+    let minDate = null;
+    let maxDate = null;
+
+    equipmentHistory.forEach(entry => {
+      const isSystem = isSystemReleaseEntry(entry);
+      const isManual = isCountableManualEntry(entry);
+      if (!isSystem && !isManual) return;
+
+      const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
+      if (!dateSource) return;
+
+      const date = new Date(dateSource);
+      if (Number.isNaN(date.getTime())) return;
+
+      const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      activeDays.add(dayKey);
+
+      if (!minDate || date < minDate) minDate = date;
+      if (!maxDate || date > maxDate) maxDate = date;
+    });
+
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const totalDaysCovered = minDate && maxDate
+      ? Math.max(1, Math.floor((maxDate.getTime() - minDate.getTime()) / MS_PER_DAY) + 1)
+      : 1;
+
+    const utilizationRate = activeDays.size > 0
+      ? ((activeDays.size / totalDaysCovered) * 100).toFixed(0)
       : "0";
 
     return {

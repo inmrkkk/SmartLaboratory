@@ -883,6 +883,69 @@
   cursor: not-allowed;
 }
 
+.manual-add-item-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  color: #0f172a;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.manual-add-item-button:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.manual-add-item-button:active {
+  transform: translateY(1px);
+}
+
+.manual-add-item-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.manual-item-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.manual-item-remove:hover:not(:disabled) {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.manual-item-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .primary-button {
   background: rgba(16, 185, 129, 0.9);
   border-color: rgba(16, 185, 129, 0.5);
