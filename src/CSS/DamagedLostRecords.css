@@ -371,11 +371,14 @@
 
 /* Table Cells */
 .borrower-name-cell {
+  min-width: 180px;
+  max-width: 200px;
+}
+
+.borrower-name-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
-  max-width: 200px;
 }
 
 .borrower-avatar {

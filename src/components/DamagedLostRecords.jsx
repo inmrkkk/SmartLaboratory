@@ -455,11 +455,13 @@ export default function DamagedLostRecords() {
                     {restrictedBorrowers.map((borrower) => (
                       <tr key={borrower.borrowerId} className="borrower-row">
                         <td className="borrower-name-cell">
-                          <div className="borrower-avatar">
-                            {borrower.borrowerName.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="borrower-name">
-                            <strong>{borrower.borrowerName}</strong>
+                          <div className="borrower-name-content">
+                            <div className="borrower-avatar">
+                              {borrower.borrowerName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="borrower-name">
+                              <strong>{borrower.borrowerName}</strong>
+                            </div>
                           </div>
                         </td>
                         <td className="course-cell">
@@ -543,18 +545,20 @@ export default function DamagedLostRecords() {
                       {getGroupedSettledRecords.slice(0, 15).map((record) => (
                         <tr key={record.id} className="settled-row">
                           <td className="borrower-name-cell">
-                            <div className="borrower-avatar">
-                              {record.borrowerName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="borrower-name">
-                              <button 
-                                className="borrower-name-btn"
-                                onClick={() => viewBorrowerSettledRecords(record)}
-                                title={`View all settled records for ${record.borrowerName}`}
-                              >
-                                <strong>{record.borrowerName}</strong>
-                                <span className="click-icon"></span>
-                              </button>
+                            <div className="borrower-name-content">
+                              <div className="borrower-avatar">
+                                {record.borrowerName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="borrower-name">
+                                <button 
+                                  className="borrower-name-btn"
+                                  onClick={() => viewBorrowerSettledRecords(record)}
+                                  title={`View all settled records for ${record.borrowerName}`}
+                                >
+                                  <strong>{record.borrowerName}</strong>
+                                  <span className="click-icon"></span>
+                                </button>
+                              </div>
                             </div>
                           </td>
                           <td className="borrower-type-cell">
