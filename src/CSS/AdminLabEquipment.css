@@ -1,0 +1,179 @@
+.admin-lab-equipment {
+  width: 100%;
+}
+
+.admin-lab-equipment__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-lab-equipment__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.admin-lab-equipment__subtitle {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.admin-lab-equipment__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+}
+
+.admin-lab-equipment__filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.admin-lab-equipment__select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  font-size: 14px;
+  color: #111827;
+}
+
+.admin-lab-equipment__select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.admin-lab-equipment__card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-lab-equipment__card-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-lab-equipment__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-lab-equipment__action-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-lab-equipment__action-btn:hover {
+  background: #f9fafb;
+}
+
+.admin-lab-equipment__action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-lab-equipment__action-btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.admin-lab-equipment__action-btn--primary:hover {
+  background: #1d4ed8;
+}
+
+.admin-lab-equipment__card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.admin-lab-equipment__empty {
+  padding: 22px 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.admin-lab-equipment__table-wrapper {
+  width: 100%;
+  overflow: auto;
+}
+
+.admin-lab-equipment__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+}
+
+.admin-lab-equipment__table thead th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-lab-equipment__table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  color: #111827;
+}
+
+.admin-lab-equipment__table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.admin-lab-equipment__name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.admin-lab-equipment__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+@media (max-width: 900px) {
+  .admin-lab-equipment__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-lab-equipment__filters {
+    min-width: unset;
+  }
+}

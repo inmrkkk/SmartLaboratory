@@ -14,6 +14,7 @@ import LaboratoryManagement from "./LaboratoryManagement";
 import NotificationModal from "./NotificationModal";
 import DamagedLostRecords from "./DamagedLostRecords";
 import DataConsistencyAudit from "./DataConsistencyAudit";
+import AdminLabEquipment from "./AdminLabEquipment";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
@@ -1274,6 +1275,19 @@ export default function Dashboard() {
       
       case "equipments":
         return isLaboratoryManager() ? <EquipmentPage onMaintenanceComplete={handleMaintenanceComplete} /> : null;
+
+      case "admin-lab-equipment":
+        if (!isAdmin()) {
+          return (
+            <div className="dashboard-content-centered">
+              <div className="access-denied">
+                <h1>Access Denied</h1>
+                <p>You don't have permission to access this section. Admin privileges required.</p>
+              </div>
+            </div>
+          );
+        }
+        return <AdminLabEquipment />;
       
       case "laboratories":
         return <LaboratoryManagement />;

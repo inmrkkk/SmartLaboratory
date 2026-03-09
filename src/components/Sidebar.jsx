@@ -20,6 +20,13 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       description: "Overview of system activity"
     },
     {
+      id: "admin-lab-equipment",
+      label: "All Laboratory Equipment",
+      icon: "🧰",
+      roles: ["admin"],
+      description: "View and manage equipment from all laboratories"
+    },
+    {
       id: "equipments",
       label: "Equipments", 
       icon: "⚙️",
