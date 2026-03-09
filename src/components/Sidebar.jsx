@@ -4,8 +4,21 @@ import { useAuth } from "../contexts/AuthContext";
 import "../CSS/Sidebar.css";
 
 export default function Sidebar({ activeSection, onSectionChange }) {
-  const { logout, userRole, isAdmin } = useAuth();
+  const { logout, userRole, isAdmin, assignedLaboratories } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const sidebarTitle = (() => {
+    if (userRole === 'admin') return 'Admin Panel';
+
+    if (userRole === 'laboratory_manager') {
+      const labs = Array.isArray(assignedLaboratories) ? assignedLaboratories : [];
+
+      if (labs.length === 1 && labs[0]?.labName) return labs[0].labName;
+      if (labs.length > 1) return 'My Laboratories';
+    }
+
+    return 'Lab In Charge Panel';
+  })();
 
   const handleLogout = async () => {
     await logout();
@@ -89,16 +102,11 @@ export default function Sidebar({ activeSection, onSectionChange }) {
     item.roles.includes(userRole)
   );
 
-  // Get restricted items for visual feedback (optional)
-  const restrictedItems = allMenuItems.filter(item => 
-    !item.roles.includes(userRole)
-  );
-
   return (
     <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <h2 className="sidebar-title">
-          {userRole === 'admin' ? 'Admin Panel' : 'Lab In Charge Panel'}
+          {sidebarTitle}
         </h2>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -127,32 +135,6 @@ export default function Sidebar({ activeSection, onSectionChange }) {
             <span className="menu-item-label">{item.label}</span>
           </button>
         ))}
-
-        {/* Restricted menu items (shown as disabled) - Only show for non-admin users */}
-        {restrictedItems.length > 0 && !isCollapsed && !isAdmin() && (
-          <>
-            <div className="sidebar-divider"></div>
-            <div className="restricted-section">
-              <div className="restricted-label">Restricted Access</div>
-              {restrictedItems.map((item) => (
-                <button
-                  key={item.id}
-                  className="menu-item disabled tooltip"
-                  disabled
-                  data-tooltip={`${item.label} - ${userRole === 'laboratory_manager' ? 'Admin access required' : 'Access restricted'}`}
-                  title={`${item.label} - ${userRole === 'laboratory_manager' ? 'Admin access required' : 'Access restricted'}`}
-                  aria-label={`${item.label} - Access restricted`}
-                >
-                  <span className="menu-item-icon" role="img" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span className="menu-item-label">{item.label}</span>
-                  <span className="restricted-indicator" title="Access restricted">🔒</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
       </nav>
 
       <button

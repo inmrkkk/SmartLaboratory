@@ -391,7 +391,7 @@ export default function LaboratoryManagement() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"></span>
         </div>
         
         <div className="filter-controls">
