@@ -31,7 +31,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [activeTab, setActiveTab] = useState("categories");
   const [searchTerm, setSearchTerm] = useState("");
-  const [laboratoryFilter, setLaboratoryFilter] = useState("");
 
   const [categoryFormData, setCategoryFormData] = useState({
     title: "",
@@ -1123,11 +1122,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     return { status: 'valid', text: 'Valid', color: '#10b981' };
   };
 
-  // Filter equipments based on search term and laboratory filter
+  // Filter equipments based on search term
   const filteredEquipments = equipments.filter(equipment => {
     const normalizedSearch = (searchTerm || "").trim().toLowerCase();
     const displayName = getEquipmentDisplayName(equipment);
-
+    
     const matchesSearch =
       !normalizedSearch ||
       displayName?.toLowerCase().includes(normalizedSearch) ||
@@ -1136,9 +1135,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       equipment.location?.toLowerCase().includes(normalizedSearch) ||
       equipment.assignedTo?.toLowerCase().includes(normalizedSearch);
 
-    const matchesLaboratory = !laboratoryFilter || equipment.labId === laboratoryFilter;
-
-    return matchesSearch && matchesLaboratory;
+    return matchesSearch;
   });
 
   // Export equipment data to CSV
@@ -1468,6 +1465,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                       if (!isAdmin()) {
                         const assignedLabIds = getAssignedLaboratoryIds();
                         if (assignedLabIds) {
+                          // Filter categories to only show those from assigned laboratories
                           equipmentsInCategory = equipmentsInCategory.filter((equipment) => {
                             const lab = laboratories.find((l) => l.labId === equipment.labId);
                             return lab && assignedLabIds.includes(lab.id);
@@ -1612,18 +1610,6 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
               />
-              <select
-                value={laboratoryFilter}
-                onChange={(e) => setLaboratoryFilter(e.target.value)}
-                className="laboratory-filter"
-              >
-                <option value="">All Laboratories</option>
-                {laboratories.map((lab) => (
-                  <option key={lab.id} value={lab.labId}>
-                    {lab.labName}
-                  </option>
-                ))}
-              </select>
               <span className="search-icon"></span>
             </div>
           )}
@@ -2003,19 +1989,32 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Laboratory</label>
-                  <select
-                    name="labId"
-                    value={equipmentFormData.labId}
-                    onChange={handleEquipmentInputChange}
-                    className="form-select"
-                  >
-                    <option value="">Select Laboratory</option>
-                    {laboratories.map((lab) => (
-                      <option key={lab.id} value={lab.labId}>
-                        {lab.labName} ({lab.labId})
-                      </option>
-                    ))}
-                  </select>
+                  {isAdmin() ? (
+                    <select
+                      name="labId"
+                      value={equipmentFormData.labId}
+                      onChange={handleEquipmentInputChange}
+                      className="form-select"
+                    >
+                      <option value="">Select Laboratory</option>
+                      {laboratories.map((lab) => (
+                        <option key={lab.id} value={lab.labId}>
+                          {lab.labName} ({lab.labId})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="form-input-display">
+                      {(() => {
+                        const assignedLabIds = getAssignedLaboratoryIds();
+                        if (assignedLabIds && assignedLabIds.length > 0) {
+                          const assignedLab = laboratories.find(lab => assignedLabIds.includes(lab.id));
+                          return assignedLab ? `${assignedLab.labName} (${assignedLab.labId})` : 'No laboratory assigned';
+                        }
+                        return 'No laboratory assigned';
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
 
