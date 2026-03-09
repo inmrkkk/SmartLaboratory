@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import "../CSS/Sidebar.css";
 
 export default function Sidebar({ activeSection, onSectionChange }) {
-  const { logout, userRole, assignedLaboratories, isAdmin } = useAuth();
+  const { logout, userRole, assignedLaboratories } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = async () => {
