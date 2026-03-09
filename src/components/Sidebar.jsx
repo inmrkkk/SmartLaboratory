@@ -4,21 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 import "../CSS/Sidebar.css";
 
 export default function Sidebar({ activeSection, onSectionChange }) {
-  const { logout, userRole, isAdmin, assignedLaboratories } = useAuth();
+  const { logout, userRole, assignedLaboratories, isAdmin } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const sidebarTitle = (() => {
-    if (userRole === 'admin') return 'Admin Panel';
-
-    if (userRole === 'laboratory_manager') {
-      const labs = Array.isArray(assignedLaboratories) ? assignedLaboratories : [];
-
-      if (labs.length === 1 && labs[0]?.labName) return labs[0].labName;
-      if (labs.length > 1) return 'My Laboratories';
-    }
-
-    return 'Lab In Charge Panel';
-  })();
 
   const handleLogout = async () => {
     await logout();
@@ -106,7 +93,9 @@ export default function Sidebar({ activeSection, onSectionChange }) {
     <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <h2 className="sidebar-title">
-          {sidebarTitle}
+          {userRole === 'admin'
+            ? 'Admin Panel'
+            : (assignedLaboratories?.[0]?.labName || 'Lab In Charge Panel')}
         </h2>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
