@@ -91,6 +91,62 @@ export default function RequestFormsPage() {
     }
   };
 
+
+
+  const openRejectModal = (request) => {
+
+    setRequestToReject(request);
+
+    setRejectionRemarks("");
+
+    setShowRejectModal(true);
+
+  };
+
+
+
+  const closeRejectModal = () => {
+
+    setShowRejectModal(false);
+
+    setRequestToReject(null);
+
+    setRejectionRemarks("");
+
+  };
+
+
+
+  const confirmRejectRequest = async () => {
+
+    if (!requestToReject?.id) return;
+
+    const trimmedRemarks = rejectionRemarks.toString().trim();
+
+    if (!trimmedRemarks) {
+
+      showToast("Please enter remarks for the reason of rejection.", "error");
+
+      return;
+
+    }
+
+    await handleStatusUpdate(requestToReject.id, "rejected", {
+
+      rejectionRemarks: trimmedRemarks,
+
+    });
+
+    closeRejectModal();
+
+    if (showDetailsModal) {
+
+      closeDetailsModal();
+
+    }
+
+  };
+
   const [filterStatus, setFilterStatus] = useState("All");
 
   const [filterType, setFilterType] = useState("All");
@@ -152,6 +208,12 @@ export default function RequestFormsPage() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   const [requestToDelete, setRequestToDelete] = useState(null);
+
+  const [showRejectModal, setShowRejectModal] = useState(false);
+
+  const [requestToReject, setRequestToReject] = useState(null);
+
+  const [rejectionRemarks, setRejectionRemarks] = useState("");
 
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
@@ -1452,6 +1514,10 @@ export default function RequestFormsPage() {
 
         const rejectedAt = new Date().toISOString();
 
+        const normalizedRejectionRemarks = (returnDetails?.rejectionRemarks || "").toString().trim();
+
+        updateData.rejectionRemarks = normalizedRejectionRemarks;
+
         // Find equipment data
 
         let equipment = null;
@@ -1572,6 +1638,8 @@ export default function RequestFormsPage() {
 
           condition: "Request rejected by Lab in charge",
 
+          rejectionRemarks: normalizedRejectionRemarks,
+
           timestamp: rejectedAt,
 
           processedBy: requestData.reviewedBy || "Admin",
@@ -1597,6 +1665,8 @@ export default function RequestFormsPage() {
       if (requestData.status === "rejected" && newStatus === "pending") {
 
         updateData.rejectionHistoryEntry = null;
+
+        updateData.rejectionRemarks = null;
 
       }
 
@@ -1745,6 +1815,12 @@ export default function RequestFormsPage() {
                 status: newStatus,
 
                 updatedAt: new Date().toISOString(),
+
+                ...(newStatus === "rejected" && {
+
+                  rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
+
+                }),
 
                 ...(returnDetails && {
 
@@ -3345,6 +3421,10 @@ export default function RequestFormsPage() {
 
                                 )}
 
+
+
+
+
                               </div>
 
                             </td>
@@ -3621,17 +3701,7 @@ export default function RequestFormsPage() {
 
                                       className="action-btn icon-btn reject-btn"
 
-                                      onClick={() =>
-
-                                        handleStatusUpdate(
-
-                                          request.id,
-
-                                          "rejected"
-
-                                        )
-
-                                      }
+                                      onClick={() => openRejectModal(request)}
 
                                       title="Reject"
 
@@ -3675,11 +3745,7 @@ export default function RequestFormsPage() {
 
                                     className="action-btn icon-btn reject-btn"
 
-                                    onClick={() =>
-
-                                      handleStatusUpdate(request.id, "rejected")
-
-                                    }
+                                    onClick={() => openRejectModal(request)}
 
                                     title="Reject"
 
@@ -4055,11 +4121,7 @@ export default function RequestFormsPage() {
 
                                   className="action-btn icon-btn reject-btn"
 
-                                  onClick={() =>
-
-                                    handleStatusUpdate(request.id, "rejected")
-
-                                  }
+                                  onClick={() => openRejectModal(request)}
 
                                   title="Reject"
 
@@ -4103,11 +4165,7 @@ export default function RequestFormsPage() {
 
                                   className="action-btn icon-btn reject-btn"
 
-                                  onClick={() =>
-
-                                    handleStatusUpdate(request.id, "rejected")
-
-                                  }
+                                  onClick={() => openRejectModal(request)}
 
                                   title="Reject"
 
@@ -4859,6 +4917,18 @@ export default function RequestFormsPage() {
 
                   </div>
 
+                  {selectedRequest.status === "rejected" && (
+
+                    <div className="detail-item">
+
+                      <label>Rejection Remarks:</label>
+
+                      <span>{selectedRequest.rejectionRemarks || "N/A"}</span>
+
+                    </div>
+
+                  )}
+
                   <div className="detail-item">
 
                     <label>Request ID:</label>
@@ -4920,9 +4990,7 @@ export default function RequestFormsPage() {
 
                       onClick={() => {
 
-                        handleStatusUpdate(selectedRequest.id, "rejected");
-
-                        closeDetailsModal();
+                        openRejectModal(selectedRequest);
 
                       }}
 
@@ -4966,9 +5034,7 @@ export default function RequestFormsPage() {
 
                       onClick={() => {
 
-                        handleStatusUpdate(selectedRequest.id, "rejected");
-
-                        closeDetailsModal();
+                        openRejectModal(selectedRequest);
 
                       }}
 
@@ -5523,6 +5589,90 @@ export default function RequestFormsPage() {
               >
 
                 Release Item
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+
+      {showRejectModal && requestToReject && (
+
+        <div className="modal-overlay" onClick={closeRejectModal}>
+
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+
+            <div className="modal-header">
+
+              <h2>Reject Request</h2>
+
+              <button className="modal-close" onClick={closeRejectModal}>
+
+                ×
+
+              </button>
+
+            </div>
+
+
+
+            <div className="modal-body">
+
+              <div className="return-form">
+
+                <div className="form-group">
+
+                  <label>Item: {requestToReject.itemName}</label>
+
+                  <label>Borrower: {getBorrowerName(requestToReject.userId)}</label>
+
+                </div>
+
+
+
+                <div className="form-group">
+
+                  <label htmlFor="rejectionRemarks">Remarks (Reason for Rejection):</label>
+
+                  <textarea
+
+                    id="rejectionRemarks"
+
+                    className="form-textarea"
+
+                    value={rejectionRemarks}
+
+                    onChange={(e) => setRejectionRemarks(e.target.value)}
+
+                    placeholder="Enter reason for rejection"
+
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+
+            <div className="modal-actions" style={{ gap: '12px', padding: '20px' }}>
+
+              <button className="btn btn-secondary" onClick={closeRejectModal}>
+
+                Cancel
+
+              </button>
+
+              <button className="btn btn-danger" onClick={confirmRejectRequest}>
+
+                Reject
 
               </button>
 

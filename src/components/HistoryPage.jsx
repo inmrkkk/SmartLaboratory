@@ -978,6 +978,18 @@ export default function HistoryPage() {
                         </span>
                       </div>
                     </div>
+
+                    {(selectedEntry.status || '').toString().toLowerCase() === 'rejected' && (
+
+                      <div className="detail-item">
+
+                        <div className="detail-label">Rejection Remarks:</div>
+
+                        <div className="detail-value">{selectedEntry.rejectionRemarks || 'N/A'}</div>
+
+                      </div>
+
+                    )}
                     <div className="detail-item">
                       <div className="detail-label">Condition:</div>
                       <div className="detail-value">{selectedEntry.condition}</div>
