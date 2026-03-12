@@ -48,7 +48,7 @@ import approveIcon from '../images/approve.png';
 
 export default function RequestFormsPage() {
 
-  const { isAdmin, getAssignedLaboratoryIds } = useAuth();
+  const { user, userRole, isAdmin, getAssignedLaboratoryIds } = useAuth();
 
   const [allRequests, setAllRequests] = useState([]);
 
@@ -680,7 +680,7 @@ export default function RequestFormsPage() {
 
     if (allRequests.length > 0) {
 
-      let filteredRequests = allRequests;
+      let filteredRequests = allRequests.filter((request) => !request?.archived);
 
 
 
@@ -1102,13 +1102,28 @@ export default function RequestFormsPage() {
 
         : null;
 
+      const resolvedReviewerName =
+        (user?.name || user?.displayName || user?.email || "")?.toString().trim() ||
+        "Unknown";
+      const resolvedReviewerRole = (userRole || "")?.toString().trim() || "unknown";
+      const resolvedReviewerLabel = isAdmin()
+        ? "Admin"
+        : resolvedReviewerRole === "laboratory_manager"
+          ? "Lab in charge"
+          : resolvedReviewerRole === "teacher"
+            ? "Instructor"
+            : resolvedReviewerRole;
+
       const updateData = {
 
         status: newStatus,
 
         updatedAt: new Date().toISOString(),
 
-        reviewedBy: "Admin", // You can get actual admin name from auth
+        reviewedBy: resolvedReviewerLabel,
+        reviewedByRole: resolvedReviewerRole,
+        reviewedByUserId: user?.uid || null,
+        reviewedByName: resolvedReviewerName,
 
       };
 
@@ -1518,6 +1533,14 @@ export default function RequestFormsPage() {
 
         updateData.rejectionRemarks = normalizedRejectionRemarks;
 
+        updateData.rejectedBy = {
+          role: resolvedReviewerRole,
+          label: resolvedReviewerLabel,
+          userId: user?.uid || null,
+          name: resolvedReviewerName,
+          timestamp: new Date().toISOString(),
+        };
+
         // Find equipment data
 
         let equipment = null;
@@ -1636,7 +1659,7 @@ export default function RequestFormsPage() {
 
           }),
 
-          condition: "Request rejected by Lab in charge",
+          condition: `Request rejected by ${resolvedReviewerLabel}`,
 
           rejectionRemarks: normalizedRejectionRemarks,
 
@@ -1667,46 +1690,6 @@ export default function RequestFormsPage() {
         updateData.rejectionHistoryEntry = null;
 
         updateData.rejectionRemarks = null;
-
-      }
-
-
-
-      // Remove rejection entry from history when status changes from rejected to approved
-
-      if (newStatus === "approved" && requestData.status === "rejected") {
-
-        const historyRef = ref(database, "history");
-
-        const historySnapshot = await get(historyRef);
-
-
-
-        if (historySnapshot.exists()) {
-
-          const historyData = historySnapshot.val();
-
-          const rejectionEntries = Object.keys(historyData).filter(
-
-            (key) =>
-
-              historyData[key].requestId === requestData.id &&
-
-              historyData[key].entryType === "rejection"
-
-          );
-
-
-
-          // Remove all rejection entries for this request
-
-          for (const entryKey of rejectionEntries) {
-
-            await remove(ref(database, `history/${entryKey}`));
-
-          }
-
-        }
 
       }
 
@@ -1744,7 +1727,7 @@ export default function RequestFormsPage() {
 
                 laboratory,
 
-                "Admin",
+                resolvedReviewerLabel,
 
                 getBorrowerName(requestData.userId)
 
@@ -1762,7 +1745,7 @@ export default function RequestFormsPage() {
 
                 laboratory,
 
-                "Admin"
+                resolvedReviewerLabel
 
               );
 
@@ -1816,9 +1799,16 @@ export default function RequestFormsPage() {
 
                 updatedAt: new Date().toISOString(),
 
+                reviewedBy: updateData.reviewedBy,
+                reviewedByRole: updateData.reviewedByRole,
+                reviewedByUserId: updateData.reviewedByUserId,
+                reviewedByName: updateData.reviewedByName,
+
                 ...(newStatus === "rejected" && {
 
                   rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
+
+                  rejectedBy: updateData.rejectedBy,
 
                 }),
 
@@ -1854,11 +1844,24 @@ export default function RequestFormsPage() {
 
                 updatedAt: new Date().toISOString(),
 
+                reviewedBy: updateData.reviewedBy,
+                reviewedByRole: updateData.reviewedByRole,
+                reviewedByUserId: updateData.reviewedByUserId,
+                reviewedByName: updateData.reviewedByName,
+
                 ...(returnDetails && {
 
                   returnDetails,
 
                   returnedAt: new Date().toISOString(),
+
+                }),
+
+                ...(newStatus === "rejected" && {
+
+                  rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
+
+                  rejectedBy: updateData.rejectedBy,
 
                 }),
 
@@ -2012,7 +2015,7 @@ export default function RequestFormsPage() {
 
               }),
 
-              condition: "Request rejected by Lab in charge",
+              condition: `Request rejected by ${requestData.reviewedBy || "Admin"}`,
 
               timestamp: rejectedAt,
 
@@ -2030,7 +2033,12 @@ export default function RequestFormsPage() {
 
         }
 
-        await remove(requestRef);
+        await update(requestRef, {
+          archived: true,
+          archivedAt: new Date().toISOString(),
+          archivedByUserId: user?.uid || null,
+          archivedByName: (user?.name || user?.displayName || user?.email || "")?.toString().trim() || "Unknown",
+        });
 
       setShowDeleteConfirmation(false);
 
@@ -2789,21 +2797,12 @@ export default function RequestFormsPage() {
 
       const requestRef = ref(database, `borrow_requests/${selectedRequest.id}`);
 
-      await remove(requestRef);
-
-
-
-      setAllRequests((prev) =>
-
-        prev.filter((request) => request.id !== selectedRequest.id)
-
-      );
-
-      setRequests((prev) =>
-
-        prev.filter((request) => request.id !== selectedRequest.id)
-
-      );
+      await update(requestRef, {
+        archived: true,
+        archivedAt: new Date().toISOString(),
+        archivedByUserId: user?.uid || null,
+        archivedByName: (user?.name || user?.displayName || user?.email || "")?.toString().trim() || "Unknown",
+      });
 
 
 
@@ -4924,6 +4923,65 @@ export default function RequestFormsPage() {
                       <label>Rejection Remarks:</label>
 
                       <span>{selectedRequest.rejectionRemarks || "N/A"}</span>
+
+                    </div>
+
+                  )}
+
+                  {selectedRequest.status === "rejected" && (
+
+                    <div className="detail-item">
+
+                      <label>Rejected By:</label>
+
+                      <span>
+                        {(() => {
+                          // Try to get the instructor name from various sources
+                          const getInstructorName = () => {
+                            // First check if we have proper rejection data
+                            if (selectedRequest.rejectedBy?.name) {
+                              return `${selectedRequest.rejectedBy?.label || ""} (${selectedRequest.rejectedBy?.name})`.trim();
+                            }
+                            
+                            // Check older rejection fields
+                            if (selectedRequest.rejectedBy?.label) {
+                              return selectedRequest.rejectedBy.label;
+                            }
+                            
+                            if (selectedRequest.reviewedByName) {
+                              return selectedRequest.reviewedByName;
+                            }
+                            
+                            if (selectedRequest.reviewedBy) {
+                              return selectedRequest.reviewedBy;
+                            }
+                            
+                            // For mobile rejections, try to infer from request context
+                            if (selectedRequest.status === "rejected" && !selectedRequest.rejectedBy && !selectedRequest.reviewedByName && !selectedRequest.reviewedBy) {
+                              // Check if adviserName looks like an instructor
+                              if (selectedRequest.adviserName && selectedRequest.adviserName !== "N/A") {
+                                // Check if adviserName contains instructor-like keywords
+                                const instructorKeywords = ['instructor', 'prof', 'professor', 'sir ', "ma'am", 'maam', 'mr.', 'ms.', 'mrs.'];
+                                const adviserNameLower = selectedRequest.adviserName.toLowerCase();
+                                
+                                if (instructorKeywords.some(keyword => adviserNameLower.includes(keyword))) {
+                                  return `Instructor (${selectedRequest.adviserName})`;
+                                }
+                                
+                                // If it's a mobile rejection and we have an adviser name, it's likely the instructor
+                                return `Instructor (${selectedRequest.adviserName})`;
+                              }
+                              
+                              // Fallback to generic mobile message
+                              return "Mobile App (Instructor)";
+                            }
+                            
+                            return "N/A";
+                          };
+                          
+                          return getInstructorName();
+                        })()}
+                      </span>
 
                     </div>
 

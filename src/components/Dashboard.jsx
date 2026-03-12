@@ -1033,7 +1033,7 @@ export default function Dashboard() {
             <div className="main-stats-grid">
               <div className="stat-card-large primary">
                 <div className="stat-number">{dashboardStats.borrowedByAdviser}</div>
-                <div className="stat-label">Items Borrowed by Instructor</div>
+                <div className="stat-label">Items Borrowed by Faculty</div>
                 <div className="stat-icon">👨‍🏫</div>
               </div>
               <div className="stat-card-large success">
