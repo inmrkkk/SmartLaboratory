@@ -132,7 +132,7 @@ export default function Dashboard() {
   // Load announcements from Firebase
   useEffect(() => {
     const announcementsRef = ref(database, 'announcements');
-    
+
     const unsubscribe = onValue(announcementsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -156,7 +156,7 @@ export default function Dashboard() {
     if (!isLaboratoryManager()) return;
 
     const notificationsRef = ref(database, 'notifications');
-    
+
     const unsubscribe = onValue(notificationsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -164,23 +164,23 @@ export default function Dashboard() {
           id: key,
           ...data[key]
         }));
-        
+
         // Get assigned laboratory IDs for this user
         const assignedLabIds = getAssignedLaboratoryIds() || [];
-        
+
         // Count unread notifications for this user
         const unreadCount = notificationsList.filter(notification => {
           if (notification.isRead) return false;
-          
+
           // Check if notification is directly for this user
           if (notification.recipientUserId === user.uid) return true;
-          
+
           // Check if notification is for one of their assigned laboratories
           if (notification.labId && Array.isArray(assignedLabIds) && assignedLabIds.includes(notification.labId)) return true;
-          
+
           return false;
         }).length;
-        
+
         setUnreadNotificationCount(unreadCount);
       } else {
         setUnreadNotificationCount(0);
@@ -197,7 +197,7 @@ export default function Dashboard() {
         // Load borrow requests
         const borrowRequestsRef = ref(database, 'borrow_requests');
         const borrowSnapshot = await get(borrowRequestsRef);
-        
+
         if (borrowSnapshot.exists()) {
           const requestsData = borrowSnapshot.val();
           const requestsList = Object.keys(requestsData).map(key => ({
@@ -210,7 +210,7 @@ export default function Dashboard() {
         // Load laboratories
         const laboratoriesRef = ref(database, 'laboratories');
         const laboratoriesSnapshot = await get(laboratoriesRef);
-        
+
         if (laboratoriesSnapshot.exists()) {
           const laboratoriesData = laboratoriesSnapshot.val();
           const laboratoriesList = Object.keys(laboratoriesData).map(key => ({
@@ -223,7 +223,7 @@ export default function Dashboard() {
         // Load users data to get borrower names
         const usersRef = ref(database, 'users');
         const usersSnapshot = await get(usersRef);
-        
+
         if (usersSnapshot.exists()) {
           const usersData = usersSnapshot.val();
           const usersList = Object.keys(usersData).map(key => ({
@@ -304,7 +304,7 @@ export default function Dashboard() {
 
         // Calculate statistics
         const pendingCount = requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length;
-        
+
         // Debug: Log all request statuses to see what's in the data
         console.log('[Dashboard] Request status breakdown:', {
           totalRequests: requests.length,
@@ -358,7 +358,7 @@ export default function Dashboard() {
         // Filter requests by time period
         const now = new Date();
         let filteredRequestsForChart = requests;
-        
+
         if (borrowingTimeFilter === 'week') {
           const weekAgo = new Date(now);
           weekAgo.setDate(weekAgo.getDate() - 7);
@@ -381,7 +381,7 @@ export default function Dashboard() {
         // Create borrowing chart data - count items that were actually borrowed
         // Includes: released (currently borrowed) and returned (were borrowed)
         const itemData = {};
-        
+
         filteredRequestsForChart.forEach(req => {
           // Count requests that were actually borrowed (released, in_progress, or returned)
           const statusValue = (req.status || '').toString().trim().toLowerCase();
@@ -396,7 +396,7 @@ export default function Dashboard() {
         let adviserBorrowings = 0;
         let studentBorrowings = 0;
         const borrowingDetails = [];
-        
+
         // Helper function to determine borrower role with fallbacks
         const getBorrowerRole = (request) => {
           if (!request) return null;
@@ -419,7 +419,7 @@ export default function Dashboard() {
         };
 
         const facultyRoles = ['admin', 'laboratory_manager', 'instructor', 'adviser', 'advisor', 'faculty', 'teacher'];
-        
+
         requests.forEach(req => {
           if ((req.status || '').toString().trim().toLowerCase() === 'released') {
             const borrowerRole = getBorrowerRole(req);
@@ -787,7 +787,7 @@ export default function Dashboard() {
 
         // Import get function for one-time reads
         const { get } = await import('firebase/database');
-        
+
         const [borrowSnapshot, equipmentSnapshot, announcementsSnapshot, categoriesSnapshot] = await Promise.all([
           get(borrowRequestsRef),
           get(equipmentRef),
@@ -821,14 +821,14 @@ export default function Dashboard() {
         // Process borrow requests with role-based filtering
         const borrowData = borrowSnapshot.val();
         const categoriesData = categoriesSnapshot.val();
-        
+
         if (borrowData) {
           Object.keys(borrowData).forEach(key => {
             const request = borrowData[key];
-            
+
             // Check if this request should be visible to the current user
             let shouldShow = false;
-            
+
             if (isAdmin()) {
               // Admin sees all requests
               shouldShow = true;
@@ -846,23 +846,23 @@ export default function Dashboard() {
                 }
               }
             }
-            
+
             if (shouldShow) {
               activities.push({
                 id: `request_${key}`,
                 type: 'request',
-                title: request.status === 'approved' ? 'Borrow request approved' : 
-                       request.status === 'pending' ? 'New borrow request submitted' :
-                       request.status === 'rejected' ? 'Borrow request rejected' :
-                       request.status === 'released' ? 'Equipment released' :
-                       request.status === 'returned' ? 'Equipment returned' :
-                       'Borrow request status updated',
-                time: request.status === 'returned' && request.returnedAt 
-                      ? request.returnedAt 
-                      : request.requestedAt || request.updatedAt,
-                icon: request.status === 'approved' ? 'info' : 
-                      request.status === 'released' ? 'success' :
-                      request.status === 'returned' ? 'success' :
+                title: request.status === 'approved' ? 'Borrow request approved' :
+                  request.status === 'pending' ? 'New borrow request submitted' :
+                    request.status === 'rejected' ? 'Borrow request rejected' :
+                      request.status === 'released' ? 'Equipment released' :
+                        request.status === 'returned' ? 'Equipment returned' :
+                          'Borrow request status updated',
+                time: request.status === 'returned' && request.returnedAt
+                  ? request.returnedAt
+                  : request.requestedAt || request.updatedAt,
+                icon: request.status === 'approved' ? 'info' :
+                  request.status === 'released' ? 'success' :
+                    request.status === 'returned' ? 'success' :
                       request.status === 'rejected' ? 'warning' : 'success',
                 details: {
                   item: request.itemName,
@@ -896,10 +896,10 @@ export default function Dashboard() {
 
         // Sort by time and take most recent
         activities.sort((a, b) => new Date(b.time) - new Date(a.time));
-        
+
         // Store all activities for "See All" modal
         setAllActivities(activities);
-        
+
         // Show only first 4 for recent activity
         setRecentActivity(activities.slice(0, 4));
 
@@ -994,7 +994,7 @@ export default function Dashboard() {
     const now = new Date();
     const time = new Date(timestamp);
     const diffInSeconds = Math.floor((now - time) / 1000);
-    
+
     if (diffInSeconds < 60) return 'Just now';
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
@@ -1015,7 +1015,7 @@ export default function Dashboard() {
               </div>
               {isLaboratoryManager() && (
                 <div className="notification-bell-container">
-                  <button 
+                  <button
                     className="notification-bell"
                     onClick={() => setShowNotificationModal(true)}
                     title="View Notifications"
@@ -1028,7 +1028,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            
+
             {/* Main Statistics Grid */}
             <div className="main-stats-grid">
               <div className="stat-card-large primary">
@@ -1062,7 +1062,7 @@ export default function Dashboard() {
                 <div className="stat-number">{dashboardStats.availableEquipment.toLocaleString()}</div>
                 <div className="stat-label">Available Equipment</div>
                 <div className="stat-subtext">
-                  {dashboardStats.totalEquipment > 0 
+                  {dashboardStats.totalEquipment > 0
                     ? `${Math.round((dashboardStats.availableEquipment / dashboardStats.totalEquipment) * 100)}% of total`
                     : 'No equipment'}
                 </div>
@@ -1086,7 +1086,7 @@ export default function Dashboard() {
                     <h3>Top 5 Borrowed Items</h3>
                     <p>Most frequently borrowed equipment items</p>
                   </div>
-                  <select 
+                  <select
                     className="time-filter-select"
                     value={borrowingTimeFilter}
                     onChange={(e) => setBorrowingTimeFilter(e.target.value)}
@@ -1145,7 +1145,7 @@ export default function Dashboard() {
                     <p>Latest system activities</p>
                   </div>
                   {allActivities.length > 0 && (
-                    <button 
+                    <button
                       className="btn btn-sm btn-secondary"
                       onClick={() => setShowAllActivitiesModal(true)}
                       title="View all activities"
@@ -1159,10 +1159,10 @@ export default function Dashboard() {
                     recentActivity.map((activity) => (
                       <div key={activity.id} className="activity-item">
                         <div className={`activity-icon ${activity.icon}`}>
-                          {activity.icon === 'success' ? '✅' : 
-                           activity.icon === 'info' ? '📋' :
-                           activity.icon === 'warning' ? '⚠️' :
-                           activity.icon === 'primary' ? '📢' : '📋'}
+                          {activity.icon === 'success' ? '✅' :
+                            activity.icon === 'info' ? '📋' :
+                              activity.icon === 'warning' ? '⚠️' :
+                                activity.icon === 'primary' ? '📢' : '📋'}
                         </div>
                         <div className="activity-content">
                           <div className="activity-title">{activity.title}</div>
@@ -1204,7 +1204,7 @@ export default function Dashboard() {
                   <h2>Important Announcements</h2>
                   <p>Stay updated with the latest information and updates</p>
                 </div>
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={handleAddAnnouncement}
                 >
@@ -1225,14 +1225,14 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div className="announcement-actions">
-                          <button 
+                          <button
                             className="action-btn edit-btn"
                             onClick={() => handleEditAnnouncement(announcement)}
                             title="Edit"
                           >
                             ✏️
                           </button>
-                          <button 
+                          <button
                             className="action-btn delete-btn"
                             onClick={() => handleDeleteAnnouncement(announcement.id)}
                             title="Delete"
@@ -1241,11 +1241,11 @@ export default function Dashboard() {
                           </button>
                         </div>
                       </div>
-                      
+
                       <div className="announcement-content">
                         <p>{announcement.content}</p>
                       </div>
-                      
+
                       <div className="announcement-footer">
                         <div className="announcement-meta">
                           <span className="announcement-author">By: {announcement.author}</span>
@@ -1272,7 +1272,7 @@ export default function Dashboard() {
             </div>
           </div>
         );
-      
+
       case "equipments":
         return isLaboratoryManager() ? <EquipmentPage onMaintenanceComplete={handleMaintenanceComplete} /> : null;
 
@@ -1288,19 +1288,19 @@ export default function Dashboard() {
           );
         }
         return <AdminLabEquipment />;
-      
+
       case "laboratories":
         return <LaboratoryManagement />;
-      
+
       case "request-forms":
         return isLaboratoryManager() ? <RequestFormsPage /> : null;
-      
+
       case "history":
         return isLaboratoryManager() ? <HistoryPage /> : null;
-      
+
       case "analytics":
         return isLaboratoryManager() ? <Analytics /> : null;
-      
+
       case "users":
         if (!isAdmin()) {
           return (
@@ -1313,7 +1313,7 @@ export default function Dashboard() {
           );
         }
         return <UserManagement onRedirectToUsers={() => setActiveSection("users")} />;
-      
+
       case "damaged-lost":
         if (!isAdmin() && !isLaboratoryManager()) {
           return (
@@ -1326,7 +1326,7 @@ export default function Dashboard() {
           );
         }
         return <DamagedLostRecords />;
-      
+
       case "data-consistency":
         if (!isAdmin()) {
           return (
@@ -1339,7 +1339,7 @@ export default function Dashboard() {
           );
         }
         return <DataConsistencyAudit />;
-      
+
       case "profile":
         return (
           <div className="dashboard-content-centered">
@@ -1347,30 +1347,30 @@ export default function Dashboard() {
               <h1>Profile Settings</h1>
               <p>Manage your account settings and preferences.</p>
             </div>
-            
+
             <div className="profile-grid">
               <div className="profile-card">
                 <h3>Profile Picture</h3>
                 <div className="profile-picture">👤</div>
                 <button className="btn btn-secondary">Change Photo</button>
               </div>
-              
+
               <div className="profile-card">
                 <h3>Account Information</h3>
                 <div className="form-group">
                   <label className="form-label">Name:</label>
-                  <input 
-                    type="text" 
-                    placeholder="Your Name" 
-                    className="form-input" 
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    className="form-input"
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email:</label>
-                  <input 
-                    type="email" 
-                    placeholder="your.email@example.com" 
-                    className="form-input" 
+                  <input
+                    type="email"
+                    placeholder="your.email@example.com"
+                    className="form-input"
                   />
                 </div>
                 <div className="form-group">
@@ -1386,7 +1386,7 @@ export default function Dashboard() {
             </div>
           </div>
         );
-      
+
       default:
         return (
           <div className="dashboard-content-centered">
@@ -1401,7 +1401,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <Sidebar 
+      <Sidebar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
       />
@@ -1410,7 +1410,7 @@ export default function Dashboard() {
           {renderContent()}
         </div>
       </main>
-      
+
       {showAnnouncementModal && (
         <AnnouncementModal
           announcement={editingAnnouncement}
@@ -1421,7 +1421,7 @@ export default function Dashboard() {
           }}
         />
       )}
-      
+
       {showNotificationModal && (
         <NotificationModal
           isOpen={showNotificationModal}
@@ -1429,14 +1429,14 @@ export default function Dashboard() {
           onRedirect={handleSectionChange}
         />
       )}
-      
+
       {showAllActivitiesModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth: '800px', maxHeight: '80vh', overflow: 'auto'}}>
+          <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '80vh', overflow: 'auto' }}>
             <div className="modal-header">
               <h2>All Activities</h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button 
+                <button
                   onClick={() => {
                     const formatActivities = (activities) => {
                       return activities.map((activity, index) => [
@@ -1455,7 +1455,7 @@ export default function Dashboard() {
                 >
                   📄 Export PDF
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     const formatActivities = (activities) => {
                       return activities.map((activity) => ({
@@ -1480,10 +1480,10 @@ export default function Dashboard() {
                 {allActivities.map((activity) => (
                   <div key={activity.id} className="activity-item">
                     <div className={`activity-icon ${activity.icon}`}>
-                      {activity.icon === 'success' ? '✅' : 
-                       activity.icon === 'info' ? '📋' :
-                       activity.icon === 'warning' ? '⚠️' :
-                       activity.icon === 'primary' ? '📢' : '📋'}
+                      {activity.icon === 'success' ? '✅' :
+                        activity.icon === 'info' ? '📋' :
+                          activity.icon === 'warning' ? '⚠️' :
+                            activity.icon === 'primary' ? '📢' : '📋'}
                     </div>
                     <div className="activity-content">
                       <div className="activity-title">{activity.title}</div>

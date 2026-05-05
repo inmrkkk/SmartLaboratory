@@ -1745,7 +1745,9 @@ export default function RequestFormsPage() {
 
                 laboratory,
 
-                resolvedReviewerLabel
+                resolvedReviewerLabel,
+
+                getBorrowerName(requestData.userId)
 
               );
 

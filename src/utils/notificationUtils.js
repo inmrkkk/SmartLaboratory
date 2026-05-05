@@ -116,7 +116,7 @@ export const notifyNewRequest = async (requestData, equipmentData, laboratoryDat
     return;
   }
 
-  const borrowerName = studentName || requestData.adviserName || "Unknown Student";
+  const borrowerName = studentName || requestData.borrowerName || requestData.userName || requestData.displayName || requestData.studentName || "Unknown Student";
   const title = "New Equipment Request";
   const message = `Student ${borrowerName} has requested to borrow "${requestData.itemName}" from ${laboratoryData.labName}. Please review the request.`;
 
@@ -193,7 +193,7 @@ export const notifyRequestRejected = async (requestData, equipmentData, laborato
     return;
   }
 
-  const borrowerName = studentName || requestData.adviserName || "Unknown Student";
+  const borrowerName = studentName || requestData.borrowerName || requestData.userName || requestData.displayName || requestData.studentName || "Unknown Student";
   const title = "Equipment Request Rejected";
   const message = `The request for "${requestData.itemName}" by ${borrowerName} has been rejected by ${rejectedBy}.`;
 
@@ -228,7 +228,7 @@ export const notifyEquipmentReturned = async (requestData, equipmentData, labora
     return;
   }
 
-  const borrowerName = studentName || requestData.adviserName || "Unknown Student";
+  const borrowerName = studentName || requestData.borrowerName || requestData.userName || requestData.displayName || requestData.studentName || "Unknown Student";
   const title = "Equipment Returned";
   const message = `"${requestData.itemName}" has been returned by ${borrowerName}. Please check the equipment condition.`;
 
@@ -263,7 +263,7 @@ export const notifyEquipmentOverdue = async (requestData, equipmentData, laborat
     return;
   }
 
-  const borrowerName = studentName || requestData.adviserName || "Unknown Student";
+  const borrowerName = studentName || requestData.borrowerName || requestData.userName || requestData.displayName || requestData.studentName || "Unknown Student";
   const title = "Equipment Overdue";
   const message = `"${requestData.itemName}" borrowed by ${borrowerName} is ${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue. Expected return date was ${new Date(requestData.dateToReturn).toLocaleDateString()}.`;
 
@@ -329,7 +329,8 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
       const hasNotifiedToday = localStorage.getItem(notificationKey);
       
       if (!hasNotifiedToday) {
-        await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue);
+        const overdueBorrowerName = request.borrowerName || request.userName || request.displayName || request.studentName || null;
+        await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue, overdueBorrowerName);
         // Mark as notified for today
         localStorage.setItem(notificationKey, 'true');
       }
