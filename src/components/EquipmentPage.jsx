@@ -9,6 +9,8 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import ToastNotification from "./ToastNotification";
 import "../CSS/Equipment.css";
 import "../CSS/HistoryPage.css";
+import { jsPDF } from "jspdf";
+import { autoTable } from "jspdf-autotable";
 
 export default function EquipmentPage({ onMaintenanceComplete }) {
   const { isAdmin, getAssignedLaboratoryIds, assignedLaboratories, isLaboratoryManager } = useAuth();
@@ -1172,90 +1174,183 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleExportEquipmentToPDF = () => {
+  const handleExportEquipmentToPDF = async () => {
     if (filteredEquipments.length === 0) {
       alert("No equipment data to export");
       return;
     }
 
-    const title = "Laboratory Equipment List";
-    const dateStr = new Date().toLocaleString();
+    try {
+      // Create PDF document (A4 size)
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 15;
 
-    const rowsHtml = filteredEquipments.map((equipment, index) => {
-      const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
-      const warrantyStatus = getWarrantyStatus(equipment.warrantyExpiry);
-      const warrantyText = warrantyStatus ? warrantyStatus.text : "—";
+      // Helper to load image and get its data/dimensions using Canvas (more robust for local assets)
+      const getImageData = async (url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous"; // Handle potential CORS
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              resolve({ base64, width: img.width, height: img.height });
+            } catch (err) {
+              console.error("Canvas conversion error:", err);
+              resolve(null);
+            }
+          };
+          img.onerror = (err) => {
+            console.error(`Image load error for ${url}:`, err);
+            resolve(null);
+          };
+          img.src = url;
+        });
+      };
 
-      return `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${index + 1}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${getEquipmentDisplayName(equipment)}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.model || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.serialNumber || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${laboratory ? laboratory.labName : ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.status || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.condition || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.location || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.quantity || ""}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${warrantyText}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 12px;">${equipment.assignedTo || ""}</td>
-        </tr>
-      `;
-    }).join("");
+      // Load header and footer data
+      const headerData = await getImageData(`${window.location.origin}/header.png`);
+      const footerData = await getImageData(`${window.location.origin}/footer.png`);
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charSet="utf-8" />
-        <title>${title}</title>
-        <style>
-          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; }
-          h1 { font-size: 20px; margin-bottom: 4px; }
-          p { font-size: 12px; color: #6b7280; margin-top: 0; margin-bottom: 16px; }
-          table { border-collapse: collapse; width: 100%; }
-          thead { background-color: #f3f4f6; }
-          th { text-align: left; padding: 8px; border: 1px solid #e5e7eb; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p>Generated on ${dateStr}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Model</th>
-              <th>Serial Number</th>
-              <th>Laboratory</th>
-              <th>Status</th>
-              <th>Condition</th>
-              <th>Location</th>
-              <th>Quantity</th>
-              <th>Warranty</th>
-              <th>Assigned To</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+      if (!headerData || !footerData) {
+        throw new Error("Branding images (header.png or footer.png) could not be loaded from the public folder.");
+      }
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Unable to open print window. Please allow pop-ups and try again.");
-      return;
+      // Calculate heights based on the specified image dimensions (1121x793)
+      const imageAspectRatio = 793 / 1121;
+      
+      let headerHeight = headerData && headerData.width > 0 
+        ? (headerData.height / headerData.width) * pageWidth 
+        : imageAspectRatio * pageWidth;
+        
+      let footerHeight = footerData && footerData.width > 0 
+        ? (footerData.height / footerData.width) * pageWidth 
+        : imageAspectRatio * pageWidth;
+
+      // ADJUSTED SCALE: We now allow up to 45% of the page for branding.
+      // This provides a better balance between the large 1121x793 images and the equipment list.
+      const maxBrandingHeight = pageHeight * 0.45; 
+      if ((headerHeight + footerHeight) > maxBrandingHeight) {
+        const scale = maxBrandingHeight / (headerHeight + footerHeight);
+        headerHeight *= scale;
+        footerHeight *= scale;
+      }
+
+      // Function to add header, footer, and page numbers
+      const addPageDecorations = (data) => {
+        // Header Image (Full-bleed: slightly oversized to ensure no white edges)
+        if (headerData) {
+          doc.addImage(headerData.base64, 'PNG', -0.5, 0, pageWidth + 1, headerHeight);
+        }
+
+        // Footer Image (Full-bleed: slightly oversized to ensure no white edges)
+        if (footerData) {
+          doc.addImage(footerData.base64, 'PNG', -0.5, pageHeight - footerHeight, pageWidth + 1, footerHeight);
+        }
+
+        // Use data.pageNumber from autoTable instead of doc.internal to avoid recursion
+        const pageNumber = data.pageNumber;
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${pageNumber}`,
+          pageWidth - margin,
+          pageHeight - footerHeight - 5, // 5mm above footer
+          { align: 'right' }
+        );
+      };
+
+      // Prepare Table Data
+      const tableHeaders = [["Equipment Name", "Category", "Quantity", "Status", "Laboratory/Location"]];
+      
+      const tableRows = filteredEquipments.map(eq => {
+        const category = categories.find(cat => cat.id === eq.categoryId)?.title || "—";
+        const laboratory = laboratories.find(lab => lab.labId === eq.labId)?.labName || eq.laboratory || "—";
+        
+        const totalQuantity = Number(eq.quantity) || 1;
+        const borrowed = Number(eq.quantity_borrowed) || 0;
+        const availableQuantity = Math.max(0, totalQuantity - borrowed);
+        
+        // Determine Status based on requirements and logic
+        let status = eq.status || "Available";
+        
+        // Override status based on availability if it's generic "Available"
+        if (status === "Available") {
+          if (availableQuantity === 0) {
+            status = "In Use";
+          } else if (borrowed > 0) {
+            status = `Available (${availableQuantity}/${totalQuantity})`;
+          }
+        }
+        
+        // Capitalize first letter of condition to check for "Damaged"
+        const condition = (eq.condition || "").toLowerCase();
+        if (condition === "poor" || condition === "damaged") {
+          status = "Damaged";
+        }
+
+        return [
+          eq.name || eq.equipmentName || "Unnamed Equipment",
+          category,
+          totalQuantity.toString(),
+          status,
+          laboratory
+        ];
+      });
+
+      // Generate Table with AutoTable
+      autoTable(doc, {
+        head: tableHeaders,
+        body: tableRows,
+        startY: headerHeight, // Flush with header
+        margin: { top: headerHeight, bottom: footerHeight, left: margin, right: margin },
+        didDrawPage: addPageDecorations,
+        theme: 'grid', // Full grid lines as shown in image
+        headStyles: {
+          fillColor: [41, 128, 185], // Professional Blue from image
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle',
+          lineWidth: 0.1,
+          lineColor: [255, 255, 255] // White grid lines for header
+        },
+        bodyStyles: {
+          fontSize: 9,
+          valign: 'middle',
+          halign: 'left', // Default to left
+          textColor: [50, 50, 50],
+          lineWidth: 0.1,
+          lineColor: [200, 200, 200] // Light grey grid lines for body
+        },
+        columnStyles: {
+          0: { cellWidth: 50 }, // Name
+          1: { cellWidth: 40, halign: 'center' }, // Category (centered in image)
+          2: { cellWidth: 20, halign: 'center' }, // Quantity (centered in image)
+          3: { cellWidth: 30, halign: 'center' }, // Status (centered in image)
+          4: { cellWidth: 'auto', halign: 'center' } // Laboratory (centered in image)
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellPadding: 5,
+        },
+        rowPageBreak: 'auto',
+      });
+
+      // Save the PDF
+      const filename = `Equipment_List_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(filename);
+    } catch (error) {
+      console.error("Detailed PDF Export error:", error);
+      alert(`Failed to generate PDF report: ${error.message}`);
     }
-
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   };
 
   if (loading) {

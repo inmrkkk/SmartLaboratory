@@ -3,7 +3,7 @@ import { ref, onValue } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 import "../CSS/AdminLabEquipment.css";
 
 export default function AdminLabEquipment() {
@@ -195,43 +195,132 @@ export default function AdminLabEquipment() {
     URL.revokeObjectURL(url);
   };
 
-  const exportPdf = () => {
-    const title = `All Laboratory Equipment - ${selectedLabLabel}`;
-    const doc = new jsPDF({ orientation: "landscape" });
+  const exportPdf = async () => {
+    try {
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 14;
 
-    doc.setFontSize(16);
-    doc.text(title, 14, 16);
+      // Helper to load image and get its data/dimensions using Canvas
+      const getImageData = async (url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              resolve({ base64, width: img.width, height: img.height });
+            } catch (err) {
+              console.error("Canvas conversion error:", err);
+              resolve(null);
+            }
+          };
+          img.onerror = (err) => {
+            console.error(`Image load error for ${url}:`, err);
+            resolve(null);
+          };
+          img.src = url;
+        });
+      };
 
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 24);
+      // Load header and footer data
+      const headerData = await getImageData(`${window.location.origin}/header.png`);
+      const footerData = await getImageData(`${window.location.origin}/footer.png`);
 
-    const head = [["#", "Equipment Name", "Model", "Category", "Laboratory", "Serial Number", "Quantity", "Status"]];
-    const body = buildExportRows.map((row, idx) => [
-      idx + 1,
-      row.equipmentName,
-      row.model,
-      row.category,
-      row.laboratory,
-      row.serialNumber,
-      row.quantity,
-      row.status
-    ]);
+      // Calculate heights based on 1121x793 aspect ratio
+      const imageAspectRatio = 793 / 1121;
+      let headerHeight = headerData && headerData.width > 0 
+        ? (headerData.height / headerData.width) * pageWidth 
+        : imageAspectRatio * pageWidth;
+      let footerHeight = footerData && footerData.width > 0 
+        ? (footerData.height / footerData.width) * pageWidth 
+        : imageAspectRatio * pageWidth;
 
-    autoTable(doc, {
-      startY: 30,
-      head,
-      body,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [37, 99, 235] },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      theme: "striped",
-      margin: { left: 14, right: 14 }
-    });
+      // Safety scaling for branding
+      const maxBrandingHeight = pageHeight * 0.45;
+      if ((headerHeight + footerHeight) > maxBrandingHeight) {
+        const scale = maxBrandingHeight / (headerHeight + footerHeight);
+        headerHeight *= scale;
+        footerHeight *= scale;
+      }
 
-    const fileName = `All_Laboratory_Equipment_${selectedLabLabel.replace(/\s+/g, "_")}_${new Date()
-      .toISOString()
-      .split("T")[0]}.pdf`;
-    doc.save(fileName);
+      // Function to add header, footer, and page numbers
+      const addPageDecorations = (data) => {
+        if (headerData) {
+          doc.addImage(headerData.base64, 'PNG', -0.5, 0, pageWidth + 1, headerHeight);
+        }
+        if (footerData) {
+          doc.addImage(footerData.base64, 'PNG', -0.5, pageHeight - footerHeight, pageWidth + 1, footerHeight);
+        }
+
+        const pageNumber = data.pageNumber;
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - footerHeight - 5, { align: 'right' });
+      };
+
+      const head = [["#", "Equipment Name", "Model", "Category", "Laboratory", "Serial Number", "Qty", "Status"]];
+      const body = buildExportRows.map((row, idx) => [
+        idx + 1,
+        row.equipmentName,
+        row.model,
+        row.category,
+        row.laboratory,
+        row.serialNumber,
+        row.quantity,
+        row.status
+      ]);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: headerHeight,
+        margin: { top: headerHeight, bottom: footerHeight, left: margin, right: margin },
+        didDrawPage: addPageDecorations,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle',
+          lineWidth: 0.1,
+          lineColor: [255, 255, 255]
+        },
+        bodyStyles: {
+          fontSize: 8,
+          valign: 'middle',
+          textColor: [50, 50, 50],
+          lineWidth: 0.1,
+          lineColor: [200, 200, 200]
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 'auto' },
+          5: { cellWidth: 35 },
+          6: { cellWidth: 15, halign: 'center' },
+          7: { cellWidth: 30, halign: 'center' }
+        },
+        styles: { overflow: 'linebreak', cellPadding: 3 },
+        rowPageBreak: 'auto',
+      });
+
+      const fileName = `All_Laboratory_Equipment_${selectedLabLabel.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
+    } catch (error) {
+      console.error("PDF Export error:", error);
+      alert(`Failed to generate PDF report: ${error.message}`);
+    }
   };
 
   if (!isAdmin()) {
