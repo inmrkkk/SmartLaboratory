@@ -70,11 +70,11 @@ export default function RequestFormsPage() {
       const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
       const snapshot = await get(equipmentsRef);
       const data = snapshot.val();
-      
+
       const totalCount = data
         ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity) || 1), 0)
         : 0;
-      
+
       // Calculate available count based on quantity_borrowed, not status
       const borrowedCount = data
         ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity_borrowed) || 0), 0)
@@ -224,11 +224,8 @@ export default function RequestFormsPage() {
 
 
   const statuses = [
-
     "Pending",
-
     "Approved",
-
     "Released",
 
   ];
@@ -298,7 +295,7 @@ export default function RequestFormsPage() {
 
         }));
 
-        
+
 
         // Filter categories based on user role and lab assignment
 
@@ -326,7 +323,7 @@ export default function RequestFormsPage() {
 
         }
 
-        
+
 
         setCategories(filteredCategories);
 
@@ -587,7 +584,7 @@ export default function RequestFormsPage() {
         console.error("Error loading initial data:", error);
       }
     };
-    
+
     loadInitialData();
   }, []);
 
@@ -622,9 +619,9 @@ export default function RequestFormsPage() {
         }));
 
         // Check for new requests that might have been created by mobile app
-        const newRequests = requestsList.filter(req => 
-          req.status === 'pending' && 
-          req.requestedAt && 
+        const newRequests = requestsList.filter(req =>
+          req.status === 'pending' &&
+          req.requestedAt &&
           (new Date().getTime() - new Date(req.requestedAt).getTime()) < 5000 // Last 5 seconds
         );
 
@@ -680,7 +677,12 @@ export default function RequestFormsPage() {
 
     if (allRequests.length > 0) {
 
-      let filteredRequests = allRequests.filter((request) => !request?.archived);
+      const allowedStatuses = ["pending", "approved", "released", "in_progress", "overdue"];
+
+      let filteredRequests = allRequests.filter((request) =>
+        !request?.archived &&
+        allowedStatuses.includes((request.status || "").toString().toLowerCase())
+      );
 
 
 
@@ -714,7 +716,7 @@ export default function RequestFormsPage() {
 
           // Filter requests to only show those from assigned laboratories
 
-          filteredRequests = allRequests.filter((request) => {
+          filteredRequests = filteredRequests.filter((request) => {
 
             // Find the equipment that matches this request
 
@@ -871,8 +873,8 @@ export default function RequestFormsPage() {
         request.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus =
-
-        filterStatus === "All" || request.status === filterStatus;
+        filterStatus === "All" ||
+        (request.status || "").toString().toLowerCase() === filterStatus.toLowerCase();
 
       const matchesType =
 
@@ -886,7 +888,14 @@ export default function RequestFormsPage() {
 
         (filterBatch === "Individual" && !request.batchId);
 
-      return matchesSearch && matchesStatus && matchesType && matchesBatch;
+      const allowedStatuses = ["pending", "approved", "released", "in_progress", "overdue"];
+      const currentStatus = (request.status || "").toString().trim().toLowerCase();
+      const isAllowedStatus = allowedStatuses.includes(currentStatus);
+
+      // Explicitly hide RETURNED and REJECTED
+      if (currentStatus === "returned" || currentStatus === "rejected") return false;
+
+      return !request.archived && isAllowedStatus && matchesSearch && matchesStatus && matchesType && matchesBatch;
 
     })
 
@@ -936,35 +945,35 @@ export default function RequestFormsPage() {
 
     ? (() => {
 
-        const groups = {};
+      const groups = {};
 
-        filteredRequests.forEach((request) => {
+      filteredRequests.forEach((request) => {
 
-          const key = request.batchId || "individual";
+        const key = request.batchId || "individual";
 
-          if (!groups[key]) {
+        if (!groups[key]) {
 
-            groups[key] = {
+          groups[key] = {
 
-              batchId: request.batchId,
+            batchId: request.batchId,
 
-              batchSize: request.batchSize,
+            batchSize: request.batchSize,
 
-              requests: [],
+            requests: [],
 
-              isBatch: !!request.batchId,
+            isBatch: !!request.batchId,
 
-            };
+          };
 
-          }
+        }
 
-          groups[key].requests.push(request);
+        groups[key].requests.push(request);
 
-        });
+      });
 
-        return Object.values(groups);
+      return Object.values(groups);
 
-      })()
+    })()
 
     : null;
 
@@ -1203,7 +1212,7 @@ export default function RequestFormsPage() {
 
         const eligibilityCheck = await validateBorrowerEligibility(baseRequestData.userId);
 
-        
+
 
         if (!eligibilityCheck.eligible) {
 
@@ -1378,7 +1387,7 @@ export default function RequestFormsPage() {
 
           if (Object.keys(equipmentUpdates).length > 0) {
             await update(equipmentRef, equipmentUpdates);
-            
+
             // Update category counts to keep available counts in sync
             await updateCategoryCountsLocal(categoryId);
           }
@@ -1451,13 +1460,13 @@ export default function RequestFormsPage() {
 
           : laboratories.find(
 
-              (lab) =>
+            (lab) =>
 
-                lab.labName === requestData.laboratory ||
+              lab.labName === requestData.laboratory ||
 
-                lab.labId === requestData.labId
+              lab.labId === requestData.labId
 
-            );
+          );
 
 
 
@@ -1593,13 +1602,13 @@ export default function RequestFormsPage() {
 
           : laboratories.find(
 
-              (lab) =>
+            (lab) =>
 
-                lab.labName === requestData.laboratory ||
+              lab.labName === requestData.laboratory ||
 
-                lab.labId === requestData.labId
+              lab.labId === requestData.labId
 
-            );
+          );
 
 
 
@@ -1675,9 +1684,12 @@ export default function RequestFormsPage() {
 
 
 
-        // Defer writing to history until the rejected request is deleted
-
-        updateData.rejectionHistoryEntry = rejectionEntry;
+        // Push to history immediately and prepare for archiving
+        await push(ref(database, "history"), rejectionEntry);
+        updateData.archived = true;
+        updateData.archivedAt = new Date().toISOString();
+        updateData.archivedByUserId = user?.uid || null;
+        updateData.archivedByName = resolvedReviewerName;
 
       }
 
@@ -1795,34 +1807,34 @@ export default function RequestFormsPage() {
 
             ? {
 
-                ...request,
+              ...request,
 
-                status: newStatus,
+              status: newStatus,
 
-                updatedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
 
-                reviewedBy: updateData.reviewedBy,
-                reviewedByRole: updateData.reviewedByRole,
-                reviewedByUserId: updateData.reviewedByUserId,
-                reviewedByName: updateData.reviewedByName,
+              reviewedBy: updateData.reviewedBy,
+              reviewedByRole: updateData.reviewedByRole,
+              reviewedByUserId: updateData.reviewedByUserId,
+              reviewedByName: updateData.reviewedByName,
 
-                ...(newStatus === "rejected" && {
+              ...(newStatus === "rejected" && {
 
-                  rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
+                rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
 
-                  rejectedBy: updateData.rejectedBy,
+                rejectedBy: updateData.rejectedBy,
 
-                }),
+              }),
 
-                ...(returnDetails && {
+              ...(returnDetails && {
 
-                  returnDetails,
+                returnDetails,
 
-                  returnedAt: new Date().toISOString(),
+                returnedAt: new Date().toISOString(),
 
-                }),
+              }),
 
-              }
+            }
 
             : request
 
@@ -1840,34 +1852,34 @@ export default function RequestFormsPage() {
 
             ? {
 
-                ...request,
+              ...request,
 
-                status: newStatus,
+              status: newStatus,
 
-                updatedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
 
-                reviewedBy: updateData.reviewedBy,
-                reviewedByRole: updateData.reviewedByRole,
-                reviewedByUserId: updateData.reviewedByUserId,
-                reviewedByName: updateData.reviewedByName,
+              reviewedBy: updateData.reviewedBy,
+              reviewedByRole: updateData.reviewedByRole,
+              reviewedByUserId: updateData.reviewedByUserId,
+              reviewedByName: updateData.reviewedByName,
 
-                ...(returnDetails && {
+              ...(returnDetails && {
 
-                  returnDetails,
+                returnDetails,
 
-                  returnedAt: new Date().toISOString(),
+                returnedAt: new Date().toISOString(),
 
-                }),
+              }),
 
-                ...(newStatus === "rejected" && {
+              ...(newStatus === "rejected" && {
 
-                  rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
+                rejectionRemarks: (returnDetails?.rejectionRemarks || "").toString().trim(),
 
-                  rejectedBy: updateData.rejectedBy,
+                rejectedBy: updateData.rejectedBy,
 
-                }),
+              }),
 
-              }
+            }
 
             : request
 
@@ -1903,144 +1915,144 @@ export default function RequestFormsPage() {
 
       const requestRef = ref(database, `borrow_requests/${requestToDelete}`);
 
-        const snapshot = await get(requestRef);
+      const snapshot = await get(requestRef);
 
-        const requestData = snapshot.exists() ? snapshot.val() : null;
+      const requestData = snapshot.exists() ? snapshot.val() : null;
 
-        if (requestData && requestData.status === "rejected") {
+      if (requestData && requestData.status === "rejected") {
 
-          const historyRef = ref(database, "history");
+        const historyRef = ref(database, "history");
 
-          if (requestData.rejectionHistoryEntry) {
+        if (requestData.rejectionHistoryEntry) {
 
-            await push(historyRef, requestData.rejectionHistoryEntry);
+          await push(historyRef, requestData.rejectionHistoryEntry);
 
-          } else {
+        } else {
 
-            const rejectedAt = new Date().toISOString();
+          const rejectedAt = new Date().toISOString();
 
-            // Find equipment data
+          // Find equipment data
 
-            let equipment = null;
+          let equipment = null;
 
-            if (requestData.itemId && requestData.categoryId) {
+          if (requestData.itemId && requestData.categoryId) {
 
-              equipment = equipmentData.find(
+            equipment = equipmentData.find(
 
-                (eq) => eq.id === requestData.itemId && eq.categoryId === requestData.categoryId
+              (eq) => eq.id === requestData.itemId && eq.categoryId === requestData.categoryId
 
-              );
-
-            }
-
-            if (!equipment) {
-
-              equipment = equipmentData.find(
-
-                (eq) =>
-
-                  eq.equipmentName === requestData.itemName ||
-
-                  eq.itemName === requestData.itemName ||
-
-                  eq.name === requestData.itemName ||
-
-                  eq.title === requestData.itemName
-
-              );
-
-            }
-
-            const laboratory = equipment
-
-              ? laboratories.find((lab) => lab.labId === equipment.labId)
-
-              : laboratories.find(
-
-                  (lab) =>
-
-                    lab.labName === requestData.laboratory || lab.labId === requestData.labId
-
-                );
-
-            const rejectionEntry = {
-
-              requestId: requestToDelete,
-
-              itemId: requestData.itemId || "",
-
-              categoryId: requestData.categoryId || "",
-
-              categoryName: requestData.categoryName || "",
-
-              equipmentName: requestData.itemName || "Unknown item",
-
-              borrower: getBorrowerName(requestData.userId),
-
-              userId: requestData.userId || "",
-
-              borrowerEmail: requestData.userEmail || "",
-
-              adviserName: requestData.adviserName || "",
-
-              quantity: requestData.quantity || 1,
-
-              laboratory: requestData.laboratory || laboratory?.labName || "",
-
-              labId: laboratory?.labId || equipment?.labId || requestData.labId || "",
-
-              labRecordId: laboratory?.id || "",
-
-              batchId: requestData.batchId || null,
-
-              batchSize: requestData.batchSize || null,
-
-              status: "Rejected",
-
-              action: "Request Rejected",
-
-              releasedDate: null,
-
-              returnDate: null,
-
-              rejectedDate: new Date().toLocaleDateString('en-US', {
-
-                year: 'numeric',
-
-                month: 'long',
-
-                day: 'numeric',
-
-                hour: '2-digit',
-
-                minute: '2-digit'
-
-              }),
-
-              condition: `Request rejected by ${requestData.reviewedBy || "Admin"}`,
-
-              timestamp: rejectedAt,
-
-              processedBy: requestData.reviewedBy || "Admin",
-
-              returnDetails: null,
-
-              entryType: "rejection",
-
-            };
-
-            await push(historyRef, rejectionEntry);
+            );
 
           }
 
+          if (!equipment) {
+
+            equipment = equipmentData.find(
+
+              (eq) =>
+
+                eq.equipmentName === requestData.itemName ||
+
+                eq.itemName === requestData.itemName ||
+
+                eq.name === requestData.itemName ||
+
+                eq.title === requestData.itemName
+
+            );
+
+          }
+
+          const laboratory = equipment
+
+            ? laboratories.find((lab) => lab.labId === equipment.labId)
+
+            : laboratories.find(
+
+              (lab) =>
+
+                lab.labName === requestData.laboratory || lab.labId === requestData.labId
+
+            );
+
+          const rejectionEntry = {
+
+            requestId: requestToDelete,
+
+            itemId: requestData.itemId || "",
+
+            categoryId: requestData.categoryId || "",
+
+            categoryName: requestData.categoryName || "",
+
+            equipmentName: requestData.itemName || "Unknown item",
+
+            borrower: getBorrowerName(requestData.userId),
+
+            userId: requestData.userId || "",
+
+            borrowerEmail: requestData.userEmail || "",
+
+            adviserName: requestData.adviserName || "",
+
+            quantity: requestData.quantity || 1,
+
+            laboratory: requestData.laboratory || laboratory?.labName || "",
+
+            labId: laboratory?.labId || equipment?.labId || requestData.labId || "",
+
+            labRecordId: laboratory?.id || "",
+
+            batchId: requestData.batchId || null,
+
+            batchSize: requestData.batchSize || null,
+
+            status: "Rejected",
+
+            action: "Request Rejected",
+
+            releasedDate: null,
+
+            returnDate: null,
+
+            rejectedDate: new Date().toLocaleDateString('en-US', {
+
+              year: 'numeric',
+
+              month: 'long',
+
+              day: 'numeric',
+
+              hour: '2-digit',
+
+              minute: '2-digit'
+
+            }),
+
+            condition: `Request rejected by ${requestData.reviewedBy || "Admin"}`,
+
+            timestamp: rejectedAt,
+
+            processedBy: requestData.reviewedBy || "Admin",
+
+            returnDetails: null,
+
+            entryType: "rejection",
+
+          };
+
+          await push(historyRef, rejectionEntry);
+
         }
 
-        await update(requestRef, {
-          archived: true,
-          archivedAt: new Date().toISOString(),
-          archivedByUserId: user?.uid || null,
-          archivedByName: (user?.name || user?.displayName || user?.email || "")?.toString().trim() || "Unknown",
-        });
+      }
+
+      await update(requestRef, {
+        archived: true,
+        archivedAt: new Date().toISOString(),
+        archivedByUserId: user?.uid || null,
+        archivedByName: (user?.name || user?.displayName || user?.email || "")?.toString().trim() || "Unknown",
+      });
 
       setShowDeleteConfirmation(false);
 
@@ -2707,13 +2719,13 @@ export default function RequestFormsPage() {
 
       // Check if item is damaged, lost, or has insufficient return and create record
 
-      const shouldCreateRecord = returnFormData.condition === "damaged" || 
+      const shouldCreateRecord = returnFormData.condition === "damaged" ||
 
-                                returnFormData.condition === "lost" || 
+        returnFormData.condition === "lost" ||
 
-                                returnFormData.condition === "missing" ||
+        returnFormData.condition === "missing" ||
 
-                                hasInsufficientReturn;
+        hasInsufficientReturn;
 
 
 
@@ -2753,19 +2765,19 @@ export default function RequestFormsPage() {
 
         const result = await createDamagedLostRecord(
 
-          damagedLostData, 
+          damagedLostData,
 
-          borrowerData, 
+          borrowerData,
 
-          itemData, 
+          itemData,
 
-          requestedQuantity, 
+          requestedQuantity,
 
           adjustedReturnedQuantity
 
         );
 
-        
+
 
         if (result.success) {
 
@@ -2812,10 +2824,10 @@ export default function RequestFormsPage() {
 
       closeDetailsModal();
 
-      
+
       let successMessage = "Item marked as returned successfully!";
 
-      
+
       if (hasInsufficientReturn) {
 
         const missingCount = requestedQuantity - adjustedReturnedQuantity;
@@ -2828,7 +2840,7 @@ export default function RequestFormsPage() {
 
       }
 
-      
+
 
       showToast(successMessage);
 
@@ -2966,7 +2978,7 @@ export default function RequestFormsPage() {
 
             📄 Export PDF
 
-            
+
 
           </button>
 
@@ -3258,27 +3270,41 @@ export default function RequestFormsPage() {
 
                   ? // Grouped view
 
-                    groupedRequests.map((group) => (
+                  groupedRequests.map((group) => (
 
-                      <React.Fragment key={group.batchId || "individual"}>
+                    <React.Fragment key={group.batchId || "individual"}>
 
-                        {group.isBatch && (
+                      {group.isBatch && (
 
-                          <tr
+                        <tr
 
-                            className="batch-header-row"
+                          className="batch-header-row"
 
-                            style={{
+                          style={{
 
-                              backgroundColor: "#f0f9ff",
+                            backgroundColor: "#f0f9ff",
 
-                              fontWeight: "bold",
+                            fontWeight: "bold",
 
-                            }}
+                          }}
 
-                          >
+                        >
 
-                            <td colSpan="9" style={{ padding: "12px" }}>
+                          <td colSpan="9" style={{ padding: "12px" }}>
+
+                            <div
+
+                              style={{
+
+                                display: "flex",
+
+                                alignItems: "center",
+
+                                justifyContent: "space-between",
+
+                              }}
+
+                            >
 
                               <div
 
@@ -3288,37 +3314,81 @@ export default function RequestFormsPage() {
 
                                   alignItems: "center",
 
-                                  justifyContent: "space-between",
+                                  gap: "12px",
 
                                 }}
 
                               >
 
-                                <div
+                                <span
 
                                   style={{
 
-                                    display: "flex",
+                                    backgroundColor: "#3b82f6",
 
-                                    alignItems: "center",
+                                    color: "white",
 
-                                    gap: "12px",
+                                    padding: "4px 12px",
+
+                                    borderRadius: "12px",
+
+                                    fontSize: "12px",
 
                                   }}
 
                                 >
 
-                                  <span
+                                  Batch of{" "}
+
+                                  {group.batchSize || group.requests.length}{" "}
+
+                                  items
+
+                                </span>
+
+                                <span
+
+                                  style={{
+
+                                    fontSize: "12px",
+
+                                    color: "#6b7280",
+
+                                  }}
+
+                                >
+
+                                  Batch ID: {group.batchId?.substring(0, 8)}
+
+                                  ...
+
+                                </span>
+
+                              </div>
+
+                              {group.requests[0]?.status === "pending" && (
+
+                                <div style={{ display: "flex", gap: "6px" }}>
+
+                                  <button
+
+                                    className="action-btn approve-btn"
+
+                                    onClick={() =>
+
+                                      handleBatchAction(
+
+                                        group.batchId,
+
+                                        "approved"
+
+                                      )
+
+                                    }
 
                                     style={{
 
-                                      backgroundColor: "#3b82f6",
-
-                                      color: "white",
-
-                                      padding: "4px 12px",
-
-                                      borderRadius: "12px",
+                                      padding: "6px 12px",
 
                                       fontSize: "12px",
 
@@ -3326,309 +3396,251 @@ export default function RequestFormsPage() {
 
                                   >
 
-                                    Batch of{" "}
+                                    <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
 
-                                    {group.batchSize || group.requests.length}{" "}
+                                  </button>
 
-                                    items
+                                  <button
 
-                                  </span>
+                                    className="action-btn reject-btn"
 
-                                  <span
+                                    onClick={() =>
+
+                                      handleBatchAction(
+
+                                        group.batchId,
+
+                                        "rejected"
+
+                                      )
+
+                                    }
 
                                     style={{
 
-                                      fontSize: "12px",
+                                      padding: "6px 12px",
 
-                                      color: "#6b7280",
+                                      fontSize: "12px",
 
                                     }}
 
                                   >
 
-                                    Batch ID: {group.batchId?.substring(0, 8)}
+                                    <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
 
-                                    ...
-
-                                  </span>
+                                  </button>
 
                                 </div>
-
-                                {group.requests[0]?.status === "pending" && (
-
-                                  <div style={{ display: "flex", gap: "6px"  }}>
-
-                                    <button
-
-                                      className="action-btn approve-btn"
-
-                                      onClick={() =>
-
-                                        handleBatchAction(
-
-                                          group.batchId,
-
-                                          "approved"
-
-                                        )
-
-                                      }
-
-                                      style={{
-
-                                        padding: "6px 12px",
-
-                                        fontSize: "12px",
-
-                                      }}
-
-                                    >
-
-                                     <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
-
-                                    </button>
-
-                                    <button
-
-                                      className="action-btn reject-btn"
-
-                                      onClick={() =>
-
-                                        handleBatchAction(
-
-                                          group.batchId,
-
-                                          "rejected"
-
-                                        )
-
-                                      }
-
-                                      style={{
-
-                                        padding: "6px 12px",
-
-                                        fontSize: "12px",
-
-                                      }}
-
-                                    >
-
-                                      <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
-
-                                    </button>
-
-                                  </div>
-
-                                )}
-
-
-
-
-
-                              </div>
-
-                            </td>
-
-                          </tr>
-
-                        )}
-
-                        {group.requests.map((request) => (
-
-                          <tr
-
-                            key={request.id}
-
-                            style={
-
-                              group.isBatch
-
-                                ? { backgroundColor: "#f9fafb" }
-
-                                : {}
-
-                            }
-
-                          >
-
-                            <td className="item-name-cell">
-
-                              <div className="item-info">
-
-                                <span className="item-name">
-
-                                  {request.itemName || "Untitled"}
-
-                                </span>
-
-                                <span className="item-number">
-
-                                  {request.itemNo || ""}
-
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            <td className="borrower-cell">
-
-                              <div className="borrower-info">
-
-                                <div className="borrower-avatar">
-
-                                  {getBorrowerName(request.userId)
-
-                                    ?.charAt(0)
-
-                                    ?.toUpperCase() || "?"}
-
-                                </div>
-
-                                <span className="borrower-name">
-
-                                  {getBorrowerName(request.userId)}
-
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            <td className="adviser-cell">
-
-                              <div className="adviser-info">
-
-                                <div className="adviser-avatar">
-
-                                  {request.adviserName
-
-                                    ?.charAt(0)
-
-                                    ?.toUpperCase() || "?"}
-
-                                </div>
-
-                                <span className="adviser-name">
-
-                                  {request.adviserName || "Unknown"}
-
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            <td className="laboratory-cell">
-
-                              {request.laboratory || "Not specified"}
-
-                            </td>
-
-                            <td className="quantity-cell">
-
-                              <span className="quantity-badge">
-
-                                {request.quantity || "1"}
-
-                              </span>
-
-                            </td>
-
-                            <td>
-
-                              {request.batchId ? (
-
-                                <span
-
-                                  style={{
-
-                                    backgroundColor: "#dbeafe",
-
-                                    color: "#1e40af",
-
-                                    padding: "2px 8px",
-
-                                    borderRadius: "8px",
-
-                                    fontSize: "11px",
-
-                                  }}
-
-                                >
-
-                                  Batch
-
-                                </span>
-
-                              ) : (
-
-                                <span
-
-                                  style={{ color: "#9ca3af", fontSize: "11px" }}
-
-                                >
-
-                                  —
-
-                                </span>
 
                               )}
 
-                            </td>
 
-                            <td>
+
+
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+
+                      )}
+
+                      {group.requests.map((request) => (
+
+                        <tr
+
+                          key={request.id}
+
+                          style={
+
+                            group.isBatch
+
+                              ? { backgroundColor: "#f9fafb" }
+
+                              : {}
+
+                          }
+
+                        >
+
+                          <td className="item-name-cell">
+
+                            <div className="item-info">
+
+                              <span className="item-name">
+
+                                {request.itemName || "Untitled"}
+
+                              </span>
+
+                              <span className="item-number">
+
+                                {request.itemNo || ""}
+
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td className="borrower-cell">
+
+                            <div className="borrower-info">
+
+                              <div className="borrower-avatar">
+
+                                {getBorrowerName(request.userId)
+
+                                  ?.charAt(0)
+
+                                  ?.toUpperCase() || "?"}
+
+                              </div>
+
+                              <span className="borrower-name">
+
+                                {getBorrowerName(request.userId)}
+
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td className="adviser-cell">
+
+                            <div className="adviser-info">
+
+                              <div className="adviser-avatar">
+
+                                {request.adviserName
+
+                                  ?.charAt(0)
+
+                                  ?.toUpperCase() || "?"}
+
+                              </div>
+
+                              <span className="adviser-name">
+
+                                {request.adviserName || "Unknown"}
+
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td className="laboratory-cell">
+
+                            {request.laboratory || "Not specified"}
+
+                          </td>
+
+                          <td className="quantity-cell">
+
+                            <span className="quantity-badge">
+
+                              {request.quantity || "1"}
+
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            {request.batchId ? (
 
                               <span
 
-                                className={`status-badge ${getStatusBadgeClass(
+                                style={{
 
-                                  request.status
+                                  backgroundColor: "#dbeafe",
 
-                                )}`}
+                                  color: "#1e40af",
+
+                                  padding: "2px 8px",
+
+                                  borderRadius: "8px",
+
+                                  fontSize: "11px",
+
+                                }}
 
                               >
 
-                                {request.status || "pending"}
+                                Batch
 
                               </span>
 
-                            </td>
+                            ) : (
 
-                            <td className="date-cell">
+                              <span
 
-                              {formatDate(
+                                style={{ color: "#9ca3af", fontSize: "11px" }}
 
-                                request.requestedAt || request.dateToBeUsed
+                              >
 
-                              )}
+                                —
 
-                            </td>
+                              </span>
 
-                            <td className="actions-cell">
+                            )}
 
-                              <div className="actions-buttons">
+                          </td>
+
+                          <td>
+
+                            <span
+
+                              className={`status-badge ${getStatusBadgeClass(
+
+                                request.status
+
+                              )}`}
+
+                            >
+
+                              {request.status || "pending"}
+
+                            </span>
+
+                          </td>
+
+                          <td className="date-cell">
+
+                            {formatDate(
+
+                              request.requestedAt || request.dateToBeUsed
+
+                            )}
+
+                          </td>
+
+                          <td className="actions-cell">
+
+                            <div className="actions-buttons">
+
+                              <button
+
+                                className="action-btn icon-btn view-btn"
+
+                                onClick={() => handleViewDetails(request)}
+
+                                title="View Details"
+
+                              >
+
+                                <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+
+
+                              </button>
+
+                              {request.status === "rejected" && (
 
                                 <button
-
-                                  className="action-btn icon-btn view-btn"
-
-                                  onClick={() => handleViewDetails(request)}
-
-                                  title="View Details"
-
-                                >
-
-                                  <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
-
-                                  
-
-                                </button>
-
-                                {request.status === "rejected" && (
-
-                                  <button
 
                                   className="action-btn icon-btn approve-btn"
 
@@ -3640,107 +3652,63 @@ export default function RequestFormsPage() {
 
                                   title="Reset to Pending"
 
-                                  >
+                                >
 
-                                    {/* ↩️ Back to Approved */}
+                                  {/* ↩️ Back to Approved */}
 
                                   <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
 
-                                  </button>
+                                </button>
 
-                                )}
+                              )}
 
-                                {request.status === "overdue" && (
+                              {request.status === "overdue" && (
 
-                                  <button
+                                <button
 
-                                    className="action-btn icon-btn delete-btn"
+                                  className="action-btn icon-btn delete-btn"
 
-                                    onClick={() => handleDeleteRequest(request.id)}
+                                  onClick={() => handleDeleteRequest(request.id)}
 
-                                    title="Delete Overdue Request"
+                                  title="Delete Overdue Request"
 
-                                  >
+                                >
 
-                                    <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+                                  <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
 
-                                  </button>
+                                </button>
 
-                                )}
+                              )}
 
-                                {request.status === "pending" && (
+                              {request.status === "pending" && (
 
-                                  <>
-
-                                    <button
-
-                                      className="action-btn icon-btn approve-btn"
-
-                                      onClick={() =>
-
-                                        handleStatusUpdate(
-
-                                          request.id,
-
-                                          "approved"
-
-                                        )
-
-                                      }
-
-                                      title="Approve"
-
-                                    >
-
-                                      <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
-
-                                    
-
-                                    </button>
-
-                                    <button
-
-                                      className="action-btn icon-btn reject-btn"
-
-                                      onClick={() => openRejectModal(request)}
-
-                                      title="Reject"
-
-                                    >
-
-                                      <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
-
-                                    </button>
-
-                                  </>
-
-                                )}
-
-                                {request.status === "approved" && (
+                                <>
 
                                   <button
 
-                                    className="action-btn icon-btn release-btn"
+                                    className="action-btn icon-btn approve-btn"
 
-                                    onClick={() => {
+                                    onClick={() =>
 
-                                      setRequestToRelease(request);
+                                      handleStatusUpdate(
 
-                                      setShowReleaseConfirmation(true);
+                                        request.id,
 
-                                    }}
+                                        "approved"
 
-                                    title="Release Item"
+                                      )
+
+                                    }
+
+                                    title="Approve"
 
                                   >
 
-                                    <img src={releaseIcon} alt="Release" style={{ width: '18px', height: '18px' }} />
+                                    <img src={approveIcon} alt="Approve" style={{ width: '18px', height: '18px' }} />
+
+
 
                                   </button>
-
-                                )}
-
-                                {request.status === "approved" && (
 
                                   <button
 
@@ -3756,391 +3724,11 @@ export default function RequestFormsPage() {
 
                                   </button>
 
-                                )}
+                                </>
 
-                                {(request.status === "released" ||
+                              )}
 
-                                  request.status === "in_progress") && (
-
-                                  <button
-
-                                    className="action-btn icon-btn return-btn"
-
-                                    onClick={() => openReturnModal(request)}
-
-                                    title="Process Return"
-
-                                  >
-
-                                    <img src={returnIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
-
-                                  </button>
-
-                                )}
-
-                                {request.status === "returned" && (
-
-                                  <button
-
-                                    className="action-btn icon-btn delete-btn"
-
-                                    onClick={() => handleDeleteRequest(request.id)}
-
-                                    title="Delete Returned Request"
-
-                                  >
-
-                                    <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
-
-                                  </button>
-
-                                )}
-
-                            {request.status === "rejected" && (
-
-                              <button
-
-                                className="action-btn icon-btn delete-btn"
-
-                                onClick={() =>
-
-                                  handleDeleteRequest(request.id)
-
-                                }
-
-                                title="Delete"
-
-                              >
-
-                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
-
-                              </button>
-
-                            )}
-
-                            {request.status === "overdue" && (
-
-                              <button
-
-                                className="action-btn icon-btn delete-btn"
-
-                                onClick={() => handleDeleteRequest(request.id)}
-
-                                title="Delete Overdue Request"
-
-                              >
-
-                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
-
-                              </button>
-
-                            )}
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-
-                    ))}
-
-                      </React.Fragment>
-
-                    ))
-
-                  : // Regular (non-grouped) view
-
-                    paginatedRequests.map((request) => (
-
-                      <tr key={request.id}>
-
-                        <td className="item-name-cell">
-
-                          <div className="item-info">
-
-                            <span className="item-name">
-
-                              {request.itemName || "Untitled"}
-
-                            </span>
-
-                            <span className="item-number">
-
-                              {request.itemNo || ""}
-
-                            </span>
-
-                            {request.batchId && (
-
-                              <span
-
-                                style={{
-
-                                  backgroundColor: "#dbeafe",
-
-                                  color: "#1e40af",
-
-                                  padding: "2px 8px",
-
-                                  borderRadius: "8px",
-
-                                  fontSize: "10px",
-
-                                  marginLeft: "8px",
-
-                                }}
-
-                              >
-
-                                Batch of {request.batchSize || "?"} items
-
-                              </span>
-
-                            )}
-
-                          </div>
-
-                        </td>
-
-                        <td className="borrower-cell">
-
-                          <div className="borrower-info">
-
-                            <div className="borrower-avatar">
-
-                              {getBorrowerName(request.userId)
-
-                                ?.charAt(0)
-
-                                ?.toUpperCase() || "?"}
-
-                            </div>
-
-                            <span className="borrower-name">
-
-                              {getBorrowerName(request.userId)}
-
-                            </span>
-
-                          </div>
-
-                        </td>
-
-                        <td className="adviser-cell">
-
-                          <div className="adviser-info">
-
-                            <div className="adviser-avatar">
-
-                              {request.adviserName?.charAt(0)?.toUpperCase() ||
-
-                                "?"}
-
-                            </div>
-
-                            <span className="adviser-name">
-
-                              {request.adviserName || "Unknown"}
-
-                            </span>
-
-                          </div>
-
-                        </td>
-
-                        <td className="laboratory-cell">
-
-                          {request.laboratory || "Not specified"}
-
-                        </td>
-
-                        <td className="quantity-cell">
-
-                          <span className="quantity-badge">
-
-                            {request.quantity || "1"}
-
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          {request.batchId ? (
-
-                            <span
-
-                              style={{
-
-                                backgroundColor: "#dbeafe",
-
-                                color: "#1e40af",
-
-                                padding: "2px 8px",
-
-                                borderRadius: "8px",
-
-                                fontSize: "11px",
-
-                              }}
-
-                            >
-
-                              Batch
-
-                            </span>
-
-                          ) : (
-
-                            <span
-
-                              style={{ color: "#9ca3af", fontSize: "11px" }}
-
-                            >
-
-                              —
-
-                            </span>
-
-                          )}
-
-                        </td>
-
-                        <td>
-
-                          <span
-
-                            className={`status-badge ${getStatusBadgeClass(
-
-                              request.status
-
-                            )}`}
-
-                          >
-
-                            {request.status || "pending"}
-
-                          </span>
-
-                        </td>
-
-                        <td className="date-cell">
-
-                          {formatDate(
-
-                            request.requestedAt || request.dateToBeUsed
-
-                          )}
-
-                        </td>
-
-                        <td>
-
-                          <div className="table-actions">
-
-                            <button
-
-                              className="action-btn icon-btn view-btn"
-
-                              onClick={() => handleViewDetails(request)}
-
-                              title="View Details"
-
-                            >
-
-                              <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
-
-                            </button>
-
-                            {request.status === "rejected" && (
-
-                              <button
-
-                              className="action-btn icon-btn approve-btn"
-
-                              onClick={() =>
-
-                                handleStatusUpdate(request.id, "pending")
-
-                              }
-
-                              title="Reset to Pending"
-
-                              >
-
-                                {/* ↩️ Back to Approved */}
-
-                              <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
-
-                              </button>
-
-                            )}
-
-                            {request.status === "overdue" && (
-
-                              <button
-
-                                className="action-btn icon-btn delete-btn"
-
-                                onClick={() => handleDeleteRequest(request.id)}
-
-                                title="Delete Overdue Request"
-
-                              >
-
-                                <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
-
-                              </button>
-
-                            )}
-
-                            {request.status === "pending" && (
-
-                              <>
-
-                                <button
-
-                                  className="action-btn icon-btn approve-btn"
-
-                                  onClick={() =>
-
-                                    handleStatusUpdate(request.id, "approved")
-
-                                  }
-
-                                  title="Approve"
-
-                                >
-
-                                  
-
-                                  <img src={approveIcon} alt="View" style={{ width: '18px', height: '18px' }} />
-
-                                </button>
-
-                                <button
-
-                                  className="action-btn icon-btn reject-btn"
-
-                                  onClick={() => openRejectModal(request)}
-
-                                  title="Reject"
-
-                                >
-
-                                  
-
-                                  <img src={rejectIcon} alt="View" style={{ width: '18px', height: '18px' }} />
-
-                                </button>
-
-                              </>
-
-                            )}
-
-                            {request.status === "approved" && (
-
-                              <>
+                              {request.status === "approved" && (
 
                                 <button
 
@@ -4158,9 +3746,13 @@ export default function RequestFormsPage() {
 
                                 >
 
-                                  <img src={releaseIcon} alt="View" style={{ width: '20px', height: '20px' }} />
+                                  <img src={releaseIcon} alt="Release" style={{ width: '18px', height: '18px' }} />
 
                                 </button>
+
+                              )}
+
+                              {request.status === "approved" && (
 
                                 <button
 
@@ -4172,19 +3764,439 @@ export default function RequestFormsPage() {
 
                                 >
 
-                                  <img src={rejectIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+                                  <img src={rejectIcon} alt="Reject" style={{ width: '18px', height: '18px' }} />
 
                                 </button>
 
-                              </>
+                              )}
 
-                            )}
+                              {(request.status === "released" ||
 
-                            {(request.status === "released" ||
+                                request.status === "in_progress") && (
 
-                              request.status === "in_progress") && (
+                                  <button
+
+                                    className="action-btn icon-btn return-btn"
+
+                                    onClick={() => openReturnModal(request)}
+
+                                    title="Process Return"
+
+                                  >
+
+                                    <img src={returnIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                                  </button>
+
+                                )}
+
+                              {request.status === "returned" && (
 
                                 <button
+
+                                  className="action-btn icon-btn delete-btn"
+
+                                  onClick={() => handleDeleteRequest(request.id)}
+
+                                  title="Delete Returned Request"
+
+                                >
+
+                                  <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+
+                                </button>
+
+                              )}
+
+                              {request.status === "rejected" && (
+
+                                <button
+
+                                  className="action-btn icon-btn delete-btn"
+
+                                  onClick={() =>
+
+                                    handleDeleteRequest(request.id)
+
+                                  }
+
+                                  title="Delete"
+
+                                >
+
+                                  <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+
+                                </button>
+
+                              )}
+
+                              {request.status === "overdue" && (
+
+                                <button
+
+                                  className="action-btn icon-btn delete-btn"
+
+                                  onClick={() => handleDeleteRequest(request.id)}
+
+                                  title="Delete Overdue Request"
+
+                                >
+
+                                  <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+
+                                </button>
+
+                              )}
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+
+                      ))}
+
+                    </React.Fragment>
+
+                  ))
+
+                  : // Regular (non-grouped) view
+
+                  paginatedRequests.map((request) => (
+
+                    <tr key={request.id}>
+
+                      <td className="item-name-cell">
+
+                        <div className="item-info">
+
+                          <span className="item-name">
+
+                            {request.itemName || "Untitled"}
+
+                          </span>
+
+                          <span className="item-number">
+
+                            {request.itemNo || ""}
+
+                          </span>
+
+                          {request.batchId && (
+
+                            <span
+
+                              style={{
+
+                                backgroundColor: "#dbeafe",
+
+                                color: "#1e40af",
+
+                                padding: "2px 8px",
+
+                                borderRadius: "8px",
+
+                                fontSize: "10px",
+
+                                marginLeft: "8px",
+
+                              }}
+
+                            >
+
+                              Batch of {request.batchSize || "?"} items
+
+                            </span>
+
+                          )}
+
+                        </div>
+
+                      </td>
+
+                      <td className="borrower-cell">
+
+                        <div className="borrower-info">
+
+                          <div className="borrower-avatar">
+
+                            {getBorrowerName(request.userId)
+
+                              ?.charAt(0)
+
+                              ?.toUpperCase() || "?"}
+
+                          </div>
+
+                          <span className="borrower-name">
+
+                            {getBorrowerName(request.userId)}
+
+                          </span>
+
+                        </div>
+
+                      </td>
+
+                      <td className="adviser-cell">
+
+                        <div className="adviser-info">
+
+                          <div className="adviser-avatar">
+
+                            {request.adviserName?.charAt(0)?.toUpperCase() ||
+
+                              "?"}
+
+                          </div>
+
+                          <span className="adviser-name">
+
+                            {request.adviserName || "Unknown"}
+
+                          </span>
+
+                        </div>
+
+                      </td>
+
+                      <td className="laboratory-cell">
+
+                        {request.laboratory || "Not specified"}
+
+                      </td>
+
+                      <td className="quantity-cell">
+
+                        <span className="quantity-badge">
+
+                          {request.quantity || "1"}
+
+                        </span>
+
+                      </td>
+
+                      <td>
+
+                        {request.batchId ? (
+
+                          <span
+
+                            style={{
+
+                              backgroundColor: "#dbeafe",
+
+                              color: "#1e40af",
+
+                              padding: "2px 8px",
+
+                              borderRadius: "8px",
+
+                              fontSize: "11px",
+
+                            }}
+
+                          >
+
+                            Batch
+
+                          </span>
+
+                        ) : (
+
+                          <span
+
+                            style={{ color: "#9ca3af", fontSize: "11px" }}
+
+                          >
+
+                            —
+
+                          </span>
+
+                        )}
+
+                      </td>
+
+                      <td>
+
+                        <span
+
+                          className={`status-badge ${getStatusBadgeClass(
+
+                            request.status
+
+                          )}`}
+
+                        >
+
+                          {request.status || "pending"}
+
+                        </span>
+
+                      </td>
+
+                      <td className="date-cell">
+
+                        {formatDate(
+
+                          request.requestedAt || request.dateToBeUsed
+
+                        )}
+
+                      </td>
+
+                      <td>
+
+                        <div className="table-actions">
+
+                          <button
+
+                            className="action-btn icon-btn view-btn"
+
+                            onClick={() => handleViewDetails(request)}
+
+                            title="View Details"
+
+                          >
+
+                            <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+                          </button>
+
+                          {request.status === "rejected" && (
+
+                            <button
+
+                              className="action-btn icon-btn approve-btn"
+
+                              onClick={() =>
+
+                                handleStatusUpdate(request.id, "pending")
+
+                              }
+
+                              title="Reset to Pending"
+
+                            >
+
+                              {/* ↩️ Back to Approved */}
+
+                              <img src={approveIcon} alt="Return" style={{ width: '18px', height: '18px' }} />
+
+                            </button>
+
+                          )}
+
+                          {request.status === "overdue" && (
+
+                            <button
+
+                              className="action-btn icon-btn delete-btn"
+
+                              onClick={() => handleDeleteRequest(request.id)}
+
+                              title="Delete Overdue Request"
+
+                            >
+
+                              <img src={deleteIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+
+                            </button>
+
+                          )}
+
+                          {request.status === "pending" && (
+
+                            <>
+
+                              <button
+
+                                className="action-btn icon-btn approve-btn"
+
+                                onClick={() =>
+
+                                  handleStatusUpdate(request.id, "approved")
+
+                                }
+
+                                title="Approve"
+
+                              >
+
+
+
+                                <img src={approveIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                              <button
+
+                                className="action-btn icon-btn reject-btn"
+
+                                onClick={() => openRejectModal(request)}
+
+                                title="Reject"
+
+                              >
+
+
+
+                                <img src={rejectIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            </>
+
+                          )}
+
+                          {request.status === "approved" && (
+
+                            <>
+
+                              <button
+
+                                className="action-btn icon-btn release-btn"
+
+                                onClick={() => {
+
+                                  setRequestToRelease(request);
+
+                                  setShowReleaseConfirmation(true);
+
+                                }}
+
+                                title="Release Item"
+
+                              >
+
+                                <img src={releaseIcon} alt="View" style={{ width: '20px', height: '20px' }} />
+
+                              </button>
+
+                              <button
+
+                                className="action-btn icon-btn reject-btn"
+
+                                onClick={() => openRejectModal(request)}
+
+                                title="Reject"
+
+                              >
+
+                                <img src={rejectIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            </>
+
+                          )}
+
+                          {(request.status === "released" ||
+
+                            request.status === "in_progress") && (
+
+                              <button
 
                                 className="action-btn icon-btn return-btn"
 
@@ -4192,9 +4204,9 @@ export default function RequestFormsPage() {
 
                                 title="Process Return"
 
-                                >
+                              >
 
-                                
+
 
                                 <img src={returnIcon} alt="View" style={{ width: '20px', height: '20px' }} />
 
@@ -4202,31 +4214,31 @@ export default function RequestFormsPage() {
 
                             )}
 
-                            {request.status === "returned" && (
+                          {request.status === "returned" && (
 
-                              <button
+                            <button
 
-                                className="action-btn icon-btn delete-btn"
+                              className="action-btn icon-btn delete-btn"
 
-                                onClick={() => handleDeleteRequest(request.id)}
+                              onClick={() => handleDeleteRequest(request.id)}
 
-                                title="Delete"
+                              title="Delete"
 
-                              >
+                            >
 
-                                <img src={deleteIcon} alt="View" style={{ width: '20px', height: '20px' }} />
+                              <img src={deleteIcon} alt="View" style={{ width: '20px', height: '20px' }} />
 
-                              </button>
+                            </button>
 
-                            )}
+                          )}
 
-                          </div>
+                        </div>
 
-                        </td>
+                      </td>
 
-                      </tr>
+                    </tr>
 
-                    ))}
+                  ))}
 
               </tbody>
 
@@ -4378,11 +4390,11 @@ export default function RequestFormsPage() {
 
               {searchTerm ||
 
-              filterStatus !== "All" ||
+                filterStatus !== "All" ||
 
-              filterType !== "All" ||
+                filterType !== "All" ||
 
-              filterBatch !== "All"
+                filterBatch !== "All"
 
                 ? "No requests match your current filters."
 
@@ -4944,20 +4956,20 @@ export default function RequestFormsPage() {
                             if (selectedRequest.rejectedBy?.name) {
                               return `${selectedRequest.rejectedBy?.label || ""} (${selectedRequest.rejectedBy?.name})`.trim();
                             }
-                            
+
                             // Check older rejection fields
                             if (selectedRequest.rejectedBy?.label) {
                               return selectedRequest.rejectedBy.label;
                             }
-                            
+
                             if (selectedRequest.reviewedByName) {
                               return selectedRequest.reviewedByName;
                             }
-                            
+
                             if (selectedRequest.reviewedBy) {
                               return selectedRequest.reviewedBy;
                             }
-                            
+
                             // For mobile rejections, try to infer from request context
                             if (selectedRequest.status === "rejected" && !selectedRequest.rejectedBy && !selectedRequest.reviewedByName && !selectedRequest.reviewedBy) {
                               // Check if adviserName looks like an instructor
@@ -4965,22 +4977,22 @@ export default function RequestFormsPage() {
                                 // Check if adviserName contains instructor-like keywords
                                 const instructorKeywords = ['instructor', 'prof', 'professor', 'sir ', "ma'am", 'maam', 'mr.', 'ms.', 'mrs.'];
                                 const adviserNameLower = selectedRequest.adviserName.toLowerCase();
-                                
+
                                 if (instructorKeywords.some(keyword => adviserNameLower.includes(keyword))) {
                                   return `Instructor (${selectedRequest.adviserName})`;
                                 }
-                                
+
                                 // If it's a mobile rejection and we have an adviser name, it's likely the instructor
                                 return `Instructor (${selectedRequest.adviserName})`;
                               }
-                              
+
                               // Fallback to generic mobile message
                               return "Mobile App (Instructor)";
                             }
-                            
+
                             return "N/A";
                           };
-                          
+
                           return getInstructorName();
                         })()}
                       </span>
@@ -5039,11 +5051,11 @@ export default function RequestFormsPage() {
 
                     >
 
-                       Approve Request
+                      Approve Request
 
                     </button>
 
-                    
+
                     <button
 
                       className="btn btn-danger"
@@ -5084,7 +5096,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                       Release Item
+                      Release Item
 
                     </button>
 
@@ -5150,7 +5162,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                       Release Item
+                      Release Item
 
                     </button>
 
@@ -5168,7 +5180,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                       Reject Request
+                      Reject Request
 
                     </button>
 
@@ -5214,7 +5226,7 @@ export default function RequestFormsPage() {
 
                     >
 
-                       Delete
+                      Delete
 
                     </button>
 
@@ -5415,39 +5427,39 @@ export default function RequestFormsPage() {
 
                   returnFormData.condition === "lost") && (
 
-                  <div className="form-group">
+                    <div className="form-group">
 
-                    <label htmlFor="conditionNotes">Reason for Damage/Loss:</label>
+                      <label htmlFor="conditionNotes">Reason for Damage/Loss:</label>
 
-                    <textarea
+                      <textarea
 
-                      id="conditionNotes"
+                        id="conditionNotes"
 
-                      value={returnFormData.conditionNotes}
+                        value={returnFormData.conditionNotes}
 
-                      onChange={(e) =>
+                        onChange={(e) =>
 
-                        setReturnFormData((prev) => ({
+                          setReturnFormData((prev) => ({
 
-                          ...prev,
+                            ...prev,
 
-                          conditionNotes: e.target.value,
+                            conditionNotes: e.target.value,
 
-                        }))
+                          }))
 
-                      }
+                        }
 
-                      placeholder="Provide details about the damage or loss..."
+                        placeholder="Provide details about the damage or loss..."
 
-                      className="form-textarea"
+                        className="form-textarea"
 
-                      rows="3"
+                        rows="3"
 
-                    />
+                      />
 
-                  </div>
+                    </div>
 
-                )}
+                  )}
 
 
 
@@ -5531,7 +5543,7 @@ export default function RequestFormsPage() {
 
 
 
-                
+
               </div>
 
             </div>
@@ -5610,9 +5622,9 @@ export default function RequestFormsPage() {
 
             <div className="modal-actions" style={{ gap: '12px', padding: '20px' }}>
 
-              <button 
+              <button
 
-                className="btn btn-secondary" 
+                className="btn btn-secondary"
 
                 onClick={() => setShowReleaseConfirmation(false)}
 
@@ -5624,9 +5636,9 @@ export default function RequestFormsPage() {
 
               </button>
 
-              <button 
+              <button
 
-                className="btn btn-primary" 
+                className="btn btn-primary"
 
                 onClick={() => {
 
@@ -5792,8 +5804,8 @@ export default function RequestFormsPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Request Cannot Be Approved</h2>
-              <button 
-                className="modal-close" 
+              <button
+                className="modal-close"
                 onClick={() => setShowEligibilityModal(false)}
               >
                 ×
@@ -5803,8 +5815,8 @@ export default function RequestFormsPage() {
               <p>{eligibilityMessage}</p>
             </div>
             <div className="modal-actions" style={{ gap: '12px', padding: '20px' }}>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 onClick={() => setShowEligibilityModal(false)}
               >
                 OK
