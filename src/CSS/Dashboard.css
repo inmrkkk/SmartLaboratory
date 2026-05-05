@@ -1139,15 +1139,39 @@
   margin-bottom: 4px;
 }
 
-.activity-item-name {
-  font-size: 0.875rem;
-  color: #059669;
-  font-weight: 500;
+.activity-title-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.activity-borrower {
-  font-size: 0.875rem;
+.activity-title-main {
+  display: block;
+}
+
+.activity-title-sub {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.activity-highlight {
+  color: #059669;
+  font-weight: 600;
+}
+
+.activity-item-quantity {
+  font-weight: 600;
+  color: #374151;
+}
+
+.activity-action {
   color: #6b7280;
+}
+
+.activity-borrower-name {
+  color: #111827;
+  font-weight: 500;
 }
 
 .activity-lab {

@@ -6,7 +6,7 @@ import { getNotificationRedirectDescription } from "../utils/navigationUtils";
 import "../CSS/NotificationModal.css";
 
 export default function NotificationModal({ isOpen, onClose, onRedirect }) {
-  const { user, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
+  const { user, isAdmin, userRole, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, unread, read
@@ -19,7 +19,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
       try {
         setLoading(true);
         const notificationsRef = ref(database, 'notifications');
-        
+
         onValue(notificationsRef, (snapshot) => {
           const data = snapshot.val();
           if (data) {
@@ -30,15 +30,26 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
 
             // Filter notifications for this laboratory manager
             const assignedLabIds = getAssignedLaboratoryIds() || [];
+
             const filteredNotifications = notificationList.filter(notification => {
-              // Check if notification is for this user or their assigned laboratories
-              return notification.recipientUserId === user.uid || 
-                     (notification.labId && Array.isArray(assignedLabIds) && assignedLabIds.includes(notification.labId));
+              // Check if notification is directly for this user
+              if (notification.recipientUserId === user.uid) return true;
+
+              // Check if notification is for one of their assigned laboratories
+              if (notification.labId && Array.isArray(assignedLabIds)) {
+                // Try multiple ID formats (ID vs labId)
+                return assignedLabIds.some(id =>
+                  id === notification.labId ||
+                  id === notification.metadata?.labRecordId
+                );
+              }
+
+              return false;
             });
 
             // Sort by timestamp (newest first)
             filteredNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
+
             setNotifications(filteredNotifications);
           } else {
             setNotifications([]);
@@ -87,7 +98,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
 
     // Determine where to redirect based on notification type
     let targetSection = 'dashboard'; // default fallback
-    
+
     switch (notification.type) {
       case 'new_request':
       case 'request_approved':
@@ -142,7 +153,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
     try {
       const unreadNotifications = notifications.filter(n => !n.isRead);
       const updates = {};
-      
+
       unreadNotifications.forEach(notification => {
         updates[`notifications/${notification.id}/isRead`] = true;
         updates[`notifications/${notification.id}/readAt`] = new Date().toISOString();
@@ -156,22 +167,27 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
     }
   };
 
-  // const getNotificationIcon = (type) => {
-  //   switch (type) {
-  //     case 'new_request':
-  //       return '📋';
-  //     case 'request_approved':
-  //       return '✅';
-  //     case 'request_rejected':
-  //       return '❌';
-  //     case 'equipment_returned':
-  //       return '📦';
-  //     case 'equipment_overdue':
-  //       return '⚠️';
-  //     default:
-  //       return '🔔';
-  //   }
-  // };
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'new_request': return '';
+      case 'request_approved': return '';
+      case 'request_rejected': return '';
+      case 'equipment_returned': return '';
+      case 'equipment_overdue': return '';
+      case 'maintenance_due_today': return '';
+      default: return '';
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'new_request': return '#3b82f6';
+      case 'request_approved': return '#10b981';
+      case 'request_rejected': return '#ef4444';
+      case 'equipment_overdue': return '#f59e0b';
+      default: return '#6b7280';
+    }
+  };
 
   const filteredNotifications = notifications.filter(notification => {
     if (filter === 'unread') return !notification.isRead;
@@ -189,8 +205,8 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
         <div className="notification-header">
           <h2> Notifications</h2>
           <div className="notification-controls">
-            <select 
-              value={filter} 
+            <select
+              value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="notification-filter"
             >
@@ -199,7 +215,7 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
               <option value="read">Read ({notifications.length - unreadCount})</option>
             </select>
             {unreadCount > 0 && (
-              <button 
+              <button
                 className="mark-all-read-btn"
                 onClick={markAllAsRead}
                 title="Mark all as read"
@@ -217,12 +233,12 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
                 {isClearing ? 'Clearing…' : 'Clear All'}
               </button>
             )}
-            <button 
+            <button
               className="close-btn"
               onClick={onClose}
               title="Close"
             >
-                ✖
+              ✖
             </button>
           </div>
         </div>
@@ -232,21 +248,22 @@ export default function NotificationModal({ isOpen, onClose, onRedirect }) {
             <div className="loading">Loading notifications...</div>
           ) : filteredNotifications.length === 0 ? (
             <div className="no-notifications">
-              <div className="no-notifications-icon">🔕</div>
-              <p>No notifications found</p>
+              <div className="no-notifications-icon">🔔</div>
+              <p>No new notifications at the moment.</p>
+              <small>Updates regarding borrow requests and overdue items will appear here.</small>
             </div>
           ) : (
             <div className="notification-list">
               {filteredNotifications.map((notification) => (
-                <div 
-                  key={notification.id} 
+                <div
+                  key={notification.id}
                   className={`notification-item ${notification.isRead ? 'read' : 'unread'} clickable`}
                   onClick={() => handleNotificationClick(notification)}
                   title={`Click to ${getNotificationRedirectDescription(notification.type)}`}
                 >
-                  {/* <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
+                  <div className="notification-icon" style={{ color: getNotificationColor(notification.type) }}>
                     {getNotificationIcon(notification.type)}
-                  </div> */}
+                  </div>
                   <div className="notification-body">
                     <div className="notification-title">{notification.title}</div>
                     <div className="notification-message">{notification.message}</div>

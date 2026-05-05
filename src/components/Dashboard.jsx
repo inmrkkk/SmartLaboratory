@@ -15,7 +15,7 @@ import NotificationModal from "./NotificationModal";
 import DamagedLostRecords from "./DamagedLostRecords";
 import DataConsistencyAudit from "./DataConsistencyAudit";
 import AdminLabEquipment from "./AdminLabEquipment";
-import { checkForOverdueEquipment, notifyMaintenanceDueToday } from "../utils/notificationUtils";
+import { checkForOverdueEquipment, notifyMaintenanceDueToday, notifyNewRequest, notifyRequestApproved, notifyRequestRejected } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
 import "../CSS/Dashboard.css";
@@ -151,7 +151,24 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Load unread notification count for Laboratory Managers
+  useEffect(() => {
+    const laboratoriesRef = ref(database, 'laboratories');
+    const unsubscribe = onValue(laboratoriesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const labsList = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        setLaboratories(labsList);
+      } else {
+        setLaboratories([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (!isLaboratoryManager()) return;
 
@@ -297,10 +314,53 @@ export default function Dashboard() {
     const unsubscribeBorrowRequests = onValue(borrowRequestsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        let requests = Object.values(data);
-        if (!isAdmin()) {
-          requests = requests.filter(requestBelongsToAssignedLabs);
-        }
+          const requestsList = Object.keys(data).map(key => ({
+            id: key,
+            ...data[key]
+          }));
+
+          // 1. Check for new pending requests that need notifications
+          const processedStatusChanges = JSON.parse(localStorage.getItem("processedStatusChanges") || "{}");
+          
+          if (requestsList.length > 0) {
+            requestsList.forEach(async (request) => {
+              const status = (request.status || '').toString().trim().toLowerCase();
+              if (!['pending', 'approved', 'rejected'].includes(status)) return;
+              
+              // Only trigger if this status for this request hasn't been processed yet
+              if (processedStatusChanges[request.id] === status) return;
+
+              // Find equipment and laboratory to send proper notification
+              const equipment = equipmentData.find(eq => 
+                eq.id === request.itemId || eq.name === request.itemName || eq.itemName === request.itemName
+              );
+              
+              if (equipment) {
+                const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
+                if (laboratory) {
+                  const studentName = getBorrowerName(request.userId);
+                  const reviewer = request.reviewedBy || 'Instructor';
+
+                  if (status === 'pending') {
+                    await notifyNewRequest(request, equipment, laboratory, studentName);
+                  } else if (status === 'approved') {
+                    await notifyRequestApproved(request, equipment, laboratory, reviewer, studentName);
+                  } else if (status === 'rejected') {
+                    await notifyRequestRejected(request, equipment, laboratory, reviewer, studentName);
+                  }
+                  
+                  // Mark as processed
+                  processedStatusChanges[request.id] = status;
+                  localStorage.setItem("processedStatusChanges", JSON.stringify(processedStatusChanges));
+                }
+              }
+            });
+          }
+
+          let requests = Object.values(data);
+          if (!isAdmin()) {
+            requests = requests.filter(requestBelongsToAssignedLabs);
+          }
 
         // Calculate statistics
         const pendingCount = requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length;
@@ -848,30 +908,56 @@ export default function Dashboard() {
             }
 
             if (shouldShow) {
-              activities.push({
-                id: `request_${key}`,
-                type: 'request',
-                title: request.status === 'approved' ? 'Borrow request approved' :
-                  request.status === 'pending' ? 'New borrow request submitted' :
-                    request.status === 'rejected' ? 'Borrow request rejected' :
-                      request.status === 'released' ? 'Equipment released' :
-                        request.status === 'returned' ? 'Equipment returned' :
-                          'Borrow request status updated',
-                time: request.status === 'returned' && request.returnedAt
-                  ? request.returnedAt
-                  : request.requestedAt || request.updatedAt,
-                icon: request.status === 'approved' ? 'info' :
-                  request.status === 'released' ? 'success' :
-                    request.status === 'returned' ? 'success' :
-                      request.status === 'rejected' ? 'warning' : 'success',
-                details: {
-                  item: request.itemName,
-                  borrower: getBorrowerName(request.userId),
-                  status: request.status,
-                  laboratory: request.laboratory
-                },
-                labId: request.labId
-              });
+              const status = (request.status || '').toString().trim().toLowerCase();
+              
+              // Recent Activity should ONLY display general, passive activities (released, returned)
+              // High-priority alerts (pending, approved, rejected) go to Notifications modal
+              if (status === 'released' || status === 'returned') {
+                const quantity = request.quantityReleased || request.quantity || 1;
+                const itemName = request.itemName || 'Items';
+                const borrowerName = getBorrowerName(request.userId);
+                const actionText = status === 'released' ? 'released to' : 'returned by';
+
+                // Ensure we get the correct laboratory name by prioritizing the centralized laboratories list
+                let labName = null;
+                
+                // 1. Try to find by request.labId
+                if (request.labId) {
+                  const lab = laboratories.find(l => l.labId === request.labId || l.id === request.labId);
+                  if (lab) labName = lab.labName;
+                }
+                
+                // 2. Try to find by category if still not found
+                if (!labName && request.categoryName) {
+                  const category = categoriesData ? Object.values(categoriesData).find(cat => cat.title === request.categoryName) : null;
+                  if (category && category.labId) {
+                    const lab = laboratories.find(l => l.labId === category.labId || l.id === category.labId);
+                    if (lab) labName = lab.labName;
+                  }
+                }
+                
+                // 3. Fallback to what's stored in the request
+                if (!labName) labName = request.laboratory || 'General Laboratory';
+
+                activities.push({
+                  id: `request_${key}`,
+                  type: 'request',
+                  title: `${quantity} ${itemName} ${actionText} ${borrowerName}`,
+                  time: status === 'returned' && request.returnedAt
+                    ? request.returnedAt
+                    : request.updatedAt || request.requestedAt,
+                  icon: 'success',
+                  details: {
+                    quantity: quantity,
+                    item: itemName,
+                    action: actionText,
+                    borrower: borrowerName,
+                    status: request.status,
+                    laboratory: labName
+                  },
+                  labId: request.labId
+                });
+              }
             }
           });
         }
@@ -1165,12 +1251,11 @@ export default function Dashboard() {
                                 activity.icon === 'primary' ? '📢' : '📋'}
                         </div>
                         <div className="activity-content">
-                          <div className="activity-title">{activity.title}</div>
-                          {activity.details && activity.details.item && (
+                          <div className="activity-title">
+                            {renderActivityTitle(activity)}
+                          </div>
+                          {activity.details && activity.details.item && activity.type !== 'request' && (
                             <div className="activity-details">
-                              {activity.type === 'request' && (
-                                <span className="activity-item-name">{activity.details.item}</span>
-                              )}
                               {activity.details.borrower && (
                                 <span className="activity-borrower">by {activity.details.borrower}</span>
                               )}
@@ -1399,6 +1484,29 @@ export default function Dashboard() {
     }
   };
 
+  // Helper to render activity title with colored highlights
+  const renderActivityTitle = (activity) => {
+    if (activity.type !== 'request' || !activity.details) return activity.title;
+
+    const { quantity, item, action, borrower, laboratory } = activity.details;
+    const actionText = activity.title.includes('released') ? 'released to' : 'returned by';
+    
+    // We'll use the quantity and item name, then the action, then borrower, then lab
+    // Find quantity in title if not in details
+    const displayQuantity = quantity || activity.title.split(' ')[0] || '1';
+
+    return (
+      <div className="activity-title-container">
+        <div className="activity-title-main">
+          <span className="activity-item-quantity">{displayQuantity} </span>
+          <span className="activity-highlight">{item} </span>
+          <span className="activity-action">{actionText} </span>
+          <span className="activity-borrower-name">{borrower} </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       <Sidebar
@@ -1486,18 +1594,11 @@ export default function Dashboard() {
                             activity.icon === 'primary' ? '📢' : '📋'}
                     </div>
                     <div className="activity-content">
-                      <div className="activity-title">{activity.title}</div>
-                      {activity.details && (
+                      <div className="activity-title">
+                        {renderActivityTitle(activity)}
+                      </div>
+                      {activity.details && activity.type !== 'request' && (
                         <div className="activity-details">
-                          {activity.details.item && (
-                            <span className="activity-item-name">{activity.details.item}</span>
-                          )}
-                          {activity.details.borrower && (
-                            <span className="activity-borrower">by {activity.details.borrower}</span>
-                          )}
-                          {activity.details.laboratory && (
-                            <span className="activity-lab">Lab: {activity.details.laboratory}</span>
-                          )}
                           {activity.details.author && (
                             <span className="activity-author">by {activity.details.author}</span>
                           )}
