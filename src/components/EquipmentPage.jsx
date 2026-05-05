@@ -79,15 +79,15 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const getEquipmentDisplayName = (equipment) => {
     if (!equipment) return "Unnamed Equipment";
-    
+
     // Safely handle each property
     const name = equipment.name && typeof equipment.name === 'string' ? equipment.name.trim() : null;
     const equipmentName = equipment.equipmentName && typeof equipment.equipmentName === 'string' ? equipment.equipmentName.trim() : null;
     const title = equipment.title && typeof equipment.title === 'string' ? equipment.title.trim() : null;
     const itemName = equipment.itemName && typeof equipment.itemName === 'string' ? equipment.itemName.trim() : null;
-    
+
     const displayName = name || equipmentName || title || itemName || "Unnamed Equipment";
-    
+
     return displayName;
   };
 
@@ -209,13 +209,15 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   // Fetch equipments when category is selected
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory === "all") {
+      fetchAllEquipments();
+    } else if (selectedCategory) {
       fetchEquipments(selectedCategory);
     } else {
       setEquipments([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory]);
+  }, [selectedCategory, laboratories]);
 
   // Debug: Check assigned laboratories
   useEffect(() => {
@@ -276,6 +278,53 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       };
     });
   }, [selectedCategory, categories, laboratories]);
+
+  const fetchAllEquipments = () => {
+    try {
+      setLoading(true);
+      const categoriesRef = ref(database, 'equipment_categories');
+
+      onValue(categoriesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const allItems = [];
+          Object.keys(data).forEach(catId => {
+            const cat = data[catId];
+            if (cat && cat.equipments) {
+              Object.keys(cat.equipments).forEach(eqId => {
+                allItems.push({
+                  id: eqId,
+                  categoryId: catId,
+                  categoryName: cat.title || "—",
+                  ...cat.equipments[eqId]
+                });
+              });
+            }
+          });
+
+          // Filter equipment based on user role and assigned laboratories
+          let filteredEquipment = allItems;
+          if (!isAdmin()) {
+            const assignedLabIds = getAssignedLaboratoryIds();
+            if (assignedLabIds) {
+              filteredEquipment = allItems.filter(equipment => {
+                const lab = laboratories.find(l => l.labId === equipment.labId);
+                return lab && assignedLabIds.includes(lab.id);
+              });
+            }
+          }
+
+          setEquipments(filteredEquipment);
+        } else {
+          setEquipments([]);
+        }
+        setLoading(false);
+      });
+    } catch (error) {
+      console.error("Error fetching all equipments:", error);
+      setLoading(false);
+    }
+  };
 
   const fetchEquipments = (categoryId) => {
     try {
@@ -606,27 +655,27 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     if (window.showToast) {
       window.showToast(`🔧 EquipmentPage: Updating counts for category ${categoryId}`, "info");
     }
-    
+
     console.log('[EquipmentPage] updateCategoryCounts called for categoryId:', categoryId);
     try {
       const equipmentsRef = ref(database, `equipment_categories/${categoryId}/equipments`);
       onValue(equipmentsRef, async (snapshot) => {
         const data = snapshot.val();
         console.log('[EquipmentPage] Equipment data changed, updating category counts for:', categoryId, data);
-        
+
         const totalCount = data
           ? Object.values(data).reduce((sum, eq) => sum + (Number(eq.quantity) || 1), 0)
           : 0;
-        
+
         // Calculate available count based on quantity_borrowed, not status
         const availableCount = data
           ? Object.values(data).reduce((sum, eq) => {
-              const totalQuantity = Number(eq.quantity) || 1;
-              const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
-              const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
-              console.log(`[EquipmentPage] Item ${eq.name || eq.equipmentName}: total=${totalQuantity}, borrowed=${borrowedQuantity}, available=${availableQuantity}`);
-              return sum + availableQuantity;
-            }, 0)
+            const totalQuantity = Number(eq.quantity) || 1;
+            const borrowedQuantity = Number(eq.quantity_borrowed) || 0;
+            const availableQuantity = Math.max(0, totalQuantity - borrowedQuantity);
+            console.log(`[EquipmentPage] Item ${eq.name || eq.equipmentName}: total=${totalQuantity}, borrowed=${borrowedQuantity}, available=${availableQuantity}`);
+            return sum + availableQuantity;
+          }, 0)
           : 0;
 
         console.log('[EquipmentPage] Category count update:', {
@@ -645,7 +694,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           totalCount,
           availableCount
         });
-        
+
         if (window.showToast) {
           window.showToast(`✅ EquipmentPage: Category ${categoryId} updated`, "success");
         }
@@ -663,7 +712,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   // the same numbers as the banner after login.
   // Only run this effect when categories are first loaded, not on every update
   const [hasInitialCountsUpdate, setHasInitialCountsUpdate] = useState(false);
-  
+
   useEffect(() => {
     if (!categories || categories.length === 0 || hasInitialCountsUpdate) return;
 
@@ -672,7 +721,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         updateCategoryCounts(category.id);
       }
     });
-    
+
     setHasInitialCountsUpdate(true);
   }, [categories, hasInitialCountsUpdate]);
 
@@ -907,7 +956,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
       if (monthKey === "No data") return "No data available";
       const [year, month] = monthKey.split('-');
       const monthNames = ["January", "February", "March", "April", "May", "June",
-                         "July", "August", "September", "October", "November", "December"];
+        "July", "August", "September", "October", "November", "December"];
       return `${monthNames[parseInt(month) - 1]} ${year}`;
     };
 
@@ -1036,7 +1085,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const confirmDeleteCategory = async () => {
     if (!categoryToDelete) return;
-    
+
     try {
       const categoryRef = ref(database, `equipment_categories/${categoryToDelete}`);
       await remove(categoryRef);
@@ -1061,7 +1110,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
   const confirmDeleteEquipment = async () => {
     if (!equipmentToDelete) return;
-    
+
     try {
       const equipmentRef = ref(database, `equipment_categories/${selectedCategory}/equipments/${equipmentToDelete}`);
       await remove(equipmentRef);
@@ -1128,7 +1177,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
   const filteredEquipments = equipments.filter(equipment => {
     const normalizedSearch = (searchTerm || "").trim().toLowerCase();
     const displayName = getEquipmentDisplayName(equipment);
-    
+
     const matchesSearch =
       !normalizedSearch ||
       displayName?.toLowerCase().includes(normalizedSearch) ||
@@ -1181,11 +1230,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     }
 
     try {
-      // Create PDF document (A4 size)
-      const doc = new jsPDF('p', 'mm', 'a4');
+      // Create PDF document (A4 size, Landscape for more columns)
+      const doc = new jsPDF('l', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
-      const margin = 15;
+      const margin = 14;
 
       // Helper to load image and get its data/dimensions using Canvas (more robust for local assets)
       const getImageData = async (url) => {
@@ -1224,25 +1273,25 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
 
       // Calculate heights based on the specified image dimensions (1121x793)
       const imageAspectRatio = 793 / 1121;
-      
-      let headerHeight = headerData && headerData.width > 0 
-        ? (headerData.height / headerData.width) * pageWidth 
+
+      let headerHeight = headerData && headerData.width > 0
+        ? (headerData.height / headerData.width) * pageWidth
         : imageAspectRatio * pageWidth;
-        
-      let footerHeight = footerData && footerData.width > 0 
-        ? (footerData.height / footerData.width) * pageWidth 
+
+      let footerHeight = footerData && footerData.width > 0
+        ? (footerData.height / footerData.width) * pageWidth
         : imageAspectRatio * pageWidth;
 
       // ADJUSTED SCALE: We now allow up to 45% of the page for branding.
       // This provides a better balance between the large 1121x793 images and the equipment list.
-      const maxBrandingHeight = pageHeight * 0.45; 
+      const maxBrandingHeight = pageHeight * 0.45;
       if ((headerHeight + footerHeight) > maxBrandingHeight) {
         const scale = maxBrandingHeight / (headerHeight + footerHeight);
         headerHeight *= scale;
         footerHeight *= scale;
       }
 
-      // Function to add header, footer, and page numbers
+      // Function to add header, footer
       const addPageDecorations = (data) => {
         // Header Image (Full-bleed: slightly oversized to ensure no white edges)
         if (headerData) {
@@ -1253,50 +1302,39 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         if (footerData) {
           doc.addImage(footerData.base64, 'PNG', -0.5, pageHeight - footerHeight, pageWidth + 1, footerHeight);
         }
-
-        // Use data.pageNumber from autoTable instead of doc.internal to avoid recursion
-        const pageNumber = data.pageNumber;
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `Page ${pageNumber}`,
-          pageWidth - margin,
-          pageHeight - footerHeight - 5, // 5mm above footer
-          { align: 'right' }
-        );
       };
 
       // Prepare Table Data
-      const tableHeaders = [["Equipment Name", "Category", "Quantity", "Status", "Laboratory/Location"]];
+      const tableHeaders = [["Equipment Name", "Model", "Serial Number", "Category", "Quantity", "Status", "Laboratory"]];
       
       const tableRows = filteredEquipments.map(eq => {
         const category = categories.find(cat => cat.id === eq.categoryId)?.title || "—";
         const laboratory = laboratories.find(lab => lab.labId === eq.labId)?.labName || eq.laboratory || "—";
         
+        const model = eq.model || eq.equipmentModel || "—";
+        const serialNumber = eq.serialNumber || "—";
+
         const totalQuantity = Number(eq.quantity) || 1;
         const borrowed = Number(eq.quantity_borrowed) || 0;
         const availableQuantity = Math.max(0, totalQuantity - borrowed);
-        
-        // Determine Status based on requirements and logic
+
+        // Determine Status with quantity oversight
         let status = eq.status || "Available";
-        
-        // Override status based on availability if it's generic "Available"
-        if (status === "Available") {
-          if (availableQuantity === 0) {
-            status = "In Use";
-          } else if (borrowed > 0) {
-            status = `Available (${availableQuantity}/${totalQuantity})`;
-          }
-        }
-        
-        // Capitalize first letter of condition to check for "Damaged"
         const condition = (eq.condition || "").toLowerCase();
+
         if (condition === "poor" || condition === "damaged") {
           status = "Damaged";
+        } else if (availableQuantity === 0 && totalQuantity > 0) {
+          status = "In Use";
         }
+
+        // Always append (Available/Total) as requested
+        status = `${status} (${availableQuantity}/${totalQuantity})`;
 
         return [
           eq.name || eq.equipmentName || "Unnamed Equipment",
+          model,
+          serialNumber,
           category,
           totalQuantity.toString(),
           status,
@@ -1323,23 +1361,25 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           lineColor: [255, 255, 255] // White grid lines for header
         },
         bodyStyles: {
-          fontSize: 9,
+          fontSize: 8, // Reduced for 20 items
           valign: 'middle',
-          halign: 'left', // Default to left
+          halign: 'left',
           textColor: [50, 50, 50],
           lineWidth: 0.1,
-          lineColor: [200, 200, 200] // Light grey grid lines for body
+          lineColor: [200, 200, 200]
         },
         columnStyles: {
           0: { cellWidth: 50 }, // Name
-          1: { cellWidth: 40, halign: 'center' }, // Category (centered in image)
-          2: { cellWidth: 20, halign: 'center' }, // Quantity (centered in image)
-          3: { cellWidth: 30, halign: 'center' }, // Status (centered in image)
-          4: { cellWidth: 'auto', halign: 'center' } // Laboratory (centered in image)
+          1: { cellWidth: 35 }, // Model
+          2: { cellWidth: 35 }, // Serial
+          3: { cellWidth: 35 }, // Category
+          4: { cellWidth: 20, halign: 'center' }, // Qty
+          5: { cellWidth: 40, halign: 'center' }, // Status
+          6: { cellWidth: 'auto', halign: 'center' } // Lab
         },
         styles: {
           overflow: 'linebreak',
-          cellPadding: 5,
+          cellPadding: 2, // Reduced for 20 items
         },
         rowPageBreak: 'auto',
       });
@@ -1506,7 +1546,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
         </div>
       )}
 
-      {/* Categories Tab */}  
+      {/* Categories Tab */}
       {activeTab === "categories" && (
         <div className="tab-content">
           <div className="section-header">
@@ -1588,11 +1628,11 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                       <>
                         <div className="stat-item">
                           <div className="stat-number">{totalEquipment}</div>
-                          <p style={{fontSize: "0.75rem", whiteSpace: "nowrap"}} >Total Equipments</p>
+                          <p style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }} >Total Equipments</p>
                         </div>
                         <div className="stat-item">
                           <div className="stat-number available">{availableEquipment}</div>
-                          <p style={{fontSize: "0.75rem"}}>Available</p>
+                          <p style={{ fontSize: "0.75rem" }}>Available</p>
                         </div>
                       </>
                     );
@@ -1650,6 +1690,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   className="form-select"
                 >
                   <option value="">Select Category</option>
+                  <option value="all">All Items</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.title}
@@ -1686,8 +1727,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   }
                   setShowAddEquipmentForm(true);
                 }}
-                className={`btn ${selectedCategory ? "btn-success" : "btn-disabled"}`}
-                disabled={!selectedCategory}
+                className={`btn ${selectedCategory && selectedCategory !== "all" ? "btn-success" : "btn-disabled"}`}
+                disabled={!selectedCategory || selectedCategory === "all"}
               >
                 <span className="btn-icon">+</span>
                 Add Equipment
@@ -1708,7 +1749,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
               <span className="search-icon"></span>
             </div>
           )}
-          
+
           {/* Equipment Content */}
           {!selectedCategory ? (
             <div className="empty-state">
@@ -1727,7 +1768,7 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                 {searchTerm
                   ? "Try adjusting your search terms or clear the search to see all equipment."
                   : "Add your first equipment to this category."
-                } 
+                }
               </p>
               {searchTerm && (
                 <button
@@ -2416,8 +2457,8 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             </div>
 
             <div className="modal-footer">
-              <button 
-                onClick={() => setShowUsageReportModal(false)} 
+              <button
+                onClick={() => setShowUsageReportModal(false)}
                 className="close-button"
               >
                 Close

@@ -250,7 +250,7 @@ export default function AdminLabEquipment() {
         footerHeight *= scale;
       }
 
-      // Function to add header, footer, and page numbers
+      // Function to add header, footer
       const addPageDecorations = (data) => {
         if (headerData) {
           doc.addImage(headerData.base64, 'PNG', -0.5, 0, pageWidth + 1, headerHeight);
@@ -258,11 +258,6 @@ export default function AdminLabEquipment() {
         if (footerData) {
           doc.addImage(footerData.base64, 'PNG', -0.5, pageHeight - footerHeight, pageWidth + 1, footerHeight);
         }
-
-        const pageNumber = data.pageNumber;
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - footerHeight - 5, { align: 'right' });
       };
 
       const head = [["#", "Equipment Name", "Model", "Category", "Laboratory", "Serial Number", "Qty", "Status"]];
