@@ -9,8 +9,8 @@ export default function DataConsistencyAudit() {
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [dryRun, setDryRun] = useState(true);
-  const [onlySafe] = useState(true);
+  const [dryRun, setDryRun] = useState(false);
+  const [onlySafe, setOnlySafe] = useState(true);
 
   const [rebuildResult] = useState(null);
 
@@ -52,10 +52,20 @@ export default function DataConsistencyAudit() {
 
     if (!applicableFixes.length) return;
 
-    const confirmed = window.confirm(
-      `Apply ${applicableFixes.length} data consistency fix(es)? This will modify your database.`
-    );
+    const hasUnsafe = applicableFixes.some(f => !f.safe);
+    let message = `Apply ${applicableFixes.length} data consistency fix(es)? This will modify your database.`;
+    
+    if (hasUnsafe) {
+      message += "\n\nWARNING: Some fixes involve DELETING records (orphaned data). Please review the proposed fixes carefully before proceeding.";
+    }
+
+    const confirmed = window.confirm(message);
     if (!confirmed) return;
+
+    if (hasUnsafe) {
+      const secondConfirm = window.confirm("Are you ABSOLUTELY sure? Deletion cannot be undone.");
+      if (!secondConfirm) return;
+    }
 
     setApplying(true);
     setError(null);
@@ -94,8 +104,22 @@ export default function DataConsistencyAudit() {
 
         <div className="data-consistency-controls">
           <div className="checkbox-group">
-            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled />
-            Dry run
+            <input 
+              type="checkbox" 
+              id="dryRunToggle"
+              checked={dryRun} 
+              onChange={(e) => setDryRun(e.target.checked)} 
+            />
+            <label htmlFor="dryRunToggle">Dry run</label>
+          </div>
+          <div className="checkbox-group">
+            <input 
+              type="checkbox" 
+              id="onlySafeToggle"
+              checked={onlySafe} 
+              onChange={(e) => setOnlySafe(e.target.checked)} 
+            />
+            <label htmlFor="onlySafeToggle">Only safe fixes</label>
           </div>
           <div className="action-buttons-group">
             <button className="btn-run-audit" onClick={runAudit} disabled={running || applying}>

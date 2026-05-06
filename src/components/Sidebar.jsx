@@ -28,7 +28,7 @@ export default function Sidebar({ activeSection, onSectionChange }) {
     },
     {
       id: "equipments",
-      label: "Equipments", 
+      label: "Equipments",
       icon: "⚙️",
       roles: ["laboratory_manager"],
       description: "Manage laboratory equipment"
@@ -75,17 +75,17 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       roles: ["admin", "laboratory_manager"],
       description: "Manage damaged and lost item records"
     },
-    {
-      id: "data-consistency",
-      label: "Data Consistency",
-      icon: "🧾",
-      roles: ["admin"],
-      description: "Audit and auto-fix inconsistent records"
-    }
+    // {
+    //   id: "data-consistency",
+    //   label: "Data Consistency",
+    //   icon: "🧾",
+    //   roles: ["admin"],
+    //   description: "Audit and auto-fix inconsistent records"
+    // }
   ];
 
   // Filter menu items based on user role
-  const menuItems = allMenuItems.filter(item => 
+  const menuItems = allMenuItems.filter(item =>
     item.roles.includes(userRole)
   );
 

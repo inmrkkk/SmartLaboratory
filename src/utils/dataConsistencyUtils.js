@@ -157,6 +157,7 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
         laboratoryRecordId: lab.id,
         managerUserId: lab.managerUserId
       });
+      queueFix(`laboratories/${lab.id}/managerUserId`, null, "Remove invalid managerUserId (user deleted)", true);
     }
   });
 
@@ -223,6 +224,8 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
         requestId: request.id,
         userId: request.userId
       });
+      // Deleting a request is considered a major change, so we mark it as not safe for auto-fix
+      queueFix(`borrow_requests/${request.id}`, null, "Delete orphaned borrow request (user deleted)", false);
     }
 
     if (expectedLabId && request.labId && String(request.labId).trim() !== String(expectedLabId).trim()) {
@@ -299,6 +302,7 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
         recordId: record.id,
         borrowerId: record.borrowerId
       });
+      queueFix(`damaged_lost_records/${record.id}`, null, "Delete orphaned damaged/lost record (user deleted)", false);
     }
 
     if (record.labId && !labsByLabId.has(String(record.labId).trim())) {
@@ -331,6 +335,7 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
       addFinding("warning", "Restricted user entry refers to missing user", {
         borrowerId
       });
+      queueFix(`restricted_users/${borrowerId}`, null, "Delete orphaned restricted user entry (user deleted)", false);
     }
 
     const status = (restriction?.status || "").toString().toLowerCase();
