@@ -481,97 +481,7 @@ export default function RequestFormsPage() {
 
 
 
-  // Check for new requests and create notifications
 
-  const checkForNewRequests = useCallback(async (requestsList) => {
-
-    if (!equipmentData.length || !laboratories.length) return;
-
-
-
-    // Get previously processed request IDs from localStorage
-
-    const processedRequests = JSON.parse(
-
-      localStorage.getItem("processedRequests") || "[]"
-
-    );
-
-
-
-    // Find new requests (pending status and not previously processed)
-
-    const newRequests = requestsList.filter(
-
-      (request) =>
-
-        request.status === "pending" && !processedRequests.includes(request.id)
-
-    );
-
-
-
-    // Create notifications for new requests
-
-    for (const request of newRequests) {
-
-      // Find equipment data
-
-      const equipment = equipmentData.find(
-
-        (eq) =>
-
-          eq.equipmentName === request.itemName ||
-
-          eq.itemName === request.itemName ||
-
-          eq.name === request.itemName ||
-
-          eq.title === request.itemName
-
-      );
-
-
-
-      // Find laboratory data
-
-      const laboratory = laboratories.find(
-
-        (lab) => lab.labId === equipment?.labId
-
-      );
-
-
-
-      if (equipment && laboratory) {
-
-        const studentName = getBorrowerName(request.userId);
-
-        await notifyNewRequest(request, equipment, laboratory, studentName);
-
-      }
-
-
-
-      // Mark as processed
-
-      processedRequests.push(request.id);
-
-    }
-
-
-
-    // Update localStorage with processed requests
-
-    localStorage.setItem(
-
-      "processedRequests",
-
-      JSON.stringify(processedRequests)
-
-    );
-
-  }, [equipmentData, laboratories, getBorrowerName]);
 
 
 
@@ -651,25 +561,6 @@ export default function RequestFormsPage() {
 
 
 
-  // Check for new requests when dependencies are ready
-
-  useEffect(() => {
-
-    if (
-
-      allRequests.length > 0 &&
-
-      equipmentData.length > 0 &&
-
-      laboratories.length > 0
-
-    ) {
-
-      checkForNewRequests(allRequests);
-
-    }
-
-  }, [allRequests, equipmentData, laboratories, checkForNewRequests]);
 
 
 
@@ -753,24 +644,28 @@ export default function RequestFormsPage() {
             if (requestLabIds.some(id => assignedLabIds.includes(id))) return true;
 
             // 2. Check by laboratory name
+            let requestLab = null;
             if (request.laboratory) {
-              const lab = laboratories.find(l => 
+              requestLab = laboratories.find(l => 
                 normalizeText(l.labName) === normalizeText(request.laboratory) ||
                 normalizeText(l.labId) === normalizeText(request.laboratory)
               );
-              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+              if (requestLab && (assignedLabIds.includes(requestLab.id) || assignedLabIds.includes(requestLab.labId))) return true;
             }
 
-            // 3. Find the equipment that matches this request
-            const matchingEquipment = equipmentData.find((eq) =>
-              eq.id === request.itemId ||
-              eq.equipmentId === request.itemId ||
-              eq.categoryId === request.categoryId ||
-              normalizeText(eq.equipmentName) === normalizeText(request.itemName) ||
-              normalizeText(eq.itemName) === normalizeText(request.itemName) ||
-              normalizeText(eq.name) === normalizeText(request.itemName) ||
-              normalizeText(eq.title) === normalizeText(request.itemName)
-            );
+            // 3. Find the equipment that matches this request within the determined lab (if possible)
+            const matchingEquipment = equipmentData.find((eq) => {
+              // Match lab context if we have it
+              if (requestLab && eq.labId !== requestLab.labId && eq.labRecordId !== requestLab.id) return false;
+              
+              return eq.id === request.itemId ||
+                eq.equipmentId === request.itemId ||
+                eq.categoryId === request.categoryId ||
+                normalizeText(eq.equipmentName) === normalizeText(request.itemName) ||
+                normalizeText(eq.itemName) === normalizeText(request.itemName) ||
+                normalizeText(eq.name) === normalizeText(request.itemName) ||
+                normalizeText(eq.title) === normalizeText(request.itemName);
+            });
 
             if (matchingEquipment) {
               return equipmentBelongsToAssignedLabs(matchingEquipment);
@@ -1121,8 +1016,8 @@ export default function RequestFormsPage() {
         : null;
 
       const resolvedReviewerName =
-        (user?.name || user?.displayName || user?.email || "")?.toString().trim() ||
-        "Unknown";
+        (user?.fullName || user?.name || user?.displayName || user?.email || "")?.toString().trim() ||
+        (userRole === "laboratory_manager" ? "Laboratory Manager" : userRole === "teacher" ? "Instructor" : "Authorized Staff");
       const resolvedReviewerRole = (userRole || "")?.toString().trim() || "unknown";
       const resolvedReviewerLabel = isAdmin()
         ? "Admin"
@@ -1133,16 +1028,15 @@ export default function RequestFormsPage() {
             : resolvedReviewerRole;
 
       const updateData = {
-
         status: newStatus,
-
         updatedAt: new Date().toISOString(),
-
         reviewedBy: resolvedReviewerLabel,
         reviewedByRole: resolvedReviewerRole,
         reviewedByUserId: user?.uid || null,
         reviewedByName: resolvedReviewerName,
-
+        // Mark as notified if we are sending the notification directly here
+        notifiedApproved: newStatus === "approved",
+        notifiedRejected: newStatus === "rejected",
       };
 
 
@@ -1741,17 +1635,11 @@ export default function RequestFormsPage() {
             case "approved":
 
               await notifyRequestApproved(
-
                 requestData,
-
                 equipment,
-
                 laboratory,
-
-                resolvedReviewerLabel,
-
+                resolvedReviewerName,
                 getBorrowerName(requestData.userId)
-
               );
 
               break;
@@ -1759,17 +1647,11 @@ export default function RequestFormsPage() {
             case "rejected":
 
               await notifyRequestRejected(
-
                 requestData,
-
                 equipment,
-
                 laboratory,
-
-                resolvedReviewerLabel,
-
+                resolvedReviewerName,
                 getBorrowerName(requestData.userId)
-
               );
 
               break;

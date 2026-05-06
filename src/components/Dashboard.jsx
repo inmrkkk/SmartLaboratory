@@ -266,25 +266,32 @@ export default function Dashboard() {
           }));
           setLaboratories(laboratoriesList);
         }
-
-        // Load users data to get borrower names
-        const usersRef = ref(database, 'users');
-        const usersSnapshot = await get(usersRef);
-
-        if (usersSnapshot.exists()) {
-          const usersData = usersSnapshot.val();
-          const usersList = Object.keys(usersData).map(key => ({
-            id: key,
-            ...usersData[key]
-          }));
-          setUsers(usersList);
-        }
       } catch (error) {
         console.error("Error loading data for overdue check:", error);
       }
     };
 
     loadDataForOverdueCheck();
+  }, []);
+
+  // Reactive users loading
+  useEffect(() => {
+    const usersRef = ref(database, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        const usersList = Object.keys(usersData).map(key => ({
+          id: key,
+          ...usersData[key]
+        }));
+        setUsers(usersList);
+        console.log(`[Dashboard] Reactively loaded ${usersList.length} users`);
+      } else {
+        setUsers([]);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -355,38 +362,82 @@ export default function Dashboard() {
           }));
 
           // 1. Check for new pending requests that need notifications
-          const processedStatusChanges = JSON.parse(localStorage.getItem("processedStatusChanges") || "{}");
+          // We only handle 'pending' reactively here because these might come from 
+          // external sources (like mobile app). 'approved' and 'rejected' are
+          // handled directly at the point of action in RequestFormsPage.
           
           if (requestsList.length > 0) {
             requestsList.forEach(async (request) => {
               const status = (request.status || '').toString().trim().toLowerCase();
-              if (!['pending', 'approved', 'rejected'].includes(status)) return;
               
-              // Only trigger if this status for this request hasn't been processed yet
-              if (processedStatusChanges[request.id] === status) return;
+              // Only trigger if this request status hasn't been notified yet
+              if (status === 'pending' && request.notifiedPending) return;
+              if (status === 'approved' && request.notifiedApproved) return;
+              if (status === 'rejected' && request.notifiedRejected) return;
 
-              // Find equipment and laboratory to send proper notification
-              const equipment = equipmentData.find(eq => 
-                eq.id === request.itemId || eq.name === request.itemName || eq.itemName === request.itemName
+              // Check if the request is relatively recent (e.g., within last 24 hours)
+              const requestTime = request.requestedAt ? new Date(request.requestedAt).getTime() : 0;
+              const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+              if (requestTime < oneDayAgo && request.requestedAt) return;
+
+              // Find the laboratory for this request
+              const laboratory = laboratories.find(lab => 
+                (request.labId && (lab.labId === request.labId || lab.id === request.labId)) ||
+                (request.labRecordId && (lab.id === request.labRecordId || lab.labId === request.labRecordId)) ||
+                (request.laboratory && (lab.labName === request.laboratory || lab.labId === request.laboratory))
               );
               
-              if (equipment) {
-                const laboratory = laboratories.find(lab => lab.labId === equipment.labId);
-                if (laboratory) {
-                  const studentName = getBorrowerName(request.userId);
-                  const reviewer = request.reviewedBy || 'Instructor';
+              if (laboratory) {
+                // Find equipment within this laboratory
+                const equipment = equipmentData.find(eq => 
+                  (eq.labId === laboratory.labId || eq.labRecordId === laboratory.id) &&
+                  (eq.id === request.itemId || eq.name === request.itemName || eq.itemName === request.itemName)
+                );
 
+                if (equipment) {
+                  const studentName = getBorrowerName(request.userId);
+                  const requestRef = ref(database, `borrow_requests/${request.id}`);
+
+                  // 1. Handle Pending Requests
                   if (status === 'pending') {
+                    await update(requestRef, { notifiedPending: true });
                     await notifyNewRequest(request, equipment, laboratory, studentName);
-                  } else if (status === 'approved') {
-                    await notifyRequestApproved(request, equipment, laboratory, reviewer, studentName);
-                  } else if (status === 'rejected') {
-                    await notifyRequestRejected(request, equipment, laboratory, reviewer, studentName);
                   }
                   
-                  // Mark as processed
-                  processedStatusChanges[request.id] = status;
-                  localStorage.setItem("processedStatusChanges", JSON.stringify(processedStatusChanges));
+                  // 2. Handle Approved Requests (catch external approvals like mobile app)
+                  else if (status === 'approved') {
+                    // Try to resolve the name: 
+                    // 1. Look up by userId (most reliable)
+                    // 2. Use stored reviewedByName
+                    // 3. Fallback to adviserName if it's an instructor
+                    // 4. Fallback to reviewedBy label
+                    const approverName = getBorrowerName(request.reviewedByUserId);
+                    const isInstructorRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
+                    
+                    const approverInfo = (approverName !== "Unknown" && approverName !== "Unknown Borrower")
+                      ? approverName
+                      : request.reviewedByName || 
+                        (isInstructorRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
+                      
+                    await update(requestRef, { notifiedApproved: true });
+                    await notifyRequestApproved(request, equipment, laboratory, approverInfo, studentName);
+                    console.log(`[Dashboard] Sent notification for approved request: ${request.id} by ${approverInfo}`);
+                  }
+                  
+                  // 3. Handle Rejected Requests
+                  else if (status === 'rejected') {
+                    const rejecterName = getBorrowerName(request.reviewedByUserId);
+                    const isInstructorRejectRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
+
+                    const rejecterInfo = (rejecterName !== "Unknown" && rejecterName !== "Unknown Borrower")
+                      ? rejecterName
+                      : request.reviewedByName || 
+                        (isInstructorRejectRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
+
+                    await update(requestRef, { notifiedRejected: true });
+                    await notifyRequestRejected(request, equipment, laboratory, rejecterInfo, studentName);
+                    console.log(`[Dashboard] Sent notification for rejected request: ${request.id} by ${rejecterInfo}`);
+                  }
                 }
               }
             });
@@ -932,15 +983,23 @@ export default function Dashboard() {
               shouldShow = true;
             } else if (isLaboratoryManager() && assignedLabIds) {
               // Lab Manager only sees requests from their assigned laboratories
-              if (categoriesData) {
-                // Find the equipment category for this request
-                const category = Object.values(categoriesData).find(cat => cat.title === request.categoryName);
-                if (category && category.labId) {
-                  // Check if this lab is assigned to the current manager
-                  const lab = laboratories.find(lab => lab.labId === category.labId);
-                  if (lab && Array.isArray(assignedLabIds) && assignedLabIds.includes(lab.id)) {
-                    shouldShow = true;
-                  }
+              // 1. Direct check on the request's own laboratory identifiers
+              const requestLabIds = [
+                request.labRecordId,
+                request.labId,
+                request.laboratoryId,
+                request.assignedLabId
+              ].filter(Boolean);
+
+              if (requestLabIds.some(id => assignedLabIds.includes(id))) {
+                shouldShow = true;
+              } else if (request.laboratory) {
+                // 2. Check by laboratory name
+                const lab = laboratories.find(l => 
+                  l.labName === request.laboratory || l.labId === request.laboratory
+                );
+                if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) {
+                  shouldShow = true;
                 }
               }
             }

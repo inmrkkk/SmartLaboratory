@@ -19,10 +19,41 @@ import eyeIcon from '../images/eye.png';
 
 
 export default function HistoryPage() {
-
   const { isAdmin, getAssignedLaboratoryIds } = useAuth();
-
   const [historyData, setHistoryData] = useState([]);
+
+  const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
+
+  const equipmentBelongsToAssignedLabs = (item, laboratories, assignedLabIds) => {
+    if (!item || !assignedLabIds || assignedLabIds.length === 0) return false;
+
+    // 1. Direct check on the item's own laboratory identifiers
+    const itemLabIds = [
+      item.labRecordId,
+      item.labId,
+      item.laboratoryId,
+      item.assignedLabId
+    ].filter(Boolean);
+
+    if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+    // 2. Check by laboratory name
+    if (item.laboratory) {
+      const lab = laboratories.find(l => 
+        normalizeText(l.labName) === normalizeText(item.laboratory) ||
+        normalizeText(l.labId) === normalizeText(item.laboratory)
+      );
+      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+    }
+
+    // 3. Check by item's labId string mapping to a laboratory record
+    if (item.labId) {
+      const lab = laboratories.find(l => l.labId === item.labId || l.id === item.labId);
+      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+    }
+
+    return false;
+  };
 
   const [allHistoryEntries, setAllHistoryEntries] = useState([]);
 
@@ -390,49 +421,34 @@ export default function HistoryPage() {
 
 
           // Fallback: match via equipment dataset
-
           const normalizeEquipmentName = (value) => (value || '').toString().trim().toLowerCase();
-
           const normalizedEntryName = normalizeEquipmentName(entry.equipmentName);
 
+          // Find the laboratory for this entry if specified
+          const entryLab = laboratories.find(l => 
+            (entry.laboratory && normalizeEquipmentName(l.labName) === normalizeEquipmentName(entry.laboratory)) ||
+            (entry.labId && normalizeEquipmentName(l.labId) === normalizeEquipmentName(entry.labId))
+          );
+
           const matchingEquipment = equipmentData.find((equipment) => {
-
+            // If we found a lab context for the entry, ensure the equipment belongs to it
+            if (entryLab && equipment.labId !== entryLab.labId && equipment.labRecordId !== entryLab.id) return false;
+            
             const candidates = [
-
               equipment?.equipmentName,
-
               equipment?.itemName,
-
               equipment?.name,
-
               equipment?.title,
-
               equipment?.model,
-
               equipment?.serialNumber,
-
             ]
-
               .filter(Boolean)
-
               .map(normalizeEquipmentName);
-
             return candidates.includes(normalizedEntryName);
-
           });
 
-
-
-          if (matchingEquipment && matchingEquipment.labId) {
-
-            const laboratory = laboratories.find(lab => lab.labId === matchingEquipment.labId);
-
-            if (laboratory) {
-
-              return assignedLabIds.includes(laboratory.id) || assignedLabIds.includes(laboratory.labId);
-
-            }
-
+          if (matchingEquipment) {
+            return equipmentBelongsToAssignedLabs(matchingEquipment, laboratories, assignedLabIds);
           }
 
 
@@ -910,12 +926,14 @@ export default function HistoryPage() {
 
 
 
+        const assignedLabIds = getAssignedLaboratoryIds() || [];
         const selectedEquipment = equipmentData.find((equipment) => {
+          // Priority: Check if equipment belongs to the manager's assigned labs
+          const belongsToManager = equipment.labId && (assignedLabIds.includes(equipment.labId) || assignedLabIds.includes(equipment.labRecordId));
+          if (!isAdmin() && !belongsToManager) return false;
 
           const names = equipmentCandidateNames(equipment);
-
           return names.includes(normalizedTargetName);
-
         });
 
 

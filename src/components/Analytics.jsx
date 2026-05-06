@@ -325,8 +325,16 @@ export default function Analytics() {
     return laboratories.find((lab) => normalizeLabValue(lab.labName) === normalizedName);
   };
 
-  const getEquipmentFromLookup = (lookup, record) => {
-    if (!lookup || !record) return null;
+  const getEquipmentFromLookup = (lookup, record, laboratories) => {
+    if (!record || !lookup) return null;
+
+    // Find the laboratory for this record if specified to use as context
+    const normalizeLabValue = (value) => (value || "").toString().trim().toLowerCase();
+    const recordLab = laboratories?.find(l => 
+      (record.laboratory && normalizeLabValue(l.labName) === normalizeLabValue(record.laboratory)) ||
+      (record.labId && normalizeLabValue(l.labId) === normalizeLabValue(record.labId)) ||
+      (record.labID && normalizeLabValue(l.labId) === normalizeLabValue(record.labID))
+    );
 
     const idCandidates = [
       record.itemId,
@@ -354,7 +362,12 @@ export default function Analytics() {
     for (const name of nameCandidates) {
       const normalized = normalizeLabValue(name);
       if (lookup.byName.has(normalized)) {
-        return lookup.byName.get(normalized);
+        const equipment = lookup.byName.get(normalized);
+        // If we have a lab context for the record, ensure the equipment belongs to it
+        if (recordLab && equipment.labId !== recordLab.labId && equipment.labRecordId !== recordLab.id) {
+          continue; // Keep looking if this name match is in the wrong lab
+        }
+        return equipment;
       }
     }
 
@@ -406,7 +419,7 @@ export default function Analytics() {
         }
       }
 
-      const equipment = getEquipmentFromLookup(equipmentLookup, source);
+      const equipment = getEquipmentFromLookup(equipmentLookup, source, laboratories);
       if (equipment) {
         const equipmentLabIdentifiers = [
           equipment.labRecordId,
