@@ -16,7 +16,7 @@ import DamagedLostRecords from "./DamagedLostRecords";
 import DataConsistencyAudit from "./DataConsistencyAudit";
 import AdminLabEquipment from "./AdminLabEquipment";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday, notifyNewRequest, notifyRequestApproved, notifyRequestRejected } from "../utils/notificationUtils";
-import { exportToPDF, printActivities } from "../utils/pdfUtils";
+import { exportToPDF } from "../utils/pdfUtils";
 import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import "../CSS/Dashboard.css";
@@ -348,6 +348,13 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [allRequests, equipmentData, laboratories]);
 
+  // Helper function to get borrower name from userId
+  const getBorrowerName = useCallback((userId) => {
+    if (!userId) return "Unknown";
+    const user = users.find(u => u.id === userId || u.userId === userId);
+    return user?.name || user?.fullName || user?.displayName || user?.email || "Unknown";
+  }, [users]);
+
   // Load dashboard analytics data
   useEffect(() => {
     // Load borrow requests for statistics
@@ -675,7 +682,7 @@ export default function Dashboard() {
       unsubscribeBorrowRequests();
       unsubscribeUsers();
     };
-  }, [isAdmin, requestBelongsToAssignedLabs, users, borrowingTimeFilter, equipmentData]);
+  }, [isAdmin, requestBelongsToAssignedLabs, users, borrowingTimeFilter, equipmentData, getBorrowerName, laboratories]);
 
   useEffect(() => {
     let equipmentList = equipmentData;
@@ -917,12 +924,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [borrowingTimeFilter, equipmentBelongsToAssignedLabs, isAdmin]);
 
-  // Helper function to get borrower name from userId
-  const getBorrowerName = useCallback((userId) => {
-    if (!userId) return "Unknown";
-    const user = users.find(u => u.id === userId || u.userId === userId);
-    return user?.name || user?.fullName || user?.displayName || user?.email || "Unknown";
-  }, [users]);
+
 
   // Load recent activity data
   useEffect(() => {
@@ -1669,7 +1671,7 @@ export default function Dashboard() {
   const renderActivityTitle = (activity) => {
     if (activity.type !== 'request' || !activity.details) return activity.title;
 
-    const { quantity, item, action, borrower, laboratory } = activity.details;
+    const { quantity, item, borrower } = activity.details;
     const actionText = activity.title.includes('released') ? 'released to' : 'returned by';
     
     // We'll use the quantity and item name, then the action, then borrower, then lab

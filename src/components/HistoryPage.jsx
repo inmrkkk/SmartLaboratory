@@ -469,7 +469,7 @@ export default function HistoryPage() {
 
     setHistoryData(filteredHistory);
 
-  }, [allHistoryEntries, isAdmin, getAssignedLaboratoryIds, equipmentData, laboratories]);
+  }, [allHistoryEntries, isAdmin, getAssignedLaboratoryIds, equipmentData, laboratories, equipmentBelongsToAssignedLabs]);
 
 
 
