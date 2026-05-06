@@ -295,6 +295,72 @@ export const auditDataConsistency = async ({ dryRun = true } = {}) => {
     }
   });
 
+  // --- INVENTORY COUNT AUDIT (Discrepancy Detection) ---
+  const borrowedByEquipmentKey = new Map();
+  const releasedRequests = requests.filter(req => {
+    const status = normalizeText(req.status);
+    return ["released", "overdue", "in_progress"].includes(status);
+  });
+
+  const releasedQuantityForRequest = (req) => {
+    const candidates = [req.quantityReleased, req.approvedQuantity, req.quantity];
+    for (const value of candidates) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 1;
+  };
+
+  releasedRequests.forEach((req) => {
+    const qty = releasedQuantityForRequest(req);
+    const itemId = req.itemId ? String(req.itemId) : "";
+    const categoryId = req.categoryId ? String(req.categoryId) : "";
+
+    let resolvedEquipment = null;
+    if (itemId && equipmentById.has(itemId)) {
+      const eq = equipmentById.get(itemId);
+      if (!categoryId || String(eq.categoryId) === categoryId) {
+        resolvedEquipment = eq;
+      }
+    }
+    if (!resolvedEquipment && req.itemName) {
+      resolvedEquipment = equipmentByName.get(normalizeText(req.itemName)) || null;
+    }
+    
+    if (resolvedEquipment && resolvedEquipment.id && resolvedEquipment.categoryId) {
+      const key = `${resolvedEquipment.categoryId}::${resolvedEquipment.id}`;
+      borrowedByEquipmentKey.set(key, (borrowedByEquipmentKey.get(key) || 0) + qty);
+    }
+  });
+
+  // Compare actual quantity_borrowed with expected counts
+  categories.forEach((category) => {
+    const equipments = category.equipments || {};
+    Object.entries(equipments).forEach(([equipmentId, equipment]) => {
+      const currentBorrowed = Number(equipment.quantity_borrowed) || 0;
+      const key = `${category.id}::${equipmentId}`;
+      const expectedBorrowed = Number(borrowedByEquipmentKey.get(key) || 0);
+
+      if (currentBorrowed !== expectedBorrowed) {
+        addFinding("warning", "Equipment quantity_borrowed discrepancy", {
+          equipmentId,
+          itemName: equipment.name || equipment.itemName,
+          category: category.title,
+          currentValue: currentBorrowed,
+          expectedValue: expectedBorrowed
+        });
+
+        queueFix(
+          `equipment_categories/${category.id}/equipments/${equipmentId}/quantity_borrowed`,
+          expectedBorrowed,
+          `Fix inventory count for "${equipment.name || 'item'}" (was ${currentBorrowed}, expected ${expectedBorrowed})`,
+          true
+        );
+      }
+    });
+  });
+  // --- END INVENTORY COUNT AUDIT ---
+
   const damagedRecords = Object.entries(damagedLostData).map(([id, rec]) => ({ id, ...rec }));
   damagedRecords.forEach((record) => {
     if (record.borrowerId && !userIds.has(record.borrowerId)) {
