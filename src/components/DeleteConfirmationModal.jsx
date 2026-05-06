@@ -19,7 +19,7 @@ export default function DeleteConfirmationModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={handleOverlayClick}>
+    <div className="modal-overlay" onClick={handleOverlayClick} style={{ zIndex: 2000 }}>
       <div className="modal-container" style={{ maxWidth: "400px" }}>
         <div className="modal-header">
           <h2>{title}</h2>

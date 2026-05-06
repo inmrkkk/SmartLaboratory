@@ -18,6 +18,7 @@ import AdminLabEquipment from "./AdminLabEquipment";
 import { checkForOverdueEquipment, notifyMaintenanceDueToday, notifyNewRequest, notifyRequestApproved, notifyRequestRejected } from "../utils/notificationUtils";
 import { exportToPDF, printActivities } from "../utils/pdfUtils";
 import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import "../CSS/Dashboard.css";
 
 export default function Dashboard() {
@@ -51,6 +52,16 @@ export default function Dashboard() {
   const [borrowingTimeFilter, setBorrowingTimeFilter] = useState('all'); // 'all', 'week', 'month'
   const [historyTopBorrowed, setHistoryTopBorrowed] = useState([]);
   const [totalItemsBorrowedFromHistory, setTotalItemsBorrowedFromHistory] = useState(0);
+  const [activityStates, setActivityStates] = useState({});
+  const [rawActivities, setRawActivities] = useState([]);
+  const [activityFilter, setActivityFilter] = useState("all"); // all, unread, read
+  const [isClearingActivities, setIsClearingActivities] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
 
   const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
 
@@ -206,6 +217,22 @@ export default function Dashboard() {
 
     return () => unsubscribe();
   }, [isLaboratoryManager, user, getAssignedLaboratoryIds]);
+
+  // Load activity states (read/deleted status)
+  useEffect(() => {
+    if (!user) return;
+
+    const activityStatesRef = ref(database, `activity_states/${user.uid}`);
+    const unsubscribe = onValue(activityStatesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setActivityStates(snapshot.val());
+      } else {
+        setActivityStates({});
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Load data for overdue equipment checking
   useEffect(() => {
@@ -980,14 +1007,11 @@ export default function Dashboard() {
           }
         }
 
-        // Sort by time and take most recent
+        // Sort by time
         activities.sort((a, b) => new Date(b.time) - new Date(a.time));
 
-        // Store all activities for "See All" modal
-        setAllActivities(activities);
-
-        // Show only first 4 for recent activity
-        setRecentActivity(activities.slice(0, 4));
+        // Store raw activities
+        setRawActivities(activities);
 
       } catch (error) {
         console.error("Error loading recent activity:", error);
@@ -996,6 +1020,19 @@ export default function Dashboard() {
 
     loadRecentActivity();
   }, [isAdmin, isLaboratoryManager, getAssignedLaboratoryIds, laboratories, getBorrowerName, users]);
+
+  // Filter and process activities based on state
+  useEffect(() => {
+    const filtered = rawActivities
+      .filter(activity => !activityStates[activity.id]?.deleted)
+      .map(activity => ({
+        ...activity,
+        isRead: activityStates[activity.id]?.read || false
+      }));
+
+    setAllActivities(filtered);
+    setRecentActivity(filtered.slice(0, 4));
+  }, [rawActivities, activityStates]);
 
   const handleMaintenanceComplete = () => {
     setDashboardStats(prev => ({
@@ -1087,6 +1124,83 @@ export default function Dashboard() {
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
     if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`;
     return `${Math.floor(diffInSeconds / 31536000)} years ago`;
+  };
+
+  const handleMarkAsRead = async (activityId) => {
+    if (!user) return;
+    try {
+      const stateRef = ref(database, `activity_states/${user.uid}/${activityId}`);
+      await update(stateRef, { read: true });
+    } catch (error) {
+      console.error("Error marking activity as read:", error);
+    }
+  };
+
+  const handleDeleteActivity = (activityId) => {
+    if (!user) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      title: "Dismiss Activity",
+      message: "Are you sure you want to dismiss this activity from your view?",
+      onConfirm: async () => {
+        try {
+          const stateRef = ref(database, `activity_states/${user.uid}/${activityId}`);
+          await update(stateRef, { deleted: true });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error("Error deleting activity:", error);
+        }
+      }
+    });
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user || allActivities.length === 0) return;
+    try {
+      const updates = {};
+      allActivities.forEach(activity => {
+        if (!activity.isRead) {
+          updates[`${activity.id}/read`] = true;
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        const statesRef = ref(database, `activity_states/${user.uid}`);
+        await update(statesRef, updates);
+      }
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
+
+  const handleDeleteAllActivities = () => {
+    if (!user || allActivities.length === 0) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      title: "Dismiss All Activities",
+      message: "Are you sure you want to dismiss all current activities from your view?",
+      onConfirm: async () => {
+        try {
+          setIsClearingActivities(true);
+          const updates = {};
+          allActivities.forEach(activity => {
+            updates[`${activity.id}/deleted`] = true;
+          });
+          
+          if (Object.keys(updates).length > 0) {
+            const statesRef = ref(database, `activity_states/${user.uid}`);
+            await update(statesRef, updates);
+          }
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error("Error deleting all activities:", error);
+        } finally {
+          setIsClearingActivities(false);
+        }
+      }
+    });
   };
 
   const renderContent = () => {
@@ -1244,11 +1358,8 @@ export default function Dashboard() {
                   {recentActivity.length > 0 ? (
                     recentActivity.map((activity) => (
                       <div key={activity.id} className="activity-item">
-                        <div className={`activity-icon ${activity.icon}`}>
-                          {activity.icon === 'success' ? '✅' :
-                            activity.icon === 'info' ? '📋' :
-                              activity.icon === 'warning' ? '⚠️' :
-                                activity.icon === 'primary' ? '📢' : '📋'}
+                        <div className={`activity-icon ${activity.icon} ${activity.isRead ? 'read' : 'unread'}`}>
+                          {!activity.isRead && <span className="unread-dot"></span>}
                         </div>
                         <div className="activity-content">
                           <div className="activity-title">
@@ -1270,7 +1381,7 @@ export default function Dashboard() {
                     ))
                   ) : (
                     <div className="activity-item">
-                      <div className="activity-icon info">📋</div>
+                      <div className="activity-icon info"></div>
                       <div className="activity-content">
                         <div className="activity-title">No recent activity</div>
                         <div className="activity-time">System is ready</div>
@@ -1539,11 +1650,21 @@ export default function Dashboard() {
       )}
 
       {showAllActivitiesModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '80vh', overflow: 'auto' }}>
-            <div className="modal-header">
-              <h2>All Activities</h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="notification-overlay">
+          <div className="notification-modal" style={{ maxWidth: '800px' }}>
+            <div className="notification-header">
+              <h2>Recent Activities</h2>
+              <div className="notification-controls">
+                <select
+                  value={activityFilter}
+                  onChange={(e) => setActivityFilter(e.target.value)}
+                  className="notification-filter"
+                >
+                  <option value="all">All ({allActivities.length})</option>
+                  <option value="unread">Unread ({allActivities.filter(a => !a.isRead).length})</option>
+                  <option value="read">Read ({allActivities.filter(a => a.isRead).length})</option>
+                </select>
+
                 <button
                   onClick={() => {
                     const formatActivities = (activities) => {
@@ -1556,63 +1677,139 @@ export default function Dashboard() {
                         formatDate(activity.time)
                       ]);
                     };
-                    exportToPDF(allActivities, 'All Activities', formatActivities);
+                    exportToPDF(allActivities, 'Recent Activities', formatActivities);
                   }}
                   className="btn btn-sm btn-primary"
-                  style={{ marginRight: '5px' }}
+                  style={{ borderRadius: '999px', height: '36px', display: 'flex', alignItems: 'center' }}
                 >
-                  📄 Export PDF
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Export
                 </button>
-                <button
-                  onClick={() => {
-                    const formatActivities = (activities) => {
-                      return activities.map((activity) => ({
-                        title: activity.title || 'N/A',
-                        item: activity.details?.item || activity.details?.title || 'N/A',
-                        borrower: activity.details?.borrower || activity.details?.author || 'N/A',
-                        status: activity.details?.status || 'N/A',
-                        time: formatDate(activity.time)
-                      }));
-                    };
-                    printActivities(allActivities, 'All Activities', formatActivities);
-                  }}
-                  className="btn btn-sm btn-secondary"
-                >
-                  🖨️ Print
-                </button>
-                <button onClick={() => setShowAllActivitiesModal(false)} className="modal-close-btn">×</button>
+
+                {allActivities.some(a => !a.isRead) && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="mark-all-read-btn"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Mark All Read
+                  </button>
+                )}
+
+                {allActivities.length > 0 && (
+                  <button
+                    onClick={handleDeleteAllActivities}
+                    className="clear-all-btn"
+                    disabled={isClearingActivities}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    {isClearingActivities ? 'Deleting...' : 'Delete All'}
+                  </button>
+                )}
+
+                <button onClick={() => setShowAllActivitiesModal(false)} className="close-btn">✖</button>
               </div>
             </div>
-            <div className="modal-body">
-              <div className="activity-list">
-                {allActivities.map((activity) => (
-                  <div key={activity.id} className="activity-item">
-                    <div className={`activity-icon ${activity.icon}`}>
-                      {activity.icon === 'success' ? '✅' :
-                        activity.icon === 'info' ? '📋' :
-                          activity.icon === 'warning' ? '⚠️' :
-                            activity.icon === 'primary' ? '📢' : '📋'}
-                    </div>
-                    <div className="activity-content">
-                      <div className="activity-title">
-                        {renderActivityTitle(activity)}
+            <div className="notification-content">
+              <div className="notification-list">
+                {allActivities
+                  .filter(activity => {
+                    if (activityFilter === 'unread') return !activity.isRead;
+                    if (activityFilter === 'read') return activity.isRead;
+                    return true;
+                  })
+                  .map((activity) => (
+                    <div
+                      key={activity.id}
+                      className={`notification-item ${activity.isRead ? 'read' : 'unread'}`}
+                      style={{ cursor: 'default' }}
+                    >
+                      <div className={`notification-icon ${activity.icon}`}>
                       </div>
-                      {activity.details && activity.type !== 'request' && (
-                        <div className="activity-details">
-                          {activity.details.author && (
-                            <span className="activity-author">by {activity.details.author}</span>
+                      <div className="notification-body">
+                        <div className="notification-title">
+                          {renderActivityTitle(activity)}
+                        </div>
+                        {activity.details && activity.type !== 'request' && (
+                          <div className="notification-message">
+                            {activity.details.author && (
+                              <span className="activity-author">by {activity.details.author}</span>
+                            )}
+                            {activity.details.totalEquipment && (
+                              <span>Total inventory: {activity.details.totalEquipment} items</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="notification-meta">
+                          <span className="notification-time">{formatDate(activity.time)}</span>
+                          {activity.details?.laboratory && (
+                            <span className="notification-lab">Lab: {activity.details.laboratory}</span>
                           )}
                         </div>
-                      )}
-                      <div className="activity-time">{formatDate(activity.time)}</div>
+                      </div>
+
+                      <div className="activity-actions-inline" style={{ alignSelf: 'center', opacity: 1 }}>
+                        {!activity.isRead && (
+                          <button
+                            className="action-btn-small read-btn"
+                            onClick={() => handleMarkAsRead(activity.id)}
+                            title="Mark as read"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          className="action-btn-small delete-btn"
+                          onClick={() => handleDeleteActivity(activity.id)}
+                          title="Delete"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                          </svg>
+                        </button>
+                      </div>
+
+                      {!activity.isRead && <div className="unread-indicator"></div>}
                     </div>
+                  ))}
+
+                {allActivities.length === 0 && (
+                  <div className="no-notifications">
+                    <div className="no-notifications-icon"></div>
+                    <p>No activities to show.</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Dismiss"
+      />
     </div>
   );
 }
