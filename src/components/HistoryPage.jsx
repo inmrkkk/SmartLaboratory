@@ -326,8 +326,11 @@ export default function HistoryPage() {
 
 
 
-        entries.sort((a, b) => new Date(b.timestamp || b.returnDate || b.releasedDate || 0) - new Date(a.timestamp || a.returnDate || a.releasedDate || 0));
-
+        entries.sort((a, b) => {
+          const dateA = new Date(a.releasedDate || a.returnDate || a.timestamp || a.createdAt || 0);
+          const dateB = new Date(b.releasedDate || b.returnDate || b.timestamp || b.createdAt || 0);
+          return dateB - dateA;
+        });
         setAllHistoryEntries(entries);
 
       } else {
@@ -534,8 +537,11 @@ export default function HistoryPage() {
 
         });
 
-        return Object.values(groups);
-
+        return Object.values(groups).sort((a, b) => {
+          const latestA = Math.max(...a.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
+          const latestB = Math.max(...b.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
+          return latestB - latestA;
+        });
       })()
 
     : null;

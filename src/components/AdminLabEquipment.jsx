@@ -65,6 +65,10 @@ export default function AdminLabEquipment() {
             id: equipmentId,
             categoryId,
             categoryName: category.title || "—",
+            // Inherit laboratory information from category if missing on item
+            labId: equipments[equipmentId].labId || category.labId || "",
+            labRecordId: equipments[equipmentId].labRecordId || category.labRecordId || "",
+            laboratory: equipments[equipmentId].laboratory || category.labName || "",
             ...equipments[equipmentId]
           });
         });

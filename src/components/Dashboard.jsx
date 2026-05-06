@@ -65,25 +65,67 @@ export default function Dashboard() {
 
   const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
 
+  const equipmentBelongsToAssignedLabs = useCallback((item) => {
+    if (isAdmin()) return true;
+    const assignedLabIds = getAssignedLaboratoryIds?.() || [];
+    if (!assignedLabIds.length) return false;
+
+    // 1. Direct check on the item's own laboratory identifiers
+    // We check all possible ID fields against the user's assigned lab keys
+    const itemLabIds = [
+      item.labRecordId,
+      item.labId,
+      item.laboratoryId,
+      item.assignedLabId
+    ].filter(Boolean);
+
+    if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+    // 2. Check by laboratory name
+    // If the item has a laboratory name, find that lab and check if it's assigned
+    if (item.laboratory) {
+      const lab = laboratories.find(l => 
+        normalizeText(l.labName) === normalizeText(item.laboratory) ||
+        normalizeText(l.labId) === normalizeText(item.laboratory)
+      );
+      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+    }
+
+    // 3. Check by item's labId string mapping to a laboratory record
+    // Sometimes items only have a string ID like "CPE-LAB" instead of a Firebase key
+    if (item.labId) {
+      const lab = laboratories.find(l => l.labId === item.labId || l.id === item.labId);
+      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+    }
+
+    return false;
+  }, [isAdmin, getAssignedLaboratoryIds, laboratories]);
+
   const requestBelongsToAssignedLabs = useCallback((request) => {
     if (isAdmin()) return true;
     const assignedLabIds = getAssignedLaboratoryIds?.() || [];
     if (!assignedLabIds.length) return false;
 
-    const matchesAssigned = (lab) => {
-      if (!lab) return false;
-      return assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId) || assignedLabIds.includes(lab.labRecordId);
-    };
+    // 1. Direct check on the request's own laboratory identifiers
+    const requestLabIds = [
+      request.labRecordId,
+      request.labId,
+      request.laboratoryId,
+      request.assignedLabId
+    ].filter(Boolean);
 
-    if (request.labRecordId && assignedLabIds.includes(request.labRecordId)) return true;
-    if (request.labId && assignedLabIds.includes(request.labId)) return true;
+    if (requestLabIds.some(id => assignedLabIds.includes(id))) return true;
 
-    const labFromRequest = laboratories.find((lab) =>
-      (request.labId && (lab.id === request.labId || lab.labId === request.labId)) ||
-      (request.laboratory && normalizeText(lab.labName) === normalizeText(request.laboratory))
-    );
-    if (matchesAssigned(labFromRequest)) return true;
+    // 2. Check by laboratory name
+    if (request.laboratory) {
+      const lab = laboratories.find(l => 
+        normalizeText(l.labName) === normalizeText(request.laboratory) ||
+        normalizeText(l.labId) === normalizeText(request.laboratory)
+      );
+      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+    }
 
+    // 3. Check by the laboratory of the associated equipment
     const equipment = equipmentData.find((eq) =>
       eq.id === request.itemId ||
       eq.equipmentId === request.itemId ||
@@ -92,53 +134,14 @@ export default function Dashboard() {
       eq.itemName === request.itemName ||
       eq.title === request.itemName
     );
+    
     if (equipment) {
-      if (equipment.labId && assignedLabIds.includes(equipment.labId)) return true;
-      const lab = laboratories.find((lab) => lab.labId === equipment.labId || lab.id === equipment.labId);
-      if (matchesAssigned(lab)) return true;
+      // Use the already-calculated equipment check logic
+      return equipmentBelongsToAssignedLabs(equipment);
     }
 
     return false;
-  }, [isAdmin, getAssignedLaboratoryIds, laboratories, equipmentData]);
-
-  const equipmentBelongsToAssignedLabs = useCallback((item) => {
-    if (isAdmin()) return true;
-    const assignedLabIds = getAssignedLaboratoryIds?.() || [];
-    if (!assignedLabIds.length) return false;
-
-    const labIdentifiers = [
-      item.labRecordId,
-      item.labId,
-      item.laboratoryId,
-      item.laboratory,
-      item.assignedLabId
-    ].filter(Boolean);
-
-    if (labIdentifiers.some((id) => assignedLabIds.includes(id))) return true;
-
-    if (item.laboratory) {
-      const lab = laboratories.find((lab) => normalizeText(lab.labName) === normalizeText(item.laboratory));
-      if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
-    }
-
-    if (item.categoryId || item.id || item.name) {
-      const categoryEquipment = equipmentData.find((eq) =>
-        eq.id === item.id ||
-        eq.equipmentId === item.id ||
-        eq.categoryId === item.categoryId ||
-        eq.name === item.name ||
-        eq.itemName === item.itemName ||
-        eq.title === item.name
-      );
-      if (categoryEquipment) {
-        if (categoryEquipment.labId && assignedLabIds.includes(categoryEquipment.labId)) return true;
-        const lab = laboratories.find((lab) => lab.labId === categoryEquipment.labId || lab.id === categoryEquipment.labId);
-        if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
-      }
-    }
-
-    return false;
-  }, [isAdmin, getAssignedLaboratoryIds, laboratories, equipmentData]);
+  }, [isAdmin, getAssignedLaboratoryIds, laboratories, equipmentData, equipmentBelongsToAssignedLabs]);
 
   // Load announcements from Firebase
   useEffect(() => {
@@ -301,12 +304,17 @@ export default function Dashboard() {
               id: equipmentId,
               categoryId,
               categoryName: category.title,
+              // Inherit laboratory information from category if missing on item
+              labId: equipments[equipmentId].labId || category.labId || "",
+              labRecordId: equipments[equipmentId].labRecordId || category.labRecordId || "",
+              laboratory: equipments[equipmentId].laboratory || category.labName || "",
               ...equipments[equipmentId]
             };
             allEquipment.push(equipmentEntry);
           });
         });
 
+        console.log(`[Dashboard] Loaded ${allEquipment.length} total equipment items from database`);
         setEquipmentData(allEquipment);
       } else {
         setEquipmentData([]);
@@ -413,7 +421,8 @@ export default function Dashboard() {
         };
         // Count items that are actually released (physically borrowed)
         const borrowedCount = requests.reduce((sum, req) => {
-          if ((req.status || '').toString().trim().toLowerCase() === 'released') {
+          const status = (req.status || '').toString().trim().toLowerCase();
+          if (['released', 'overdue', 'in_progress'].includes(status)) {
             return sum + getQuantity(req);
           }
           return sum;
@@ -508,7 +517,8 @@ export default function Dashboard() {
         const facultyRoles = ['admin', 'laboratory_manager', 'instructor', 'adviser', 'advisor', 'faculty', 'teacher'];
 
         requests.forEach(req => {
-          if ((req.status || '').toString().trim().toLowerCase() === 'released') {
+          const status = (req.status || '').toString().trim().toLowerCase();
+          if (['released', 'overdue', 'in_progress'].includes(status)) {
             const borrowerRole = getBorrowerRole(req);
             const quantity = getQuantity(req);
             let isFaculty = false;
@@ -550,10 +560,11 @@ export default function Dashboard() {
           hasReleasedRequests: requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')
         });
 
-        // If there are no requests or no released requests, set counts to 0
-        const finalAdviserBorrowings = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : adviserBorrowings;
-        const finalStudentBorrowings = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : studentBorrowings;
-        const finalBorrowedCount = (requests.length === 0 || !requests.some(req => (req.status || '').toString().trim().toLowerCase() === 'released')) ? 0 : borrowedCount;
+        // If there are no requests or no borrowed requests, set counts to 0
+        const hasBorrowed = requests.some(req => ['released', 'overdue', 'in_progress'].includes((req.status || '').toString().trim().toLowerCase()));
+        const finalAdviserBorrowings = (requests.length === 0 || !hasBorrowed) ? 0 : adviserBorrowings;
+        const finalStudentBorrowings = (requests.length === 0 || !hasBorrowed) ? 0 : studentBorrowings;
+        const finalBorrowedCount = (requests.length === 0 || !hasBorrowed) ? 0 : borrowedCount;
 
         console.log('[Dashboard] Final counts after validation:', {
           finalAdviserBorrowings,

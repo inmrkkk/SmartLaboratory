@@ -207,6 +207,10 @@ export default function Analytics() {
             id: equipmentId,
             categoryId: categoryId,
             categoryName: categories[categoryId].title,
+            // Inherit laboratory information from category if missing on item
+            labId: equipmentData[equipmentId].labId || categories[categoryId].labId || "",
+            labRecordId: equipmentData[equipmentId].labRecordId || categories[categoryId].labRecordId || "",
+            laboratory: equipmentData[equipmentId].laboratory || categories[categoryId].labName || "",
             ...equipmentData[equipmentId]
           }));
           
@@ -214,11 +218,37 @@ export default function Analytics() {
           let filteredEquipment = categoryEquipment;
           if (!isAdmin()) {
             const assignedLabIds = getAssignedLaboratoryIds();
-            if (assignedLabIds) {
+            if (assignedLabIds && assignedLabIds.length > 0) {
               filteredEquipment = categoryEquipment.filter(equipment => {
-                const lab = laboratories.find(l => l.labId === equipment.labId);
-                return lab && assignedLabIds.includes(lab.id);
+                // 1. Direct check on the item's own laboratory identifiers
+                const itemLabIds = [
+                  equipment.labRecordId,
+                  equipment.labId,
+                  equipment.laboratoryId,
+                  equipment.assignedLabId
+                ].filter(Boolean);
+
+                if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+                // 2. Check by laboratory name
+                if (equipment.laboratory) {
+                  const lab = laboratories.find(l => 
+                    normalizeLabValue(l.labName) === normalizeLabValue(equipment.laboratory) ||
+                    normalizeLabValue(l.labId) === normalizeLabValue(equipment.laboratory)
+                  );
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                // 3. Check by item's labId string mapping to a laboratory record
+                if (equipment.labId) {
+                  const lab = laboratories.find(l => l.labId === equipment.labId || l.id === equipment.labId);
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                return false;
               });
+            } else if (assignedLabIds && assignedLabIds.length === 0) {
+              filteredEquipment = [];
             }
           }
           
@@ -542,7 +572,7 @@ export default function Analytics() {
     }
 
     // Borrowing Trends
-    const borrowingTrends = calculateBorrowingTrends(borrowRequests, history, periodDays);
+    const borrowingTrends = calculateBorrowingTrends(history, periodDays);
 
     // User Activity
     const userActivity = calculateUserActivity(history, periodDays);
@@ -551,10 +581,10 @@ export default function Analytics() {
     const maintenanceStats = calculateMaintenanceStats(equipment, history, periodDays);
 
     // Category Breakdown
-    const categoryBreakdown = calculateCategoryBreakdown(categories, borrowRequests);
+    const categoryBreakdown = calculateCategoryBreakdown(categories, history);
 
     // Monthly Data
-    const { monthlyTotals, monthlyTrends } = calculateMonthlyData(borrowRequests, history, periodDays);
+    const { monthlyTotals, monthlyTrends } = calculateMonthlyData(history, periodDays);
 
     // Utilization Rates
     const utilizationRates = calculateUtilizationRates(equipment, history, periodDays);
@@ -575,41 +605,48 @@ export default function Analytics() {
     };
   };
 
-  const calculateBorrowingTrends = (borrowRequests, history, periodDays) => {
+  const calculateBorrowingTrends = (history, periodDays) => {
     const trends = [];
-    const requests = Object.values(borrowRequests);
     const historyEntries = Object.values(history || {});
-    
-    // Group by date from borrow requests
     const dailyData = {};
-    requests.forEach(req => {
-      if (req.requestedAt) {
-        const date = new Date(req.requestedAt).toDateString();
-        dailyData[date] = (dailyData[date] || 0) + 1;
-      }
-    });
-
-    // Add manual records from history
+    const processedTransactions = new Set();
+    
+    // Group by date from history records to match HistoryPage content
     historyEntries.forEach(entry => {
-      // Include manual records with valid borrowing lifecycle (Released or Returned status)
-      if (entry.isManualEntry && (entry.status === 'Returned' || entry.status === 'returned' || entry.status === 'Released' || entry.status === 'released')) {
-        const dateSource = entry.returnDate || entry.releasedDate || entry.timestamp;
+      const status = (entry.status || '').toLowerCase();
+      const action = (entry.action || '').toLowerCase();
+      
+      // Match Dashboard.jsx logic: only count 'released' entries, 
+      // or 'returned' entries if they are manual records (representing a completed borrow)
+      const isBorrowingEvent = 
+        status === 'released' || 
+        action.includes('item released') || 
+        (entry.isManualEntry && (status === 'returned' || action.includes('returned') || status === 'released' || action.includes('released')));
+
+      if (isBorrowingEvent) {
+        // Use transactionId to avoid double counting
+        const transactionId = entry.transactionId || entry.details?.transactionId || entry.details?.originalRequest?.transactionId || entry.id;
+        if (transactionId && processedTransactions.has(transactionId)) return;
+        if (transactionId) processedTransactions.add(transactionId);
+
+        // Prioritize releasedDate for borrowing trends
+        const dateSource = entry.releasedDate || (entry.isManualEntry ? entry.returnDate : (entry.returnDate || entry.timestamp));
         if (dateSource) {
-          const date = new Date(dateSource).toDateString();
-          const quantity = parseInt(entry.quantity) || 1;
+          const entryDate = new Date(dateSource);
+          const dateStr = entryDate.toDateString();
           
-          // DEBUG: Log manual records for debugging
-          console.log('Adding manual record to borrowing trends:', {
-            id: entry.id,
-            equipmentName: entry.equipmentName,
-            status: entry.status,
-            quantity: entry.quantity,
-            dateSource: dateSource,
-            dateStr: date,
-            finalQuantity: quantity
-          });
+          // Check if within selected period
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - periodDays);
           
-          dailyData[date] = (dailyData[date] || 0) + quantity;
+          if (entryDate >= cutoffDate) {
+            const quantity = 
+              parseInt(entry.quantityReleased, 10) || 
+              parseInt(entry.quantity, 10) || 
+              parseInt(entry.details?.originalRequest?.quantity, 10) || 
+              1;
+            dailyData[dateStr] = (dailyData[dateStr] || 0) + quantity;
+          }
         }
       }
     });
@@ -691,14 +728,30 @@ export default function Analytics() {
     };
   };
 
-  const calculateCategoryBreakdown = (categories, borrowRequests) => {
-    const requests = Object.values(borrowRequests);
+  const calculateCategoryBreakdown = (categories, history) => {
+    const historyEntries = Object.values(history || {});
     const categoryData = {};
+    const processedTransactions = new Set();
     
-    // Count requests by category
-    requests.forEach(req => {
-      const category = req.categoryName || 'Other';
-      categoryData[category] = (categoryData[category] || 0) + 1;
+    // Count released/returned items by category from history
+    historyEntries.forEach(entry => {
+      const status = (entry.status || '').toLowerCase();
+      const action = (entry.action || '').toLowerCase();
+      
+      const isBorrowingActivity = 
+        status === 'released' || status === 'returned' || 
+        action.includes('release') || action.includes('return') ||
+        entry.entryType === 'release';
+
+      if (!isBorrowingActivity) return;
+
+      const transactionId = entry.transactionId || entry.details?.transactionId || entry.details?.originalRequest?.transactionId || entry.id;
+      if (transactionId && processedTransactions.has(transactionId)) return;
+      if (transactionId) processedTransactions.add(transactionId);
+
+      const category = entry.categoryName || 'Other';
+      const quantity = parseInt(entry.quantity) || 1;
+      categoryData[category] = (categoryData[category] || 0) + quantity;
     });
 
     // Get category details
@@ -709,74 +762,52 @@ export default function Analytics() {
     })).sort((a, b) => b.count - a.count);
   };
 
-  const calculateMonthlyData = (borrowRequests, history, periodDays) => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - periodDays);
+  const calculateMonthlyData = (history, periodDays) => {
+    // Use a fixed 365-day window for the monthly trend chart to always show a full year overview
+    const trendCutoffDate = new Date();
+    trendCutoffDate.setDate(trendCutoffDate.getDate() - 365);
 
-    const historyEntries = Object.values(history);
+    const processedTransactions = new Set();
+    const historyEntries = Object.values(history || {});
     const monthlyReleaseTotals = {};
 
     historyEntries.forEach(entry => {
       const action = (entry.action || '').toLowerCase();
       const status = (entry.status || '').toLowerCase();
       
-      // Include both system-generated releases and manual returned records
-      const isSystemRelease = entry.entryType === 'release' || action.includes('release') || status === 'released';
-      const isManualReturned = entry.isManualEntry && (status === 'returned' || action === 'returned');
-      const isManualReleased = entry.isManualEntry && (status === 'released' || action === 'released');
+      // Match Dashboard.jsx logic: only count 'released' entries,
+      // or 'returned' entries if they are manual records
+      const isBorrowingActivity = 
+        status === 'released' || 
+        entry.entryType === 'release' || 
+        action.includes('item released') || 
+        (entry.isManualEntry && (status === 'returned' || action.includes('returned') || status === 'released' || action.includes('released')));
       
-      if (!isSystemRelease && !isManualReturned && !isManualReleased) return;
+      if (!isBorrowingActivity) return;
 
-      const dateSource = entry.releasedDate || entry.returnDate || entry.timestamp;
+      // Avoid double counting transactions
+      const transactionId = entry.transactionId || entry.details?.transactionId || entry.details?.originalRequest?.transactionId || entry.id;
+      if (transactionId && processedTransactions.has(transactionId)) return;
+      if (transactionId) processedTransactions.add(transactionId);
+
+      // Prioritize releasedDate for monthly trends
+      const dateSource = entry.releasedDate || (entry.isManualEntry ? entry.returnDate : (entry.returnDate || entry.timestamp));
       if (!dateSource) return;
       const date = new Date(dateSource);
       
-      // DEBUG: Log manual records for debugging
-      if (entry.isManualEntry) {
-        console.log('Processing manual record:', {
-          id: entry.id,
-          equipmentName: entry.equipmentName,
-          status: entry.status,
-          action: entry.action,
-          quantity: entry.quantity,
-          dateSource: dateSource,
-          parsedDate: date.toISOString(),
-          cutoffDate: cutoffDate.toISOString(),
-          isAfterCutoff: date >= cutoffDate
-        });
-      }
-      
-      // Only apply date filtering for system records, include all manual records
-      if (!entry.isManualEntry && (isNaN(date) || date < cutoffDate)) return;
+      // Filter by the trend window (1 year)
+      if (isNaN(date) || date < trendCutoffDate) return;
 
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const quantity =
+        parseInt(entry.quantityReleased, 10) ||
         parseInt(entry.quantity, 10) ||
         parseInt(entry.details?.originalRequest?.quantity, 10) ||
+        parseInt(entry.returnDetails?.requestedQuantity, 10) ||
         1;
 
       monthlyReleaseTotals[monthKey] = (monthlyReleaseTotals[monthKey] || 0) + quantity;
-      
-      // DEBUG: Log when manual record is added
-      if (entry.isManualEntry) {
-        console.log('Added manual record to monthly totals:', {
-          monthKey,
-          quantity,
-          runningTotal: monthlyReleaseTotals[monthKey]
-        });
-      }
     });
-
-    if (Object.keys(monthlyReleaseTotals).length === 0) {
-      const requests = Object.values(borrowRequests);
-      requests.forEach(req => {
-        if (!req.requestedAt) return;
-        const date = new Date(req.requestedAt);
-        if (isNaN(date) || date < cutoffDate) return;
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        monthlyReleaseTotals[monthKey] = (monthlyReleaseTotals[monthKey] || 0) + 1;
-      });
-    }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const totalsArray = Object.entries(monthlyReleaseTotals)
@@ -785,23 +816,27 @@ export default function Analytics() {
 
     const trendsArray = monthNames.map((_, index) => {
       const monthNumber = index + 1;
-      const monthKey = Object.keys(monthlyReleaseTotals).find(key => {
-        const [, month] = key.split('-').map(Number);
-        return month === monthNumber;
-      });
+      
+      // For the monthly trends chart, we want to sum all data for that month 
+      // within the last year
+      const count = Object.keys(monthlyReleaseTotals)
+        .filter(key => {
+          const [, m] = key.split('-').map(Number);
+          return m === monthNumber;
+        })
+        .reduce((sum, key) => sum + monthlyReleaseTotals[key], 0);
 
-      const count = monthKey ? monthlyReleaseTotals[monthKey] : 0;
       return {
         month: monthNumber,
         count
       };
     });
 
-  return {
-    monthlyTotals: totalsArray,
-    monthlyTrends: trendsArray
+    return {
+      monthlyTotals: totalsArray,
+      monthlyTrends: trendsArray
+    };
   };
-};
 
 const calculateUtilizationRates = (equipment, history, periodDays) => {
   let totalQuantity = 0;

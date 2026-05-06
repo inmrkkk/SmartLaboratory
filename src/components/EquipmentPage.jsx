@@ -91,6 +91,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
     return displayName;
   };
 
+  const normalizeText = (text) => {
+    return (text || '').toLowerCase().trim();
+  };
+
   const fetchCategories = useCallback(() => {
     try {
       setLoading(true);
@@ -296,6 +300,10 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                   id: eqId,
                   categoryId: catId,
                   categoryName: cat.title || "—",
+                  // Inherit laboratory information from category if missing on item
+                  labId: cat.equipments[eqId].labId || cat.labId || "",
+                  labRecordId: cat.equipments[eqId].labRecordId || cat.labRecordId || "",
+                  laboratory: cat.equipments[eqId].laboratory || cat.labName || "",
                   ...cat.equipments[eqId]
                 });
               });
@@ -306,11 +314,38 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
           let filteredEquipment = allItems;
           if (!isAdmin()) {
             const assignedLabIds = getAssignedLaboratoryIds();
-            if (assignedLabIds) {
+            if (assignedLabIds && assignedLabIds.length > 0) {
               filteredEquipment = allItems.filter(equipment => {
-                const lab = laboratories.find(l => l.labId === equipment.labId);
-                return lab && assignedLabIds.includes(lab.id);
+                // 1. Direct check on the item's own laboratory identifiers
+                const itemLabIds = [
+                  equipment.labRecordId,
+                  equipment.labId,
+                  equipment.laboratoryId,
+                  equipment.assignedLabId
+                ].filter(Boolean);
+
+                if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+                // 2. Check by laboratory name
+                if (equipment.laboratory) {
+                  const lab = laboratories.find(l => 
+                    normalizeText(l.labName) === normalizeText(equipment.laboratory) ||
+                    normalizeText(l.labId) === normalizeText(equipment.laboratory)
+                  );
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                // 3. Check by item's labId string mapping to a laboratory record
+                if (equipment.labId) {
+                  const lab = laboratories.find(l => l.labId === equipment.labId || l.id === equipment.labId);
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                return false;
               });
+            } else if (assignedLabIds && assignedLabIds.length === 0) {
+              // If we explicitly have an empty list of assigned labs, show nothing
+              filteredEquipment = [];
             }
           }
 
@@ -338,27 +373,44 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
             id: key,
             ...data[key]
           }));
-          console.log('[EquipmentPage] Processed equipment list:', equipmentList);
-          // Log first equipment details
-          if (equipmentList.length > 0) {
-            console.log('[EquipmentPage] First equipment keys:', Object.keys(equipmentList[0]));
-            console.log('[EquipmentPage] First equipment full object:', equipmentList[0]);
-          }
 
           // Filter equipment based on user role and assigned laboratories
           let filteredEquipment = equipmentList;
           if (!isAdmin()) {
             const assignedLabIds = getAssignedLaboratoryIds();
-            if (assignedLabIds) {
-              // Filter equipment to only show those from assigned laboratories
+            if (assignedLabIds && assignedLabIds.length > 0) {
               filteredEquipment = equipmentList.filter(equipment => {
-                // Find the laboratory for this equipment
-                const lab = laboratories.find(l => l.labId === equipment.labId);
-                return lab && assignedLabIds.includes(lab.id);
+                // 1. Direct check on the item's own laboratory identifiers
+                const itemLabIds = [
+                  equipment.labRecordId,
+                  equipment.labId,
+                  equipment.laboratoryId,
+                  equipment.assignedLabId
+                ].filter(Boolean);
+
+                if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+                // 2. Check by laboratory name
+                if (equipment.laboratory) {
+                  const lab = laboratories.find(l => 
+                    normalizeText(l.labName) === normalizeText(equipment.laboratory) ||
+                    normalizeText(l.labId) === normalizeText(equipment.laboratory)
+                  );
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                // 3. Check by item's labId string mapping to a laboratory record
+                if (equipment.labId) {
+                  const lab = laboratories.find(l => l.labId === equipment.labId || l.id === equipment.labId);
+                  if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                }
+
+                return false;
               });
+            } else if (assignedLabIds && assignedLabIds.length === 0) {
+              filteredEquipment = [];
             }
           }
-
           setEquipments(filteredEquipment);
         } else {
           setEquipments([]);
@@ -1594,17 +1646,49 @@ export default function EquipmentPage({ onMaintenanceComplete }) {
                       // and apply the same lab-based filtering rules used in
                       // fetchEquipments for non-admin users.
                       let equipmentsInCategory = category.equipments
-                        ? Object.values(category.equipments)
+                        ? Object.values(category.equipments).map(eq => ({
+                            ...eq,
+                            // Inherit laboratory information from category if missing on item
+                            labId: eq.labId || category.labId || "",
+                            labRecordId: eq.labRecordId || category.labRecordId || "",
+                            laboratory: eq.laboratory || category.labName || ""
+                          }))
                         : [];
 
                       if (!isAdmin()) {
                         const assignedLabIds = getAssignedLaboratoryIds();
-                        if (assignedLabIds) {
-                          // Filter categories to only show those from assigned laboratories
+                        if (assignedLabIds && assignedLabIds.length > 0) {
+                          // Filter items to only show those from assigned laboratories
                           equipmentsInCategory = equipmentsInCategory.filter((equipment) => {
-                            const lab = laboratories.find((l) => l.labId === equipment.labId);
-                            return lab && assignedLabIds.includes(lab.id);
+                            // 1. Direct check on the item's own laboratory identifiers
+                            const itemLabIds = [
+                              equipment.labRecordId,
+                              equipment.labId,
+                              equipment.laboratoryId,
+                              equipment.assignedLabId
+                            ].filter(Boolean);
+
+                            if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
+
+                            // 2. Check by laboratory name
+                            if (equipment.laboratory) {
+                              const lab = laboratories.find(l => 
+                                normalizeText(l.labName) === normalizeText(equipment.laboratory) ||
+                                normalizeText(l.labId) === normalizeText(equipment.laboratory)
+                              );
+                              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                            }
+
+                            // 3. Check by item's labId string mapping to a laboratory record
+                            if (equipment.labId) {
+                              const lab = laboratories.find(l => l.labId === equipment.labId || l.id === equipment.labId);
+                              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+                            }
+
+                            return false;
                           });
+                        } else if (assignedLabIds && assignedLabIds.length === 0) {
+                          equipmentsInCategory = [];
                         }
                       }
 

@@ -43,6 +43,7 @@ import deleteIcon from '../images/delete.png';
 import returnIcon from '../images/return.png';
 
 import approveIcon from '../images/approve.png';
+import { getDueDateTimeAtFivePm, isReturnedLate } from "../utils/dueTimeUtils";
 
 
 
@@ -227,7 +228,8 @@ export default function RequestFormsPage() {
     "Pending",
     "Approved",
     "Released",
-
+    "Overdue",
+    "In Progress",
   ];
 
 
@@ -709,75 +711,72 @@ export default function RequestFormsPage() {
             equipmentCount: equipmentData.length,
 
             laboratoriesCount: laboratories.length,
-
           });
 
+          const normalizeText = (val) => (val || "").toString().trim().toLowerCase();
 
+          // Helper to check if equipment belongs to assigned labs
+          const equipmentBelongsToAssignedLabs = (item) => {
+            if (!item || !assignedLabIds.length) return false;
+            
+            // 1. Direct check on IDs
+            const itemLabIds = [item.labRecordId, item.labId, item.laboratoryId, item.assignedLabId].filter(Boolean);
+            if (itemLabIds.some(id => assignedLabIds.includes(id))) return true;
 
-          // Filter requests to only show those from assigned laboratories
-
-          filteredRequests = filteredRequests.filter((request) => {
-
-            // Find the equipment that matches this request
-
-            const matchingEquipment = equipmentData.find(
-
-              (equipment) =>
-
-                equipment.equipmentName === request.itemName ||
-
-                equipment.itemName === request.itemName ||
-
-                equipment.name === request.itemName ||
-
-                equipment.title === request.itemName
-
-            );
-
-
-
-            if (matchingEquipment && matchingEquipment.labId) {
-
-              // Find the laboratory that matches this equipment's labId
-
-              const laboratory = laboratories.find(
-
-                (lab) => lab.labId === matchingEquipment.labId
-
+            // 2. Check by name
+            if (item.laboratory) {
+              const lab = laboratories.find(l => 
+                normalizeText(l.labName) === normalizeText(item.laboratory) ||
+                normalizeText(l.labId) === normalizeText(item.laboratory)
               );
-
-
-
-              if (laboratory) {
-
-                // Check if this laboratory is assigned to the current user
-
-                const isAssigned = assignedLabIds.includes(laboratory.id);
-
-                console.log(
-
-                  `Request "${request.itemName}" from lab "${laboratory.labName}" (${laboratory.id}) - Assigned: ${isAssigned}`
-
-                );
-
-                return isAssigned;
-
-              }
-
+              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
             }
 
+            // 3. Check by labId string mapping
+            if (item.labId) {
+              const lab = laboratories.find(l => l.labId === item.labId || l.id === item.labId);
+              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+            }
+            return false;
+          };
 
+          // Filter requests to only show those from assigned laboratories
+          filteredRequests = filteredRequests.filter((request) => {
+            // 1. Direct check on the request's own laboratory identifiers
+            const requestLabIds = [
+              request.labRecordId,
+              request.labId,
+              request.laboratoryId,
+              request.assignedLabId
+            ].filter(Boolean);
 
-            // If no matching equipment or laboratory found, don't show the request
+            if (requestLabIds.some(id => assignedLabIds.includes(id))) return true;
 
-            console.log(
+            // 2. Check by laboratory name
+            if (request.laboratory) {
+              const lab = laboratories.find(l => 
+                normalizeText(l.labName) === normalizeText(request.laboratory) ||
+                normalizeText(l.labId) === normalizeText(request.laboratory)
+              );
+              if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) return true;
+            }
 
-              `Request "${request.itemName}" - No matching equipment/lab found`
-
+            // 3. Find the equipment that matches this request
+            const matchingEquipment = equipmentData.find((eq) =>
+              eq.id === request.itemId ||
+              eq.equipmentId === request.itemId ||
+              eq.categoryId === request.categoryId ||
+              normalizeText(eq.equipmentName) === normalizeText(request.itemName) ||
+              normalizeText(eq.itemName) === normalizeText(request.itemName) ||
+              normalizeText(eq.name) === normalizeText(request.itemName) ||
+              normalizeText(eq.title) === normalizeText(request.itemName)
             );
 
-            return false;
+            if (matchingEquipment) {
+              return equipmentBelongsToAssignedLabs(matchingEquipment);
+            }
 
+            return false;
           });
 
 
@@ -872,9 +871,19 @@ export default function RequestFormsPage() {
 
         request.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
 
+      const isActuallyOverdue = (request) => {
+        if (!request.dateToReturn) return false;
+        const currentStatus = (request.status || "").toString().toLowerCase();
+        // An item is overdue if it's still released/in_progress/overdue status but past due date
+        const isOut = ["released", "in_progress", "overdue"].includes(currentStatus);
+        return isOut && new Date() > getDueDateTimeAtFivePm(request.dateToReturn);
+      };
+
       const matchesStatus =
         filterStatus === "All" ||
-        (request.status || "").toString().toLowerCase() === filterStatus.toLowerCase();
+        (filterStatus.toLowerCase() === "overdue" 
+          ? isActuallyOverdue(request)
+          : (request.status || "").toString().toLowerCase() === filterStatus.toLowerCase());
 
       const matchesType =
 
@@ -2153,43 +2162,24 @@ export default function RequestFormsPage() {
 
 
   const getStatusBadgeClass = (status) => {
-
     switch (status) {
-
       case "pending":
-
         return "status-pending";
-
       case "approved":
-
         return "status-approved";
-
       case "released":
-
         return "status-released";
-
       case "rejected":
-
         return "status-rejected";
-
       case "in_progress":
-
         return "status-progress";
-
       case "returned":
-
         return "status-returned";
-
       case "overdue":
-
         return "status-overdue";
-
       default:
-
         return "status-pending";
-
     }
-
   };
 
 
@@ -3594,11 +3584,7 @@ export default function RequestFormsPage() {
 
                             <span
 
-                              className={`status-badge ${getStatusBadgeClass(
-
-                                request.status
-
-                              )}`}
+                              className={`status-badge ${getStatusBadgeClass(request.status)}`}
 
                             >
 
