@@ -2,15 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 
-import { ref, onValue, update, remove, get, push } from "firebase/database";
+import { ref, onValue, update, get, push } from "firebase/database";
 
 import { database } from "../firebase";
 
 import { useAuth } from "../contexts/AuthContext";
 
 import {
-
-  notifyNewRequest,
 
   notifyRequestApproved,
 
@@ -43,7 +41,7 @@ import deleteIcon from '../images/delete.png';
 import returnIcon from '../images/return.png';
 
 import approveIcon from '../images/approve.png';
-import { getDueDateTimeAtFivePm, isReturnedLate } from "../utils/dueTimeUtils";
+import { getDueDateTimeAtFivePm } from "../utils/dueTimeUtils";
 
 
 

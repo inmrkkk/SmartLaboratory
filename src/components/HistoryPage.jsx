@@ -1,6 +1,6 @@
 // src/components/HistoryPage.jsx
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 
 
 
@@ -18,13 +18,13 @@ import eyeIcon from '../images/eye.png';
 
 
 
+const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
+
 export default function HistoryPage() {
   const { isAdmin, getAssignedLaboratoryIds } = useAuth();
   const [historyData, setHistoryData] = useState([]);
 
-  const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
-
-  const equipmentBelongsToAssignedLabs = (item, laboratories, assignedLabIds) => {
+  const equipmentBelongsToAssignedLabs = useCallback((item, laboratories, assignedLabIds) => {
     if (!item || !assignedLabIds || assignedLabIds.length === 0) return false;
 
     // 1. Direct check on the item's own laboratory identifiers
@@ -53,7 +53,7 @@ export default function HistoryPage() {
     }
 
     return false;
-  };
+  }, []);
 
   const [allHistoryEntries, setAllHistoryEntries] = useState([]);
 

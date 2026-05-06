@@ -6,7 +6,7 @@ import { getNotificationRedirectDescription } from "../utils/navigationUtils";
 import "../CSS/NotificationModal.css";
 
 export default function NotificationModal({ isOpen, onClose, onRedirect }) {
-  const { user, isAdmin, userRole, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
+  const { user, isLaboratoryManager, getAssignedLaboratoryIds } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, unread, read
