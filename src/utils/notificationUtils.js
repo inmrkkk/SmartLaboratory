@@ -291,7 +291,17 @@ export const notifyEquipmentOverdue = async (requestData, equipmentData, laborat
  * @param {Array} equipmentData - Array of all equipment
  * @param {Array} laboratories - Array of all laboratories
  */
-export const checkForOverdueEquipment = async (requests, equipmentData, laboratories) => {
+export const checkForOverdueEquipment = async (requests, equipmentData, laboratories, users = []) => {
+  // Helper to resolve borrower name from userId using the users array
+  const resolveBorrowerName = (request) => {
+    if (request.userId && users.length > 0) {
+      const user = users.find(u => u.id === request.userId || u.userId === request.userId);
+      if (user) {
+        return user.name || user.fullName || user.displayName || user.email || null;
+      }
+    }
+    return request.borrowerName || request.userName || request.displayName || request.studentName || null;
+  };
   const today = new Date();
   const overdueRequests = [];
 
@@ -329,7 +339,7 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
       const hasNotifiedToday = localStorage.getItem(notificationKey);
       
       if (!hasNotifiedToday) {
-        const overdueBorrowerName = request.borrowerName || request.userName || request.displayName || request.studentName || null;
+        const overdueBorrowerName = resolveBorrowerName(request);
         await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue, overdueBorrowerName);
         // Mark as notified for today
         localStorage.setItem(notificationKey, 'true');

@@ -60,7 +60,7 @@ export default function Dashboard() {
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const normalizeText = (value) => (value || "").toString().trim().toLowerCase();
@@ -84,7 +84,7 @@ export default function Dashboard() {
     // 2. Check by laboratory name
     // If the item has a laboratory name, find that lab and check if it's assigned
     if (item.laboratory) {
-      const lab = laboratories.find(l => 
+      const lab = laboratories.find(l =>
         normalizeText(l.labName) === normalizeText(item.laboratory) ||
         normalizeText(l.labId) === normalizeText(item.laboratory)
       );
@@ -118,7 +118,7 @@ export default function Dashboard() {
 
     // 2. Check by laboratory name
     if (request.laboratory) {
-      const lab = laboratories.find(l => 
+      const lab = laboratories.find(l =>
         normalizeText(l.labName) === normalizeText(request.laboratory) ||
         normalizeText(l.labId) === normalizeText(request.laboratory)
       );
@@ -134,7 +134,7 @@ export default function Dashboard() {
       eq.itemName === request.itemName ||
       eq.title === request.itemName
     );
-    
+
     if (equipment) {
       // Use the already-calculated equipment check logic
       return equipmentBelongsToAssignedLabs(equipment);
@@ -332,21 +332,24 @@ export default function Dashboard() {
   }, []);
 
   // Periodic overdue equipment check (runs every hour)
+  // IMPORTANT: We wait for users to be loaded before running the check, otherwise
+  // the borrower name can't be resolved from userId and notifications will show "Unknown Student".
+  // The localStorage dedup guard would then prevent re-creation with the correct name.
   useEffect(() => {
-    if (allRequests.length === 0 || equipmentData.length === 0 || laboratories.length === 0) return;
+    if (allRequests.length === 0 || equipmentData.length === 0 || laboratories.length === 0 || users.length === 0) return;
 
     const checkOverdue = async () => {
-      await checkForOverdueEquipment(allRequests, equipmentData, laboratories);
+      await checkForOverdueEquipment(allRequests, equipmentData, laboratories, users);
     };
 
     // Run immediately
     checkOverdue();
 
     // Set up interval to check every hour
-    const interval = setInterval(checkOverdue, 60 * 60 * 1000); // 1 hour
+    const interval = setInterval(checkOverdue, 12 * 60 * 60 * 1000); // 12 hour
 
     return () => clearInterval(interval);
-  }, [allRequests, equipmentData, laboratories]);
+  }, [allRequests, equipmentData, laboratories, users]);
 
   // Helper function to get borrower name from userId
   const getBorrowerName = useCallback((userId) => {
@@ -363,97 +366,97 @@ export default function Dashboard() {
     const unsubscribeBorrowRequests = onValue(borrowRequestsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-          const requestsList = Object.keys(data).map(key => ({
-            id: key,
-            ...data[key]
-          }));
+        const requestsList = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
 
-          // 1. Check for new pending requests that need notifications
-          // We only handle 'pending' reactively here because these might come from 
-          // external sources (like mobile app). 'approved' and 'rejected' are
-          // handled directly at the point of action in RequestFormsPage.
-          
-          if (requestsList.length > 0) {
-            requestsList.forEach(async (request) => {
-              const status = (request.status || '').toString().trim().toLowerCase();
-              
-              // Only trigger if this request status hasn't been notified yet
-              if (status === 'pending' && request.notifiedPending) return;
-              if (status === 'approved' && request.notifiedApproved) return;
-              if (status === 'rejected' && request.notifiedRejected) return;
+        // 1. Check for new pending requests that need notifications
+        // We only handle 'pending' reactively here because these might come from 
+        // external sources (like mobile app). 'approved' and 'rejected' are
+        // handled directly at the point of action in RequestFormsPage.
 
-              // Check if the request is relatively recent (e.g., within last 24 hours)
-              const requestTime = request.requestedAt ? new Date(request.requestedAt).getTime() : 0;
-              const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-              if (requestTime < oneDayAgo && request.requestedAt) return;
+        if (requestsList.length > 0) {
+          requestsList.forEach(async (request) => {
+            const status = (request.status || '').toString().trim().toLowerCase();
 
-              // Find the laboratory for this request
-              const laboratory = laboratories.find(lab => 
-                (request.labId && (lab.labId === request.labId || lab.id === request.labId)) ||
-                (request.labRecordId && (lab.id === request.labRecordId || lab.labId === request.labRecordId)) ||
-                (request.laboratory && (lab.labName === request.laboratory || lab.labId === request.laboratory))
+            // Only trigger if this request status hasn't been notified yet
+            if (status === 'pending' && request.notifiedPending) return;
+            if (status === 'approved' && request.notifiedApproved) return;
+            if (status === 'rejected' && request.notifiedRejected) return;
+
+            // Check if the request is relatively recent (e.g., within last 24 hours)
+            const requestTime = request.requestedAt ? new Date(request.requestedAt).getTime() : 0;
+            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            if (requestTime < oneDayAgo && request.requestedAt) return;
+
+            // Find the laboratory for this request
+            const laboratory = laboratories.find(lab =>
+              (request.labId && (lab.labId === request.labId || lab.id === request.labId)) ||
+              (request.labRecordId && (lab.id === request.labRecordId || lab.labId === request.labRecordId)) ||
+              (request.laboratory && (lab.labName === request.laboratory || lab.labId === request.laboratory))
+            );
+
+            if (laboratory) {
+              // Find equipment within this laboratory
+              const equipment = equipmentData.find(eq =>
+                (eq.labId === laboratory.labId || eq.labRecordId === laboratory.id) &&
+                (eq.id === request.itemId || eq.name === request.itemName || eq.itemName === request.itemName)
               );
-              
-              if (laboratory) {
-                // Find equipment within this laboratory
-                const equipment = equipmentData.find(eq => 
-                  (eq.labId === laboratory.labId || eq.labRecordId === laboratory.id) &&
-                  (eq.id === request.itemId || eq.name === request.itemName || eq.itemName === request.itemName)
-                );
 
-                if (equipment) {
-                  const studentName = getBorrowerName(request.userId);
-                  const requestRef = ref(database, `borrow_requests/${request.id}`);
+              if (equipment) {
+                const studentName = getBorrowerName(request.userId);
+                const requestRef = ref(database, `borrow_requests/${request.id}`);
 
-                  // 1. Handle Pending Requests
-                  if (status === 'pending') {
-                    await update(requestRef, { notifiedPending: true });
-                    await notifyNewRequest(request, equipment, laboratory, studentName);
-                  }
-                  
-                  // 2. Handle Approved Requests (catch external approvals like mobile app)
-                  else if (status === 'approved') {
-                    // Try to resolve the name: 
-                    // 1. Look up by userId (most reliable)
-                    // 2. Use stored reviewedByName
-                    // 3. Fallback to adviserName if it's an instructor
-                    // 4. Fallback to reviewedBy label
-                    const approverName = getBorrowerName(request.reviewedByUserId);
-                    const isInstructorRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
-                    
-                    const approverInfo = (approverName !== "Unknown" && approverName !== "Unknown Borrower")
-                      ? approverName
-                      : request.reviewedByName || 
-                        (isInstructorRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
-                      
-                    await update(requestRef, { notifiedApproved: true });
-                    await notifyRequestApproved(request, equipment, laboratory, approverInfo, studentName);
-                    console.log(`[Dashboard] Sent notification for approved request: ${request.id} by ${approverInfo}`);
-                  }
-                  
-                  // 3. Handle Rejected Requests
-                  else if (status === 'rejected') {
-                    const rejecterName = getBorrowerName(request.reviewedByUserId);
-                    const isInstructorRejectRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
+                // 1. Handle Pending Requests
+                if (status === 'pending') {
+                  await update(requestRef, { notifiedPending: true });
+                  await notifyNewRequest(request, equipment, laboratory, studentName);
+                }
 
-                    const rejecterInfo = (rejecterName !== "Unknown" && rejecterName !== "Unknown Borrower")
-                      ? rejecterName
-                      : request.reviewedByName || 
-                        (isInstructorRejectRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
+                // 2. Handle Approved Requests (catch external approvals like mobile app)
+                else if (status === 'approved') {
+                  // Try to resolve the name: 
+                  // 1. Look up by userId (most reliable)
+                  // 2. Use stored reviewedByName
+                  // 3. Fallback to adviserName if it's an instructor
+                  // 4. Fallback to reviewedBy label
+                  const approverName = getBorrowerName(request.reviewedByUserId);
+                  const isInstructorRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
 
-                    await update(requestRef, { notifiedRejected: true });
-                    await notifyRequestRejected(request, equipment, laboratory, rejecterInfo, studentName);
-                    console.log(`[Dashboard] Sent notification for rejected request: ${request.id} by ${rejecterInfo}`);
-                  }
+                  const approverInfo = (approverName !== "Unknown" && approverName !== "Unknown Borrower")
+                    ? approverName
+                    : request.reviewedByName ||
+                    (isInstructorRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
+
+                  await update(requestRef, { notifiedApproved: true });
+                  await notifyRequestApproved(request, equipment, laboratory, approverInfo, studentName);
+                  console.log(`[Dashboard] Sent notification for approved request: ${request.id} by ${approverInfo}`);
+                }
+
+                // 3. Handle Rejected Requests
+                else if (status === 'rejected') {
+                  const rejecterName = getBorrowerName(request.reviewedByUserId);
+                  const isInstructorRejectRole = (request.reviewedBy || '').toLowerCase() === 'instructor' || (request.reviewedBy || '').toLowerCase() === 'teacher';
+
+                  const rejecterInfo = (rejecterName !== "Unknown" && rejecterName !== "Unknown Borrower")
+                    ? rejecterName
+                    : request.reviewedByName ||
+                    (isInstructorRejectRole ? (request.adviserName || 'Instructor') : (laboratory?.managerName || request.adviserName || request.reviewedBy || 'Authorized Personnel'));
+
+                  await update(requestRef, { notifiedRejected: true });
+                  await notifyRequestRejected(request, equipment, laboratory, rejecterInfo, studentName);
+                  console.log(`[Dashboard] Sent notification for rejected request: ${request.id} by ${rejecterInfo}`);
                 }
               }
-            });
-          }
+            }
+          });
+        }
 
-          let requests = Object.values(data);
-          if (!isAdmin()) {
-            requests = requests.filter(requestBelongsToAssignedLabs);
-          }
+        let requests = Object.values(data);
+        if (!isAdmin()) {
+          requests = requests.filter(requestBelongsToAssignedLabs);
+        }
 
         // Calculate statistics
         const pendingCount = requests.filter(req => (req.status || '').toString().trim().toLowerCase() === 'pending').length;
@@ -997,7 +1000,7 @@ export default function Dashboard() {
                 shouldShow = true;
               } else if (request.laboratory) {
                 // 2. Check by laboratory name
-                const lab = laboratories.find(l => 
+                const lab = laboratories.find(l =>
                   l.labName === request.laboratory || l.labId === request.laboratory
                 );
                 if (lab && (assignedLabIds.includes(lab.id) || assignedLabIds.includes(lab.labId))) {
@@ -1008,7 +1011,7 @@ export default function Dashboard() {
 
             if (shouldShow) {
               const status = (request.status || '').toString().trim().toLowerCase();
-              
+
               // Recent Activity should ONLY display general, passive activities (released, returned)
               // High-priority alerts (pending, approved, rejected) go to Notifications modal
               if (status === 'released' || status === 'returned') {
@@ -1019,13 +1022,13 @@ export default function Dashboard() {
 
                 // Ensure we get the correct laboratory name by prioritizing the centralized laboratories list
                 let labName = null;
-                
+
                 // 1. Try to find by request.labId
                 if (request.labId) {
                   const lab = laboratories.find(l => l.labId === request.labId || l.id === request.labId);
                   if (lab) labName = lab.labName;
                 }
-                
+
                 // 2. Try to find by category if still not found
                 if (!labName && request.categoryName) {
                   const category = categoriesData ? Object.values(categoriesData).find(cat => cat.title === request.categoryName) : null;
@@ -1034,7 +1037,7 @@ export default function Dashboard() {
                     if (lab) labName = lab.labName;
                   }
                 }
-                
+
                 // 3. Fallback to what's stored in the request
                 if (!labName) labName = request.laboratory || 'General Laboratory';
 
@@ -1210,7 +1213,7 @@ export default function Dashboard() {
 
   const handleDeleteActivity = (activityId) => {
     if (!user) return;
-    
+
     setConfirmModal({
       isOpen: true,
       title: "Dismiss Activity",
@@ -1236,7 +1239,7 @@ export default function Dashboard() {
           updates[`${activity.id}/read`] = true;
         }
       });
-      
+
       if (Object.keys(updates).length > 0) {
         const statesRef = ref(database, `activity_states/${user.uid}`);
         await update(statesRef, updates);
@@ -1248,7 +1251,7 @@ export default function Dashboard() {
 
   const handleDeleteAllActivities = () => {
     if (!user || allActivities.length === 0) return;
-    
+
     setConfirmModal({
       isOpen: true,
       title: "Dismiss All Activities",
@@ -1260,7 +1263,7 @@ export default function Dashboard() {
           allActivities.forEach(activity => {
             updates[`${activity.id}/deleted`] = true;
           });
-          
+
           if (Object.keys(updates).length > 0) {
             const statesRef = ref(database, `activity_states/${user.uid}`);
             await update(statesRef, updates);
@@ -1673,7 +1676,7 @@ export default function Dashboard() {
 
     const { quantity, item, borrower } = activity.details;
     const actionText = activity.title.includes('released') ? 'released to' : 'returned by';
-    
+
     // We'll use the quantity and item name, then the action, then borrower, then lab
     // Find quantity in title if not in details
     const displayQuantity = quantity || activity.title.split(' ')[0] || '1';
