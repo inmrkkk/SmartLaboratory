@@ -286,12 +286,65 @@ export const notifyEquipmentOverdue = async (requestData, equipmentData, laborat
 };
 
 /**
- * Checks for overdue equipment and creates notifications
+ * Determines the current Philippine Time (UTC+8) and returns date/time info.
+ * @returns {{ phNow: Date, phHour: number, phMinute: number, phDateStr: string }}
+ */
+const getPhilippineTime = () => {
+  const now = new Date();
+  // Convert to PH time (UTC+8) using Intl for reliable timezone handling
+  const phFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const parts = phFormatter.formatToParts(now);
+  const get = (type) => parts.find(p => p.type === type)?.value || '0';
+
+  const phHour = parseInt(get('hour'), 10);
+  const phMinute = parseInt(get('minute'), 10);
+  const phDateStr = `${get('year')}-${get('month')}-${get('day')}`;
+
+  return { phNow: now, phHour, phMinute, phDateStr };
+};
+
+/**
+ * Checks whether we are currently inside a valid overdue-notification window.
+ * Valid windows: 8:00–8:29 AM PH and 4:00–4:29 PM PH.
+ * Returns the window label ('am' | 'pm') or null if outside a window.
+ */
+const getOverdueNotificationWindow = () => {
+  const { phHour, phMinute } = getPhilippineTime();
+
+  // 8:00 AM – 8:29 AM PH
+  if (phHour === 8 && phMinute < 30) return 'am';
+  // 4:00 PM – 4:29 PM PH
+  if (phHour === 16 && phMinute < 30) return 'pm';
+
+  return null;
+};
+
+/**
+ * Checks for overdue equipment and creates notifications.
+ * Notifications are ONLY generated during the 8 AM and 4 PM PH time windows.
+ * Outside of those windows the function exits immediately.
+ *
  * @param {Array} requests - Array of all requests
  * @param {Array} equipmentData - Array of all equipment
  * @param {Array} laboratories - Array of all laboratories
+ * @param {Array} users - Array of all users (for name resolution)
  */
 export const checkForOverdueEquipment = async (requests, equipmentData, laboratories, users = []) => {
+  // ── Gate: only run during the 8 AM / 4 PM PH windows ──
+  const window = getOverdueNotificationWindow();
+  if (!window) {
+    console.log('[OverdueCheck] Skipped – not within an 8 AM or 4 PM PH notification window.');
+    return;
+  }
+
+  const { phDateStr } = getPhilippineTime();
+  console.log(`[OverdueCheck] Running for window: ${window === 'am' ? '8 AM' : '4 PM'} PH (${phDateStr})`);
+
   // Helper to resolve borrower name from userId using the users array
   const resolveBorrowerName = (request) => {
     if (request.userId && users.length > 0) {
@@ -334,15 +387,17 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
     const laboratory = laboratories.find(lab => lab.labId === equipment?.labId);
     
     if (equipment && laboratory) {
-      // Check if we've already notified for this overdue item today
-      const notificationKey = `overdue_${request.id}_${today.toDateString()}`;
-      const hasNotifiedToday = localStorage.getItem(notificationKey);
+      // Dedup key includes PH date + window (am/pm) so we get at most
+      // one notification per overdue request per window per day.
+      const notificationKey = `overdue_${request.id}_${phDateStr}_${window}`;
+      const hasNotifiedThisWindow = localStorage.getItem(notificationKey);
       
-      if (!hasNotifiedToday) {
+      if (!hasNotifiedThisWindow) {
         const overdueBorrowerName = resolveBorrowerName(request);
         await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue, overdueBorrowerName);
-        // Mark as notified for today
+        // Mark as notified for this specific window
         localStorage.setItem(notificationKey, 'true');
+        console.log(`[OverdueCheck] Created overdue notification for request ${request.id} (${window} window)`);
       }
     }
   }

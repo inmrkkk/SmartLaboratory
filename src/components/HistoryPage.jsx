@@ -39,7 +39,7 @@ export default function HistoryPage() {
 
     // 2. Check by laboratory name
     if (item.laboratory) {
-      const lab = laboratories.find(l => 
+      const lab = laboratories.find(l =>
         normalizeText(l.labName) === normalizeText(item.laboratory) ||
         normalizeText(l.labId) === normalizeText(item.laboratory)
       );
@@ -153,7 +153,7 @@ export default function HistoryPage() {
 
     setShowToast(true);
 
-    
+
 
     // Auto-dismiss after 3 seconds
 
@@ -177,7 +177,7 @@ export default function HistoryPage() {
 
       const snapshot = await get(laboratoriesRef);
 
-      
+
 
       if (snapshot.exists()) {
 
@@ -215,7 +215,7 @@ export default function HistoryPage() {
 
       const snapshot = await get(categoriesRef);
 
-      
+
 
       if (snapshot.exists()) {
 
@@ -223,7 +223,7 @@ export default function HistoryPage() {
 
         const allEquipment = [];
 
-        
+
 
         // Load equipment from each category
 
@@ -233,7 +233,7 @@ export default function HistoryPage() {
 
           const equipmentsSnapshot = await get(equipmentsRef);
 
-          
+
 
           if (equipmentsSnapshot.exists()) {
 
@@ -259,7 +259,7 @@ export default function HistoryPage() {
 
         }
 
-        
+
 
         setEquipmentData(allEquipment);
 
@@ -285,7 +285,7 @@ export default function HistoryPage() {
 
       const snapshot = await get(usersRef);
 
-      
+
 
       if (snapshot.exists()) {
 
@@ -425,7 +425,7 @@ export default function HistoryPage() {
           const normalizedEntryName = normalizeEquipmentName(entry.equipmentName);
 
           // Find the laboratory for this entry if specified
-          const entryLab = laboratories.find(l => 
+          const entryLab = laboratories.find(l =>
             (entry.laboratory && normalizeEquipmentName(l.labName) === normalizeEquipmentName(entry.laboratory)) ||
             (entry.labId && normalizeEquipmentName(l.labId) === normalizeEquipmentName(entry.labId))
           );
@@ -433,7 +433,7 @@ export default function HistoryPage() {
           const matchingEquipment = equipmentData.find((equipment) => {
             // If we found a lab context for the entry, ensure the equipment belongs to it
             if (entryLab && equipment.labId !== entryLab.labId && equipment.labRecordId !== entryLab.id) return false;
-            
+
             const candidates = [
               equipment?.equipmentName,
               equipment?.itemName,
@@ -481,15 +481,15 @@ export default function HistoryPage() {
 
     const matchesSearch = entry.equipmentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 
-                         entry.borrower?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.borrower?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 
-                         borrowerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      borrowerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 
-                         entry.adviserName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.adviserName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 
-                         entry.action?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.action?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 
-                         entry.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
+      entry.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
 
 
 
@@ -527,38 +527,38 @@ export default function HistoryPage() {
 
     ? (() => {
 
-        const groups = {};
+      const groups = {};
 
-        filteredHistory.forEach((entry) => {
+      filteredHistory.forEach((entry) => {
 
-          const key = entry.batchId || "individual";
+        const key = entry.batchId || "individual";
 
-          if (!groups[key]) {
+        if (!groups[key]) {
 
-            groups[key] = {
+          groups[key] = {
 
-              batchId: entry.batchId,
+            batchId: entry.batchId,
 
-              batchSize: entry.batchSize,
+            batchSize: entry.batchSize,
 
-              entries: [],
+            entries: [],
 
-              isBatch: Boolean(entry.batchId),
+            isBatch: Boolean(entry.batchId),
 
-            };
+          };
 
-          }
+        }
 
-          groups[key].entries.push(entry);
+        groups[key].entries.push(entry);
 
-        });
+      });
 
-        return Object.values(groups).sort((a, b) => {
-          const latestA = Math.max(...a.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
-          const latestB = Math.max(...b.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
-          return latestB - latestA;
-        });
-      })()
+      return Object.values(groups).sort((a, b) => {
+        const latestA = Math.max(...a.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
+        const latestB = Math.max(...b.entries.map(e => new Date(e.releasedDate || e.returnDate || e.timestamp || 0).getTime()));
+        return latestB - latestA;
+      });
+    })()
 
     : null;
 
@@ -746,7 +746,7 @@ export default function HistoryPage() {
 
       const usageAnalyticsRef = ref(database, `equipment_usage_analytics/${equipmentName}`);
 
-      
+
 
       // Get current analytics data
 
@@ -772,15 +772,15 @@ export default function HistoryPage() {
 
         totalBorrowed: currentData.totalBorrowed + quantity,
 
-        borrowedByStudents: borrowerType === 'student' || borrowerType === 'Student' 
+        borrowedByStudents: borrowerType === 'student' || borrowerType === 'Student'
 
-          ? currentData.borrowedByStudents + quantity 
+          ? currentData.borrowedByStudents + quantity
 
           : currentData.borrowedByStudents,
 
         borrowedByFaculty: borrowerType === 'faculty' || borrowerType === 'Faculty / Instructor' || borrowerType === 'laboratory_manager'
 
-          ? currentData.borrowedByFaculty + quantity 
+          ? currentData.borrowedByFaculty + quantity
 
           : currentData.borrowedByFaculty,
 
@@ -806,7 +806,7 @@ export default function HistoryPage() {
 
       await update(usageAnalyticsRef, updatedData);
 
-      
+
 
       console.log('[HistoryPage] Equipment usage analytics updated successfully:', updatedData);
 
@@ -1264,7 +1264,7 @@ export default function HistoryPage() {
 
         <div className="header-actions">
 
-          <button 
+          <button
 
             className="action-button primary-button"
 
@@ -1276,7 +1276,7 @@ export default function HistoryPage() {
 
           </button>
 
-          <button 
+          <button
 
             className="action-button"
 
@@ -1318,7 +1318,7 @@ export default function HistoryPage() {
 
           </button>
 
-          <button 
+          <button
 
             className="action-button"
 
@@ -1500,247 +1500,247 @@ export default function HistoryPage() {
 
                     ? groupedHistory.map((group) => (
 
-                        <Fragment key={group.batchId || "individual"}>
+                      <Fragment key={group.batchId || "individual"}>
 
-                          {group.isBatch && (
+                        {group.isBatch && (
 
-                            <tr
+                          <tr
 
-                              className="batch-header-row"
+                            className="batch-header-row"
 
-                              style={{ backgroundColor: "#f0f9ff", fontWeight: "bold" }}
+                            style={{ backgroundColor: "#f0f9ff", fontWeight: "bold" }}
 
-                            >
+                          >
 
-                              <td colSpan="9" style={{ padding: "12px" }}>
+                            <td colSpan="9" style={{ padding: "12px" }}>
 
-                                <div
+                              <div
 
-                                  style={{
+                                style={{
 
-                                    display: "flex",
+                                  display: "flex",
 
-                                    alignItems: "center",
+                                  alignItems: "center",
 
-                                    justifyContent: "space-between",
+                                  justifyContent: "space-between",
 
-                                    gap: "12px",
+                                  gap: "12px",
 
-                                    flexWrap: "wrap",
+                                  flexWrap: "wrap",
 
-                                  }}
+                                }}
 
-                                >
+                              >
 
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
 
-                                    <span
+                                  <span
 
-                                      style={{
+                                    style={{
 
-                                        backgroundColor: "#3b82f6",
+                                      backgroundColor: "#3b82f6",
 
-                                        color: "white",
+                                      color: "white",
 
-                                        padding: "4px 12px",
+                                      padding: "4px 12px",
 
-                                        borderRadius: "999px",
+                                      borderRadius: "999px",
 
-                                        fontSize: "12px",
+                                      fontSize: "12px",
 
-                                      }}
+                                    }}
 
-                                    >
+                                  >
 
-                                      Batch of {group.batchSize || group.entries.length} items
+                                    Batch of {group.batchSize || group.entries.length} items
 
-                                    </span>
+                                  </span>
 
-                                    <span
+                                  <span
 
-                                      style={{
+                                    style={{
 
-                                        fontFamily: "monospace",
+                                      fontFamily: "monospace",
 
-                                        color: "#1e40af",
+                                      color: "#1e40af",
 
-                                        fontSize: "12px",
+                                      fontSize: "12px",
 
-                                      }}
+                                    }}
 
-                                    >
+                                  >
 
-                                      Batch ID: {group.batchId}
-
-                                    </span>
-
-                                  </div>
-
-                                  <span style={{ fontSize: "12px", color: "#6b7280" }}>
-
-                                    Showing {group.entries.length} entr{group.entries.length === 1 ? "y" : "ies"}
+                                    Batch ID: {group.batchId}
 
                                   </span>
 
                                 </div>
 
-                              </td>
+                                <span style={{ fontSize: "12px", color: "#6b7280" }}>
 
-                            </tr>
-
-                          )}
-
-                          {group.entries.map((entry) => (
-
-                            <tr key={entry.id}>
-
-                              <td className="table-cell">{entry.action}</td>
-
-                              <td className="table-cell equipment-name">{entry.equipmentName}</td>
-
-                              <td className="table-cell">{getBorrowerName(entry.userId)}</td>
-
-                              <td className="table-cell">{entry.adviserName || "Unknown"}</td>
-
-                              <td className="table-cell">
-
-                                <span className={`status-badge ${getStatusClass(entry.status)}`}>
-
-                                  {entry.status}
+                                  Showing {group.entries.length} entr{group.entries.length === 1 ? "y" : "ies"}
 
                                 </span>
 
-                              </td>
+                              </div>
 
-                              <td className="table-cell date-cell">
+                            </td>
 
-                                <div>{formatDate(entry.releasedDate)}</div>
+                          </tr>
 
-                                <div className="date-time">{formatTime(entry.releasedDate)}</div>
+                        )}
 
-                              </td>
+                        {group.entries.map((entry) => (
 
-                              <td className="table-cell date-cell">
+                          <tr key={entry.id}>
 
-                                {entry.returnDate ? (
+                            <td className="table-cell">{entry.action}</td>
 
-                                  <>
+                            <td className="table-cell equipment-name">{entry.equipmentName}</td>
 
-                                    <div>{formatDate(entry.returnDate)}</div>
+                            <td className="table-cell">{getBorrowerName(entry.userId)}</td>
 
-                                    <div className="date-time">{formatTime(entry.returnDate)}</div>
+                            <td className="table-cell">{entry.adviserName || "Unknown"}</td>
 
-                                  </>
+                            <td className="table-cell">
 
-                                ) : (
+                              <span className={`status-badge ${getStatusClass(entry.status)}`}>
 
-                                  '-'
+                                {entry.status}
 
-                                )}
+                              </span>
 
-                              </td>
+                            </td>
 
-                              <td className="table-cell date-cell">{entry.condition}</td>
+                            <td className="table-cell date-cell">
 
-                              <td className="table-cell">
+                              <div>{formatDate(entry.releasedDate)}</div>
 
-                                <button
+                              <div className="date-time">{formatTime(entry.releasedDate)}</div>
 
-                                  onClick={() => handleViewDetails(entry)}
+                            </td>
 
-                                  className="view-button"
+                            <td className="table-cell date-cell">
 
-                                  title="View Details"
+                              {entry.returnDate ? (
 
-                                >
+                                <>
 
-                                   <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+                                  <div>{formatDate(entry.returnDate)}</div>
 
-                                </button>
+                                  <div className="date-time">{formatTime(entry.returnDate)}</div>
 
-                              </td>
+                                </>
 
-                            </tr>
+                              ) : (
 
-                          ))}
+                                '-'
 
-                        </Fragment>
+                              )}
 
-                      ))
+                            </td>
+
+                            <td className="table-cell date-cell">{entry.condition}</td>
+
+                            <td className="table-cell">
+
+                              <button
+
+                                onClick={() => handleViewDetails(entry)}
+
+                                className="view-button"
+
+                                title="View Details"
+
+                              >
+
+                                <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+
+                              </button>
+
+                            </td>
+
+                          </tr>
+
+                        ))}
+
+                      </Fragment>
+
+                    ))
 
                     : currentItems.map((entry) => (
 
-                        <tr key={entry.id}>
+                      <tr key={entry.id}>
 
-                          <td className="table-cell">{entry.action}</td>
+                        <td className="table-cell">{entry.action}</td>
 
-                          <td className="table-cell equipment-name">{entry.equipmentName}</td>
+                        <td className="table-cell equipment-name">{entry.equipmentName}</td>
 
-                          <td className="table-cell">{getBorrowerName(entry.userId)}</td>
+                        <td className="table-cell">{getBorrowerName(entry.userId)}</td>
 
-                          <td className="table-cell">{entry.adviserName || "Unknown"}</td>
+                        <td className="table-cell">{entry.adviserName || "Unknown"}</td>
 
-                          <td className="table-cell">
+                        <td className="table-cell">
 
-                            <span className={`status-badge ${getStatusClass(entry.status)}`}>
+                          <span className={`status-badge ${getStatusClass(entry.status)}`}>
 
-                              {entry.status}
+                            {entry.status}
 
-                            </span>
+                          </span>
 
-                          </td>
+                        </td>
 
-                          <td className="table-cell date-cell">
+                        <td className="table-cell date-cell">
 
-                            <div>{formatDate(entry.releasedDate)}</div>
+                          <div>{formatDate(entry.releasedDate)}</div>
 
-                            <div className="date-time">{formatTime(entry.releasedDate)}</div>
+                          <div className="date-time">{formatTime(entry.releasedDate)}</div>
 
-                          </td>
+                        </td>
 
-                          <td className="table-cell date-cell">
+                        <td className="table-cell date-cell">
 
-                            {entry.returnDate ? (
+                          {entry.returnDate ? (
 
-                              <>
+                            <>
 
-                                <div>{formatDate(entry.returnDate)}</div>
+                              <div>{formatDate(entry.returnDate)}</div>
 
-                                <div className="date-time">{formatTime(entry.returnDate)}</div>
+                              <div className="date-time">{formatTime(entry.returnDate)}</div>
 
-                              </>
+                            </>
 
-                            ) : (
+                          ) : (
 
-                              '-'
+                            '-'
 
-                            )}
+                          )}
 
-                          </td>
+                        </td>
 
-                          <td className="table-cell date-cell">{entry.condition}</td>
+                        <td className="table-cell date-cell">{entry.condition}</td>
 
-                          <td className="table-cell">
+                        <td className="table-cell">
 
-                            <button
+                          <button
 
-                              onClick={() => handleViewDetails(entry)}
+                            onClick={() => handleViewDetails(entry)}
 
-                              className="view-button"
+                            className="view-button"
 
-                              title="View Details"
+                            title="View Details"
 
-                            >
+                          >
 
-                               <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
+                            <img src={eyeIcon} alt="View" style={{ width: '18px', height: '18px' }} />
 
-                            </button>
+                          </button>
 
-                          </td>
+                        </td>
 
-                        </tr>
+                      </tr>
 
-                      ))}
+                    ))}
 
                 </tbody>
 
@@ -1932,167 +1932,167 @@ export default function HistoryPage() {
 
             </div>
 
-            
+
 
             <div className="modal-body">
 
               <div className="tab-content">
 
-                  <div className="modal-details">
+                <div className="modal-details">
 
-                    <div className="detail-item">
+                  <div className="detail-item">
 
-                      <div className="detail-label">Action:</div>
+                    <div className="detail-label">Action:</div>
 
-                      <div className="detail-value">{selectedEntry.action}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Equipment:</div>
-
-                      <div className="detail-value">{selectedEntry.equipmentName}</div>
-
-                    </div>
-
-                    {selectedEntry.batchId && (
-
-                      <>
-
-                        <div className="detail-item">
-
-                          <div className="detail-label">Batch ID:</div>
-
-                          <div className="detail-value" style={{ fontFamily: "monospace" }}>{selectedEntry.batchId}</div>
-
-                        </div>
-
-                        <div className="detail-item">
-
-                          <div className="detail-label">Batch Size:</div>
-
-                          <div className="detail-value">{selectedEntry.batchSize || 'N/A'}</div>
-
-                        </div>
-
-                      </>
-
-                    )}
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Borrower Name:</div>
-
-                      <div className="detail-value highlight-text">{getBorrowerName(selectedEntry.userId)}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Instructor Name:</div>
-
-                      <div className="detail-value highlight-text">{selectedEntry.adviserName || "Unknown"}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Requested Quantity:</div>
-
-                      <div className="detail-value">{getRequestedQuantity(selectedEntry)}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Returned Quantity:</div>
-
-                      <div className="detail-value">{getReturnedQuantity(selectedEntry)}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Status:</div>
-
-                      <div className="detail-value">
-
-                        <span className={`status-badge ${getStatusClass(selectedEntry.status)}`}>
-
-                          {selectedEntry.status}
-
-                        </span>
-
-                      </div>
-
-                    </div>
-
-
-
-                    {(selectedEntry.status || '').toString().toLowerCase() === 'rejected' && (
-
-
-
-                      <div className="detail-item">
-
-
-
-                        <div className="detail-label">Rejection Remarks:</div>
-
-
-
-                        <div className="detail-value">{selectedEntry.rejectionRemarks || 'N/A'}</div>
-
-
-
-                      </div>
-
-
-
-                    )}
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Condition:</div>
-
-                      <div className="detail-value">{selectedEntry.condition}</div>
-
-                    </div>
-
-                    <div className="detail-item">
-
-                      <div className="detail-label">Released Date:</div>
-
-                      <div className="detail-value">
-
-                        {formatDate(selectedEntry.releasedDate)} at {formatTime(selectedEntry.releasedDate)}
-
-                      </div>
-
-                    </div>
-
-                    {selectedEntry.returnDate && (
-
-                      <div className="detail-item">
-
-                        <div className="detail-label">Return Date:</div>
-
-                        <div className="detail-value">
-
-                          {formatDate(selectedEntry.returnDate)} at {formatTime(selectedEntry.returnDate)}
-
-                        </div>
-
-                      </div>
-
-                    )}
+                    <div className="detail-value">{selectedEntry.action}</div>
 
                   </div>
 
+                  <div className="detail-item">
+
+                    <div className="detail-label">Equipment:</div>
+
+                    <div className="detail-value">{selectedEntry.equipmentName}</div>
+
+                  </div>
+
+                  {selectedEntry.batchId && (
+
+                    <>
+
+                      <div className="detail-item">
+
+                        <div className="detail-label">Batch ID:</div>
+
+                        <div className="detail-value" style={{ fontFamily: "monospace" }}>{selectedEntry.batchId}</div>
+
+                      </div>
+
+                      <div className="detail-item">
+
+                        <div className="detail-label">Batch Size:</div>
+
+                        <div className="detail-value">{selectedEntry.batchSize || 'N/A'}</div>
+
+                      </div>
+
+                    </>
+
+                  )}
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Borrower Name:</div>
+
+                    <div className="detail-value highlight-text">{getBorrowerName(selectedEntry.userId)}</div>
+
+                  </div>
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Instructor Name:</div>
+
+                    <div className="detail-value highlight-text">{selectedEntry.adviserName || "Unknown"}</div>
+
+                  </div>
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Requested Quantity:</div>
+
+                    <div className="detail-value">{getRequestedQuantity(selectedEntry)}</div>
+
+                  </div>
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Returned Quantity:</div>
+
+                    <div className="detail-value">{getReturnedQuantity(selectedEntry)}</div>
+
+                  </div>
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Status:</div>
+
+                    <div className="detail-value">
+
+                      <span className={`status-badge ${getStatusClass(selectedEntry.status)}`}>
+
+                        {selectedEntry.status}
+
+                      </span>
+
+                    </div>
+
+                  </div>
+
+
+
+                  {(selectedEntry.status || '').toString().toLowerCase() === 'rejected' && (
+
+
+
+                    <div className="detail-item">
+
+
+
+                      <div className="detail-label">Rejection Remarks:</div>
+
+
+
+                      <div className="detail-value">{selectedEntry.rejectionRemarks || 'N/A'}</div>
+
+
+
+                    </div>
+
+
+
+                  )}
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Condition:</div>
+
+                    <div className="detail-value">{selectedEntry.condition}</div>
+
+                  </div>
+
+                  <div className="detail-item">
+
+                    <div className="detail-label">Released Date:</div>
+
+                    <div className="detail-value">
+
+                      {formatDate(selectedEntry.releasedDate)} at {formatTime(selectedEntry.releasedDate)}
+
+                    </div>
+
+                  </div>
+
+                  {selectedEntry.returnDate && (
+
+                    <div className="detail-item">
+
+                      <div className="detail-label">Return Date:</div>
+
+                      <div className="detail-value">
+
+                        {formatDate(selectedEntry.returnDate)} at {formatTime(selectedEntry.returnDate)}
+
+                      </div>
+
+                    </div>
+
+                  )}
+
                 </div>
 
-              )
+              </div>
+
+
 
 
 
@@ -2134,7 +2134,7 @@ export default function HistoryPage() {
 
             </div>
 
-            
+
 
             <form onSubmit={handleManualRecordSubmit} className="manual-record-form">
 
@@ -2152,7 +2152,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.action}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, action: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, action: e.target.value })}
 
                       required
 
@@ -2208,9 +2208,9 @@ export default function HistoryPage() {
 
                                 if (!assignedLabIds || assignedLabIds.length === 0) return false;
 
-                                const equipmentLab = laboratories.find(lab => 
+                                const equipmentLab = laboratories.find(lab =>
 
-                                  lab.labId === equipment.labId || 
+                                  lab.labId === equipment.labId ||
 
                                   lab.id === equipment.labRecordId ||
 
@@ -2342,7 +2342,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.borrowerType}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, borrowerType: e.target.value, borrowerName: "", userId: ""})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, borrowerType: e.target.value, borrowerName: "", userId: "" })}
 
                       required
 
@@ -2374,7 +2374,7 @@ export default function HistoryPage() {
 
                         setManualRecordData({
 
-                          ...manualRecordData, 
+                          ...manualRecordData,
 
                           borrowerName: e.target.value,
 
@@ -2434,7 +2434,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.adviserName}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, adviserName: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, adviserName: e.target.value })}
 
                     >
 
@@ -2476,7 +2476,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.condition}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, condition: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, condition: e.target.value })}
 
                       required
 
@@ -2510,7 +2510,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.releasedDate}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, releasedDate: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, releasedDate: e.target.value })}
 
                       required
 
@@ -2532,7 +2532,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.returnDate}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, returnDate: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, returnDate: e.target.value })}
 
                     />
 
@@ -2552,7 +2552,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.batchId}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, batchId: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, batchId: e.target.value })}
 
                       placeholder="Enter batch ID if applicable"
 
@@ -2576,7 +2576,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.batchSize}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, batchSize: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, batchSize: e.target.value })}
 
                       placeholder="Number of items in batch"
 
@@ -2598,7 +2598,7 @@ export default function HistoryPage() {
 
                       value={manualRecordData.notes}
 
-                      onChange={(e) => setManualRecordData({...manualRecordData, notes: e.target.value})}
+                      onChange={(e) => setManualRecordData({ ...manualRecordData, notes: e.target.value })}
 
                       placeholder="Additional notes about this record..."
 
@@ -2620,9 +2620,9 @@ export default function HistoryPage() {
 
                 </button>
 
-                <button 
+                <button
 
-                  type="submit" 
+                  type="submit"
 
                   className="submit-button"
 
@@ -2650,7 +2650,7 @@ export default function HistoryPage() {
 
       {showToast && (
 
-        <div 
+        <div
 
           className={`toast-notification ${toastType}`}
 

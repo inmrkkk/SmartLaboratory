@@ -331,10 +331,10 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // Periodic overdue equipment check (runs every hour)
-  // IMPORTANT: We wait for users to be loaded before running the check, otherwise
-  // the borrower name can't be resolved from userId and notifications will show "Unknown Student".
-  // The localStorage dedup guard would then prevent re-creation with the correct name.
+  // Periodic overdue equipment check – polls every 15 minutes.
+  // The actual notification creation is time-gated inside checkForOverdueEquipment()
+  // and will only fire during the 8:00–8:29 AM and 4:00–4:29 PM PH windows.
+  // Outside those windows the function returns immediately, so frequent polling is cheap.
   useEffect(() => {
     if (allRequests.length === 0 || equipmentData.length === 0 || laboratories.length === 0 || users.length === 0) return;
 
@@ -342,11 +342,11 @@ export default function Dashboard() {
       await checkForOverdueEquipment(allRequests, equipmentData, laboratories, users);
     };
 
-    // Run immediately
+    // Run immediately (will be no-op if outside the 8AM/4PM window)
     checkOverdue();
 
-    // Set up interval to check every hour
-    const interval = setInterval(checkOverdue, 12 * 60 * 60 * 1000); // 12 hour
+    // Poll every 15 minutes to reliably catch the PH time windows
+    const interval = setInterval(checkOverdue, 15 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [allRequests, equipmentData, laboratories, users]);
