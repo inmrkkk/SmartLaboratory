@@ -332,9 +332,9 @@ export default function Dashboard() {
   }, []);
 
   // Periodic overdue equipment check – polls every 15 minutes.
-  // The actual notification creation is time-gated inside checkForOverdueEquipment()
-  // and will only fire during the 8:00–8:29 AM and 4:00–4:29 PM PH windows.
-  // Outside those windows the function returns immediately, so frequent polling is cheap.
+  // Notifications are generated ONCE after 8 AM PH and ONCE after 4 PM PH,
+  // even if the system was opened late. Deduplication is handled inside
+  // checkForOverdueEquipment() via localStorage daily keys.
   useEffect(() => {
     if (allRequests.length === 0 || equipmentData.length === 0 || laboratories.length === 0 || users.length === 0) return;
 
@@ -342,10 +342,10 @@ export default function Dashboard() {
       await checkForOverdueEquipment(allRequests, equipmentData, laboratories, users);
     };
 
-    // Run immediately (will be no-op if outside the 8AM/4PM window)
+    // Run immediately on mount / data change
     checkOverdue();
 
-    // Poll every 15 minutes to reliably catch the PH time windows
+    // Poll every 15 minutes for reliability
     const interval = setInterval(checkOverdue, 15 * 60 * 1000);
 
     return () => clearInterval(interval);

@@ -309,41 +309,84 @@ const getPhilippineTime = () => {
 };
 
 /**
- * Checks whether we are currently inside a valid overdue-notification window.
- * Valid windows: 8:00–8:29 AM PH and 4:00–4:29 PM PH.
- * Returns the window label ('am' | 'pm') or null if outside a window.
+ * Determines which overdue notification periods are pending for today.
+ * Uses localStorage deduplication keys to ensure at most ONE AM and ONE PM
+ * overdue notification run per day.
+ *
+ * - AM notifications: generated once anytime after 8:00 AM PH
+ * - PM notifications: generated once anytime after 4:00 PM (16:00) PH
+ *
+ * If the system is opened late (e.g. 9 AM, 1 PM, 5 PM), any missed
+ * notification period that hasn't been generated yet will fire immediately.
+ *
+ * @returns {string[]} Array of pending windows, e.g. ['am'], ['pm'], ['am','pm'], or []
  */
-const getOverdueNotificationWindow = () => {
-  const { phHour, phMinute } = getPhilippineTime();
+const getPendingOverdueWindows = () => {
+  const { phHour, phDateStr } = getPhilippineTime();
 
-  // 8:00 AM – 8:29 AM PH
-  if (phHour === 8 && phMinute < 30) return 'am';
-  // 4:00 PM – 4:29 PM PH
-  if (phHour === 16 && phMinute < 30) return 'pm';
+  const amKey = `daily_overdue_am_${phDateStr}`;
+  const pmKey = `daily_overdue_pm_${phDateStr}`;
 
-  return null;
+  // After 4 PM: only the PM window matters.
+  // Even if AM was missed, we only run PM to avoid doubling notifications
+  // for the same overdue requests.
+  if (phHour >= 16) {
+    if (!localStorage.getItem(pmKey)) {
+      return ['pm'];
+    }
+    return [];
+  }
+
+  // Between 8 AM and 3:59 PM: only the AM window
+  if (phHour >= 8) {
+    if (!localStorage.getItem(amKey)) {
+      return ['am'];
+    }
+    return [];
+  }
+
+  // Before 8 AM: nothing to do
+  return [];
 };
 
 /**
  * Checks for overdue equipment and creates notifications.
- * Notifications are ONLY generated during the 8 AM and 4 PM PH time windows.
- * Outside of those windows the function exits immediately.
  *
- * @param {Array} requests - Array of all requests
- * @param {Array} equipmentData - Array of all equipment
- * @param {Array} laboratories - Array of all laboratories
- * @param {Array} users - Array of all users (for name resolution)
+ * Notifications are generated ONCE after 8 AM PH (AM run) and ONCE after
+ * 4 PM PH (PM run).  Deduplication is handled via localStorage keys:
+ *   - daily_overdue_am_YYYY-MM-DD
+ *   - daily_overdue_pm_YYYY-MM-DD
+ *
+ * If the system is opened late, any missed notification period that hasn't
+ * been generated yet today will fire immediately on the next poll.
+ *
+ * @param {Array} requests       - Array of all requests
+ * @param {Array} equipmentData  - Array of all equipment
+ * @param {Array} laboratories   - Array of all laboratories
+ * @param {Array} users          - Array of all users (for name resolution)
  */
 export const checkForOverdueEquipment = async (requests, equipmentData, laboratories, users = []) => {
-  // ── Gate: only run during the 8 AM / 4 PM PH windows ──
-  const window = getOverdueNotificationWindow();
-  if (!window) {
-    console.log('[OverdueCheck] Skipped – not within an 8 AM or 4 PM PH notification window.');
+  // ── Guard: ensure user data is loaded to avoid "Unknown Student" ──
+  if (!users || users.length === 0) {
+    console.log('[OverdueCheck] Skipped – users data not loaded yet.');
     return;
   }
 
-  const { phDateStr } = getPhilippineTime();
-  console.log(`[OverdueCheck] Running for window: ${window === 'am' ? '8 AM' : '4 PM'} PH (${phDateStr})`);
+  // ── Determine which windows still need notifications today ──
+  const pendingWindows = getPendingOverdueWindows();
+  const { phHour, phDateStr } = getPhilippineTime();
+
+  if (pendingWindows.length === 0) {
+    // Before 8 AM, or all windows already generated
+    if (phHour < 8) {
+      console.log(`[OverdueCheck] Skipped – too early (${phHour}:xx PH), waiting for 8 AM.`);
+    } else {
+      console.log(`[OverdueCheck] Skipped – all overdue notifications already generated for ${phDateStr}.`);
+    }
+    return;
+  }
+
+  console.log(`[OverdueCheck] Pending windows for ${phDateStr}: [${pendingWindows.join(', ')}]`);
 
   // Helper to resolve borrower name from userId using the users array
   const resolveBorrowerName = (request) => {
@@ -355,6 +398,7 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
     }
     return request.borrowerName || request.userName || request.displayName || request.studentName || null;
   };
+
   const today = new Date();
   const overdueRequests = [];
 
@@ -373,32 +417,49 @@ export const checkForOverdueEquipment = async (requests, equipmentData, laborato
     }
   });
 
-  // Create notifications for overdue equipment
-  for (const { request, daysOverdue } of overdueRequests) {
-    // Find equipment data
-    const equipment = equipmentData.find(eq => 
-      eq.equipmentName === request.itemName || 
-      eq.itemName === request.itemName ||
-      eq.name === request.itemName ||
-      eq.title === request.itemName
-    );
-    
-    // Find laboratory data
-    const laboratory = laboratories.find(lab => lab.labId === equipment?.labId);
-    
-    if (equipment && laboratory) {
-      // Dedup key includes PH date + window (am/pm) so we get at most
-      // one notification per overdue request per window per day.
-      const notificationKey = `overdue_${request.id}_${phDateStr}_${window}`;
-      const hasNotifiedThisWindow = localStorage.getItem(notificationKey);
-      
-      if (!hasNotifiedThisWindow) {
-        const overdueBorrowerName = resolveBorrowerName(request);
-        await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue, overdueBorrowerName);
-        // Mark as notified for this specific window
-        localStorage.setItem(notificationKey, 'true');
-        console.log(`[OverdueCheck] Created overdue notification for request ${request.id} (${window} window)`);
+  // Process each pending window
+  for (const window of pendingWindows) {
+    const dailyKey = window === 'am'
+      ? `daily_overdue_am_${phDateStr}`
+      : `daily_overdue_pm_${phDateStr}`;
+
+    console.log(`[OverdueCheck] Generating ${window.toUpperCase()} overdue notifications for ${phDateStr}...`);
+
+    let notificationsCreated = 0;
+
+    // Create notifications for overdue equipment
+    for (const { request, daysOverdue } of overdueRequests) {
+      // Find equipment data
+      const equipment = equipmentData.find(eq =>
+        eq.equipmentName === request.itemName ||
+        eq.itemName === request.itemName ||
+        eq.name === request.itemName ||
+        eq.title === request.itemName
+      );
+
+      // Find laboratory data
+      const laboratory = laboratories.find(lab => lab.labId === equipment?.labId);
+
+      if (equipment && laboratory) {
+        // Per-request dedup key to avoid duplicate notifications within the same window
+        const perRequestKey = `overdue_${request.id}_${phDateStr}_${window}`;
+        const hasNotifiedThisRequest = localStorage.getItem(perRequestKey);
+
+        if (!hasNotifiedThisRequest) {
+          const overdueBorrowerName = resolveBorrowerName(request);
+          await notifyEquipmentOverdue(request, equipment, laboratory, daysOverdue, overdueBorrowerName);
+          // Mark this specific request as notified for this window
+          localStorage.setItem(perRequestKey, 'true');
+          notificationsCreated++;
+          console.log(`[OverdueCheck] Created overdue notification for request ${request.id} (${window.toUpperCase()} window, ${daysOverdue} day(s) overdue)`);
+        } else {
+          console.log(`[OverdueCheck] Skipped request ${request.id} – already notified for ${window.toUpperCase()} window today.`);
+        }
       }
     }
+
+    // Mark this daily window as completed so it won't run again today
+    localStorage.setItem(dailyKey, new Date().toISOString());
+    console.log(`[OverdueCheck] ✅ ${window.toUpperCase()} overdue notification run complete for ${phDateStr} – ${notificationsCreated} notification(s) created.`);
   }
 };
