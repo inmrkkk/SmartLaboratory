@@ -9,15 +9,15 @@ import autoTable from 'jspdf-autotable';
  */
 export const exportToPDF = (activities, title = 'Activities Report', formatFunction) => {
   const doc = new jsPDF();
-  
+
   // Add title
   doc.setFontSize(18);
   doc.text(title, 14, 20);
-  
+
   // Add date
   doc.setFontSize(10);
   doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-  
+
   // Format data for table
   const tableData = formatFunction ? formatFunction(activities) : activities.map((activity, index) => [
     index + 1,
@@ -25,12 +25,12 @@ export const exportToPDF = (activities, title = 'Activities Report', formatFunct
     activity.equipmentName || activity.itemName || 'N/A',
     activity.borrower || activity.adviserName || 'N/A',
     activity.status || 'N/A',
-    activity.time || activity.timestamp || activity.releasedDate ? 
+    activity.time || activity.timestamp || activity.releasedDate ?
       new Date(activity.time || activity.timestamp || activity.releasedDate).toLocaleDateString() : 'N/A'
   ]);
-  
+
   // Determine column headers based on data
-  let headers = ['#', 'Activity/Action', 'Item/Equipment', 'Borrower/Instructor', 'Status', 'Date'];
+  let headers = ['#', 'Activity/Action', 'Item/Equipment', 'Borrower', 'Status', 'Date'];
   if (Array.isArray(tableData[0]) && tableData[0].length > 6) {
     // Extended format with more columns
     if (tableData[0].length === 9) {
@@ -51,60 +51,60 @@ export const exportToPDF = (activities, title = 'Activities Report', formatFunct
       }
     }
   }
-  
+
   // Auto table
   autoTable(doc, {
     startY: 35,
     head: [headers],
-    body: Array.isArray(tableData[0]) && typeof tableData[0][0] === 'number' 
-      ? tableData 
+    body: Array.isArray(tableData[0]) && typeof tableData[0][0] === 'number'
+      ? tableData
       : tableData.map((row, idx) => {
-          if (typeof row === 'object' && !Array.isArray(row)) {
-            // Object format - build array based on available fields
-            const result = [idx + 1];
-            if (row.action) result.push(row.action);
-            else if (row.title) result.push(row.title);
-            else result.push('N/A');
-            
-            if (row.equipmentName) result.push(row.equipmentName);
-            else if (row.item) result.push(row.item);
-            else result.push('N/A');
-            
-            if (row.borrower) result.push(row.borrower);
-            else result.push('N/A');
-            
-            if (row.adviserName) result.push(row.adviserName);
-            else if (row.instructorName) result.push(row.instructorName);
-            else result.push('N/A');
-            
-            result.push(row.status || 'N/A');
-            
-            if (row.releasedDate) result.push(row.releasedDate);
-            else if (row.time) result.push(row.time);
-            else if (row.date) result.push(row.date);
-            else result.push('N/A');
-            
-            if (row.returnDate) result.push(row.returnDate);
-            if (row.condition) result.push(row.condition);
-            
-            return result;
-          }
-          return [
-            idx + 1,
-            row.title || row.action || 'N/A',
-            row.item || row.equipmentName || 'N/A',
-            row.borrower || row.adviserName || 'N/A',
-            row.status || 'N/A',
-            row.time || row.date || 'N/A'
-          ];
-        }),
+        if (typeof row === 'object' && !Array.isArray(row)) {
+          // Object format - build array based on available fields
+          const result = [idx + 1];
+          if (row.action) result.push(row.action);
+          else if (row.title) result.push(row.title);
+          else result.push('N/A');
+
+          if (row.equipmentName) result.push(row.equipmentName);
+          else if (row.item) result.push(row.item);
+          else result.push('N/A');
+
+          if (row.borrower) result.push(row.borrower);
+          else result.push('N/A');
+
+          if (row.adviserName) result.push(row.adviserName);
+          else if (row.instructorName) result.push(row.instructorName);
+          else result.push('N/A');
+
+          result.push(row.status || 'N/A');
+
+          if (row.releasedDate) result.push(row.releasedDate);
+          else if (row.time) result.push(row.time);
+          else if (row.date) result.push(row.date);
+          else result.push('N/A');
+
+          if (row.returnDate) result.push(row.returnDate);
+          if (row.condition) result.push(row.condition);
+
+          return result;
+        }
+        return [
+          idx + 1,
+          row.title || row.action || 'N/A',
+          row.item || row.equipmentName || 'N/A',
+          row.borrower || row.adviserName || 'N/A',
+          row.status || 'N/A',
+          row.time || row.date || 'N/A'
+        ];
+      }),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [66, 139, 202] },
     alternateRowStyles: { fillColor: [245, 245, 245] },
     margin: { top: 35 },
     theme: 'striped'
   });
-  
+
   // Save PDF
   const fileName = `${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
@@ -119,7 +119,7 @@ export const exportToPDF = (activities, title = 'Activities Report', formatFunct
 export const printActivities = (activities, title = 'Activities Report', formatFunction) => {
   // Create a print window
   const printWindow = window.open('', '_blank');
-  
+
   // Build HTML content
   let htmlContent = `
     <!DOCTYPE html>
@@ -184,14 +184,14 @@ export const printActivities = (activities, title = 'Activities Report', formatF
         </thead>
         <tbody>
   `;
-  
+
   // Add table rows
   let tableRows = '';
   let headersUpdated = false;
-  
+
   if (formatFunction) {
     const formattedData = formatFunction(activities);
-    
+
     // Update headers if we have extended format
     if (Array.isArray(formattedData[0]) && formattedData[0].length > 6) {
       if (formattedData[0].length === 9) {
@@ -231,11 +231,11 @@ export const printActivities = (activities, title = 'Activities Report', formatF
         headersUpdated = true;
       }
     }
-    
+
     if (!headersUpdated) {
       htmlContent = htmlContent.replace('id="dynamic-headers"', '');
     }
-    
+
     formattedData.forEach((row, index) => {
       if (typeof row === 'object' && !Array.isArray(row)) {
         // Handle object format
@@ -279,26 +279,26 @@ export const printActivities = (activities, title = 'Activities Report', formatF
           <td>${activity.equipmentName || activity.itemName || 'N/A'}</td>
           <td>${activity.borrower || activity.adviserName || 'N/A'}</td>
           <td>${activity.status || 'N/A'}</td>
-          <td>${activity.time || activity.timestamp || activity.releasedDate ? 
-            new Date(activity.time || activity.timestamp || activity.releasedDate).toLocaleString() : 'N/A'}</td>
+          <td>${activity.time || activity.timestamp || activity.releasedDate ?
+          new Date(activity.time || activity.timestamp || activity.releasedDate).toLocaleString() : 'N/A'}</td>
         </tr>
       `;
     });
   }
-  
+
   htmlContent += tableRows;
-  
+
   htmlContent += `
         </tbody>
       </table>
     </body>
     </html>
   `;
-  
+
   // Write content and print
   printWindow.document.write(htmlContent);
   printWindow.document.close();
-  
+
   // Wait for content to load then print
   setTimeout(() => {
     printWindow.print();
